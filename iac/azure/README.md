@@ -6,13 +6,49 @@ Spec reference: [specs/infrastructure-terraform-spec.md](../../specs/infrastruct
 
 ## Prerequisites
 
-1. **Azure Service Principal** - You need SPN credentials with Contributor role:
+1. **Azure Service Principal** - You need SPN credentials with the following roles:
    - Subscription ID
    - Tenant ID  
    - Client ID (Application ID)
    - Client Secret
 
 2. **Terraform** >= 1.0
+
+## Required Azure Permissions
+
+Your service principal must have these RBAC roles on the target subscription:
+
+- **Contributor** - Create and manage Azure resources
+- **Reader** - Read subscription metadata and list resource providers
+
+### Grant Permissions
+
+If you have Owner or User Access Administrator rights on the subscription, grant the required roles:
+
+```bash
+# Replace <service-principal-client-id> with your SPN client ID
+# Replace <subscription-id> with your target subscription
+
+# Grant Contributor role
+az role assignment create \
+  --assignee <service-principal-client-id> \
+  --role "Contributor" \
+  --scope /subscriptions/<subscription-id>
+
+# Grant Reader role (required for Terraform to list providers)
+az role assignment create \
+  --assignee <service-principal-client-id> \
+  --role "Reader" \
+  --scope /subscriptions/<subscription-id>
+```
+
+**Verify permissions:**
+```bash
+az role assignment list \
+  --assignee <service-principal-client-id> \
+  --scope /subscriptions/<subscription-id> \
+  --output table
+```
 
 ## Setup
 
