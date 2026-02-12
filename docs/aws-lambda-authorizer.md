@@ -17,11 +17,13 @@ Microsoft Graph → API Gateway → Lambda Authorizer → Webhook Writer Lambda 
 ## Security Benefits
 
 ### Before Authorizer
+
 - ❌ Any request to the webhook URL would be processed
 - ❌ No validation of request origin
 - ❌ Vulnerable to malicious webhook notifications
 
 ### With Authorizer
+
 - ✅ Only requests with valid `validationToken` or `clientState` are processed
 - ✅ Shared secret validation between you and Microsoft Graph
 - ✅ Protects against unauthorized webhook calls
@@ -43,6 +45,7 @@ POST https://graph.microsoft.com/v1.0/subscriptions
 ```
 
 Microsoft sends a validation GET request:
+
 ```
 GET /graph?validationToken=<random-token>
 ```
@@ -66,7 +69,8 @@ When events occur, Microsoft sends notifications:
 }
 ```
 
-**Authorizer Action**: 
+**Authorizer Action**:
+
 - ✅ Validates `clientState` matches your configured secret
 - ✅ Allows request if valid
 - ❌ Denies request if invalid or missing
@@ -117,6 +121,7 @@ When creating subscriptions via Microsoft Graph API, use the **same** `clientSta
 ## Testing
 
 ### Test Validation Request (Should Succeed)
+
 ```bash
 curl "https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph?validationToken=test"
 ```
@@ -124,6 +129,7 @@ curl "https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph?validationT
 Expected: 200 OK with token echoed back
 
 ### Test Valid Notification (Should Succeed)
+
 ```bash
 curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
   -H "Content-Type: application/json" \
@@ -139,6 +145,7 @@ curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
 Expected: 200 OK
 
 ### Test Invalid Notification (Should Fail)
+
 ```bash
 curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
   -H "Content-Type: application/json" \
@@ -163,6 +170,7 @@ aws logs tail /aws/lambda/tmf-webhook-authorizer-dev --follow
 ```
 
 Look for:
+
 - ✅ "Validation request detected, allowing" - Subscription setup
 - ✅ "All notifications have valid clientState, allowing" - Valid webhook
 - ❌ "Invalid clientState, denying" - **Security event - investigate!**
@@ -171,6 +179,7 @@ Look for:
 ### CloudWatch Metrics
 
 Monitor:
+
 - **Authorizer invocations** - Total requests
 - **Denied requests** - Potential security incidents
 - **Errors** - Authorizer failures (check logs)
@@ -178,6 +187,7 @@ Monitor:
 ### Alerting
 
 Set up CloudWatch alarms for:
+
 - High rate of denied requests (potential attack)
 - Authorizer errors (availability issue)
 
@@ -210,6 +220,7 @@ NEW_SECRET=$(openssl rand -base64 32)
 ### 4. Additional Security Layers (Optional)
 
 Consider adding:
+
 - **IP allowlist**: Restrict to Microsoft Graph IP ranges
 - **Request signing**: Validate request signatures (if Graph supports)
 - **Rate limiting**: API Gateway throttling
@@ -221,7 +232,8 @@ Consider adding:
 
 **Problem**: Graph returns validation error
 
-**Solution**: 
+**Solution**:
+
 1. Check authorizer logs for "Validation request detected"
 2. Ensure GET requests with `validationToken` are allowed
 3. Verify webhook writer Lambda echoes the token correctly
@@ -231,6 +243,7 @@ Consider adding:
 **Problem**: Valid notifications return 403
 
 **Solution**:
+
 1. Check authorizer logs for clientState validation failures
 2. Verify terraform.tfvars `client_state` matches Graph subscription
 3. Ensure clientState hasn't been rotated without updating subscriptions
@@ -240,6 +253,7 @@ Consider adding:
 **Problem**: Slow webhook processing
 
 **Solution**:
+
 1. Authorizer is cached for 0 seconds (configurable)
 2. Check authorizer Lambda execution time (should be <50ms)
 3. Consider increasing authorizer memory if needed
@@ -247,6 +261,7 @@ Consider adding:
 ## Cost Impact
 
 The authorizer adds minimal cost:
+
 - **Lambda invocations**: ~$0.20 per 1M requests
 - **CloudWatch Logs**: ~$0.50/GB ingested
 - **Compute time**: <128MB, <10ms average = negligible
@@ -258,6 +273,7 @@ Total additional cost: **< $1/month** for typical workloads
 The Lambda authorizer provides essential security for your webhook endpoint with minimal overhead. Always use it in production environments to protect against unauthorized access.
 
 For questions or issues, check:
+
 - CloudWatch Logs: `/aws/lambda/tmf-webhook-authorizer-{env}`
 - Terraform state: `terraform show`
 - API Gateway logs: Enable execution logging for detailed request tracking

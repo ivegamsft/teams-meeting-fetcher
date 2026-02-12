@@ -5,6 +5,6 @@
   "main": "handler.js",
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.1562.0"
+    "@aws-sdk/client-s3": "^3.744.0"
   }
 }

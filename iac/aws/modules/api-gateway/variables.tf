@@ -48,12 +48,6 @@ variable "authorizer_invoke_arn" {
   default     = null
 }
 
-variable "authorizer_role_arn" {
-  description = "IAM role ARN for the authorizer Lambda function (optional)"
-  type        = string
-  default     = null
-}
-
 variable "authorizer_function_name" {
   description = "Name of the authorizer Lambda function (optional)"
   type        = string

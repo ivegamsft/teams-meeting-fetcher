@@ -5,7 +5,9 @@ This Lambda function acts as an API Gateway REQUEST authorizer to validate incom
 ## Authentication Flow
 
 ### 1. Subscription Validation (GET Request)
+
 When you create a Graph webhook subscription, Microsoft sends a GET request with a `validationToken`:
+
 ```
 GET /graph?validationToken=<token>
 ```
@@ -13,7 +15,9 @@ GET /graph?validationToken=<token>
 The authorizer **allows** these requests so the webhook writer Lambda can echo back the token.
 
 ### 2. Notification Validation (POST Request)
+
 When Graph sends webhook notifications, it includes the `clientState` you specified during subscription creation:
+
 ```json
 {
   "value": [
@@ -39,6 +43,7 @@ The authorizer **validates** that the `clientState` in each notification matches
 ## Configuration
 
 The authorizer requires one environment variable:
+
 - `CLIENT_STATE`: Secret value to validate against notification clientState
 
 This is automatically configured by Terraform using the `client_state` variable.
@@ -46,6 +51,7 @@ This is automatically configured by Terraform using the `client_state` variable.
 ## Deployment
 
 1. Package the Lambda:
+
 ```bash
 npm run package
 ```
@@ -57,11 +63,13 @@ npm run package
 You can test the authorizer locally or via API Gateway:
 
 ### GET with validationToken (should allow):
+
 ```bash
 curl "https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph?validationToken=test-token"
 ```
 
 ### POST with valid clientState (should allow):
+
 ```bash
 curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
   -H "Content-Type: application/json" \
@@ -69,6 +77,7 @@ curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
 ```
 
 ### POST with invalid clientState (should deny):
+
 ```bash
 curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
   -H "Content-Type: application/json" \
@@ -85,10 +94,12 @@ curl -X POST https://your-api.execute-api.us-east-1.amazonaws.com/dev/graph \
 ## CloudWatch Logs
 
 The authorizer logs all decisions to CloudWatch:
+
 - Log group: `/aws/lambda/tmf-webhook-authorizer-{environment}`
 - Retention: 7 days (configurable)
 
 Look for:
+
 - "Validation request detected" - GET request allowed
 - "All notifications have valid clientState" - POST allowed
 - "Invalid clientState" - POST denied
