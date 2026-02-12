@@ -36,3 +36,21 @@ variable "azure_client_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "app_display_name" {
+  description = "Display name for the Teams Meeting Fetcher app registration"
+  type        = string
+  default     = "Teams Meeting Fetcher"
+}
+
+variable "admin_group_display_name" {
+  description = "Display name for the admin group"
+  type        = string
+  default     = "Teams Meeting Fetcher Admins"
+}
+
+variable "key_vault_sku" {
+  description = "Key Vault SKU (standard or premium)"
+  type        = string
+  default     = "standard"
+}
