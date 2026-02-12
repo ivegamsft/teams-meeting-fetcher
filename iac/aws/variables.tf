@@ -22,5 +22,11 @@ variable "s3_bucket_name" {
 variable "lambda_package_path" {
   description = "Path to Lambda zip package"
   type        = string
-  default     = "${path.module}/../../apps/aws-lambda/lambda.zip"
+  default     = "../../apps/aws-lambda/lambda.zip"
+}
+
+variable "aws_profile" {
+  description = "AWS CLI profile name (optional, for credential isolation)"
+  type        = string
+  default     = null
 }
