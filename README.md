@@ -15,6 +15,48 @@ This project provides a distributed system to:
 
 ## Quick Start
 
+### Interactive Workflow (Recommended for Development)
+
+Use the **[Teams Meeting Fetcher Workflow Notebook](./Teams-Meeting-Fetcher-Workflow.ipynb)** for an interactive, step-by-step guide through:
+
+1. ✅ Verify setup and permissions
+2. 🔔 Create webhook subscriptions
+3. 👥 Manage group memberships
+4. 📅 Create test meetings with transcripts enabled
+5. 🔌 Test webhook delivery
+6. 📝 Poll for and download transcripts
+
+**Quick Start with Notebook:**
+```bash
+# Install Python dependencies
+pip install msal requests python-dotenv
+
+# Open the notebook
+jupyter notebook Teams-Meeting-Fetcher-Workflow.ipynb
+
+# Or open in VS Code
+code Teams-Meeting-Fetcher-Workflow.ipynb
+```
+
+### Graph API Scripts
+
+Individual scripts in `scripts/graph/` for automation:
+
+- `01-verify-setup.py` - Verify environment and permissions
+- `02-create-webhook-subscription.py` - Manage Graph webhook subscriptions
+- `03-create-test-meeting.py` - Create Teams meetings with transcripts
+- `04-poll-transcription.py` - Download meeting transcripts
+- `05-manage-group.py` - Add/remove users from target group
+- `06-test-webhook.py` - Test webhook delivery
+
+**Run scripts individually:**
+```bash
+cd scripts/graph
+python 01-verify-setup.py
+python 02-create-webhook-subscription.py
+# ... etc
+```
+
 ### Prerequisites
 
 - Node.js 18+
@@ -367,6 +409,26 @@ terraform apply
 ```
 
 The deployment creates a unique 6-character suffix for all resources (e.g., `7onuku`) to ensure globally unique names.
+
+#### Create Test User (Optional)
+
+The Terraform configuration can optionally create a test user for development:
+
+```hcl
+# Add to terraform.tfvars
+create_test_user              = true
+test_user_principal_name      = "tmftestuser@yourdomain.onmicrosoft.com"
+test_user_display_name        = "TMF Test User"
+test_user_password            = "YourComplexPassword123!"
+```
+
+The test user will be:
+- Created in Azure AD
+- Added to the admin group automatically
+- Available for creating test meetings
+- Can be used with the workflow notebook
+
+⚠️ **Important**: The test user requires a Microsoft 365 license for Teams functionality (including meetings and transcription).
 
 #### Retrieve App Client Secret
 

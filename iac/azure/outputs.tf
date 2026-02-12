@@ -106,3 +106,19 @@ output "appinsights_app_id" {
   description = "Application Insights application ID"
   value       = azurerm_application_insights.main.app_id
 }
+
+// Test user outputs (if created)
+output "test_user_principal_name" {
+  description = "Test user principal name (email)"
+  value       = var.create_test_user ? azuread_user.test_user[0].user_principal_name : null
+}
+
+output "test_user_object_id" {
+  description = "Test user object ID"
+  value       = var.create_test_user ? azuread_user.test_user[0].object_id : null
+}
+
+output "test_user_display_name" {
+  description = "Test user display name"
+  value       = var.create_test_user ? azuread_user.test_user[0].display_name : null
+}

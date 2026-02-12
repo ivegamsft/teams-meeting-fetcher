@@ -107,6 +107,30 @@ resource "azuread_group" "admins" {
   description = "Administrators for Teams Meeting Fetcher application"
 }
 
+// Test user for development (optional)
+resource "azuread_user" "test_user" {
+  count = var.create_test_user ? 1 : 0
+
+  user_principal_name = var.test_user_principal_name
+  display_name        = var.test_user_display_name
+  mail_nickname       = split("@", var.test_user_principal_name)[0]
+  password            = var.test_user_password
+
+  usage_location = "US"  # Required for license assignment
+  
+  lifecycle {
+    ignore_changes = [password]  # Don't update password on subsequent applies
+  }
+}
+
+// Add test user to admin group (if created)
+resource "azuread_group_member" "test_user_admin" {
+  count = var.create_test_user ? 1 : 0
+
+  group_object_id  = azuread_group.admins.id
+  member_object_id = azuread_user.test_user[0].object_id
+}
+
 // Key Vault
 resource "azurerm_key_vault" "main" {
   name                = local.kv_name
