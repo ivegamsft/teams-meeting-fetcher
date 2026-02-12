@@ -16,6 +16,7 @@ out/
 # Environment variables (NEVER commit secrets!)
 .env
 .env.local
+.env.local.azure
 .env.*.local
 .env.production.local
 .env.development.local
