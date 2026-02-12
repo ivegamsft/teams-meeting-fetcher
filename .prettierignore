@@ -1,0 +1,54 @@
+# Prettier ignore patterns
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Terraform
+.terraform/
+*.tfstate*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+
+# Environment files
+.env*
+
+# Docker
+.dockerignore
+
+# SpecKit
+.specify/
+
+# Specs (mostly markdown)
+specs/
+
+# Change log (usually manually formatted)
+CHANGELOG.md
+
+# Lock files (don't format)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

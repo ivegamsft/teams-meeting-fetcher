@@ -1,0 +1,68 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.13/MicrosoftTeams.schema.json",
+  "version": "1.0.0",
+  "manifestVersion": "1.13",
+  "id": "12345678-1234-1234-1234-123456789abc",
+  "packageName": "com.company.teamsmeetingfetcher",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://your-domain.com",
+    "privacyUrl": "https://your-domain.com/privacy",
+    "termsOfUseUrl": "https://your-domain.com/terms"
+  },
+  "name": {
+    "short": "Meeting Fetcher",
+    "full": "Teams Meeting Fetcher"
+  },
+  "description": {
+    "short": "Automatically record and transcribe Teams meetings",
+    "full": "Teams Meeting Fetcher helps your organization automatically record and transcribe Teams meetings. When meeting organizers enable recording, the system automatically fetches the transcriptions for easy reference, compliance, and archival."
+  },
+  "icons": {
+    "color": "public/icon-color.png",
+    "outline": "public/icon-outline.png"
+  },
+  "accentColor": "#004578",
+  "permissions": [
+    "identity",
+    "identity.user"
+  ],
+  "webApplicationInfo": {
+    "id": "YOUR_GRAPH_CLIENT_ID_HERE",
+    "resource": "api://your-domain.com/YOUR_GRAPH_CLIENT_ID_HERE"
+  },
+  "validDomains": [
+    "your-domain.com"
+  ],
+  "supportedChannelTypes": [
+    "standard"
+  ],
+  "defaultInstallScope": "team",
+  "defaultGroupCapability": {
+    "team": "tab",
+    "groupChat": "tab"
+  },
+  "scopes": [
+    "team",
+    "personal",
+    "groupChat"
+  ],
+  "staticTabs": [
+    {
+      "entityId": "meetings-list",
+      "name": "Meetings",
+      "contentUrl": "https://your-domain.com/index.html",
+      "scopes": [
+        "personal",
+        "team"
+      ]
+    }
+  ],
+  "bots": [],
+  "composeExtensions": [],
+  "connectors": [],
+  "configurableTabs": [],
+  "activityType": "taskModuleIntent",
+  "shortDescription": "Record and transcribe Teams meetings automatically",
+  "longDescription": "Teams Meeting Fetcher is designed for organizations that need to record and transcribe Teams meetings for compliance, documentation, or knowledge management. When a meeting organizer enables recording, the system automatically fetches the transcription once it's available, making it easy to search, reference, and archive meeting content."
+}

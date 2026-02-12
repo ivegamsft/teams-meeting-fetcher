@@ -1,0 +1,63 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.13/MicrosoftTeams.schema.json",
+  "version": "1.0.0-dev",
+  "manifestVersion": "1.13",
+  "id": "26464cb0-4c2c-4e0f-9a5d-de53b1234567",
+  "packageName": "com.company.teamsmeetingfetcher.dev",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://localhost:3000",
+    "privacyUrl": "https://localhost:3000/privacy",
+    "termsOfUseUrl": "https://localhost:3000/terms"
+  },
+  "name": {
+    "short": "Meeting Fetcher (Dev)",
+    "full": "Teams Meeting Fetcher (Development)"
+  },
+  "description": {
+    "short": "DEV: Automatically record and transcribe Teams meetings",
+    "full": "Teams Meeting Fetcher (Development) - Automatically record and transcribe Teams meetings"
+  },
+  "icons": {
+    "color": "public/icon-color.png",
+    "outline": "public/icon-outline.png"
+  },
+  "accentColor": "#004578",
+  "permissions": [
+    "identity",
+    "identity.user"
+  ],
+  "webApplicationInfo": {
+    "id": "YOUR_GRAPH_CLIENT_ID_HERE",
+    "resource": "api://YOUR_NGROK_URL/YOUR_GRAPH_CLIENT_ID_HERE"
+  },
+  "validDomains": [
+    "localhost:3000",
+    "YOUR_NGROK_DOMAIN.ngrok.io"
+  ],
+  "supportedChannelTypes": [
+    "standard"
+  ],
+  "defaultInstallScope": "personal",
+  "scopes": [
+    "personal",
+    "team",
+    "groupChat"
+  ],
+  "staticTabs": [
+    {
+      "entityId": "meetings-list",
+      "name": "Meetings",
+      "contentUrl": "https://YOUR_NGROK_DOMAIN.ngrok.io/index.html",
+      "scopes": [
+        "personal",
+        "team"
+      ]
+    }
+  ],
+  "bots": [],
+  "composeExtensions": [],
+  "connectors": [],
+  "configurableTabs": [],
+  "activityType": "taskModuleIntent"
+}
