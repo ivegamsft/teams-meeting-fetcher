@@ -1,0 +1,17 @@
+{
+  "name": "tmf-webhook-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda authorizer for Microsoft Graph webhook callbacks",
+  "main": "authorizer.js",
+  "scripts": {
+    "package": "zip -r authorizer.zip authorizer.js package.json"
+  },
+  "keywords": [
+    "lambda",
+    "authorizer",
+    "microsoft-graph",
+    "webhook"
+  ],
+  "author": "",
+  "license": "MIT"
+}

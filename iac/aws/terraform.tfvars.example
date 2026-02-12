@@ -1,0 +1,24 @@
+# Example Terraform variables for AWS deployment
+# Copy this file to terraform.tfvars and fill in your values
+
+environment    = "dev"
+aws_region     = "us-east-1"
+aws_account_id = "123456789012"  # Your AWS account ID
+
+# S3 bucket name (must be globally unique)
+s3_bucket_name = "tmf-webhook-payloads-dev"
+
+# Lambda package paths (relative to this directory)
+lambda_package_path      = "../../apps/aws-lambda/lambda.zip"
+authorizer_package_path  = "../../apps/aws-lambda-authorizer/authorizer.zip"
+
+# Client state secret for webhook validation
+# Generate a strong random value: openssl rand -base64 32
+# This value must match what you use when creating Graph subscriptions
+client_state = "your-secret-client-state-value-change-this"
+
+# Optional: Email for SNS notifications (requires confirmation)
+notification_email = "your-email@example.com"
+
+# Optional: AWS CLI profile for credential isolation
+# aws_profile = "tmf-dev"

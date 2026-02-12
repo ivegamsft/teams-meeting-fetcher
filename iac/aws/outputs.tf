@@ -29,6 +29,20 @@ output "lambda_function_arn" {
 }
 
 //=============================================================================
+// AUTHORIZER OUTPUTS
+//=============================================================================
+
+output "authorizer_function_name" {
+  description = "Authorizer Lambda function name"
+  value       = module.authorizer.function_name
+}
+
+output "authorizer_function_arn" {
+  description = "Authorizer Lambda function ARN"
+  value       = module.authorizer.function_arn
+}
+
+//=============================================================================
 // STORAGE OUTPUTS
 //=============================================================================
 

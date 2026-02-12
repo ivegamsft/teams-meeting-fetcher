@@ -61,20 +61,41 @@ module "lambda" {
 }
 
 //=============================================================================
+// AUTHORIZER MODULE - Lambda authorizer for API Gateway
+//=============================================================================
+
+module "authorizer" {
+  source = "./modules/authorizer"
+
+  function_name = "tmf-webhook-authorizer-${var.environment}"
+  handler       = "authorizer.handler"
+  runtime       = "nodejs18.x"
+  package_path  = var.authorizer_package_path
+  client_state  = var.client_state
+  timeout       = 10
+  memory_size   = 128
+
+  tags = local.common_tags
+}
+
+//=============================================================================
 // API GATEWAY MODULE - REST API for webhook receiver
 //=============================================================================
 
 module "api_gateway" {
   source = "./modules/api-gateway"
 
-  api_name             = "tmf-graph-webhooks-${var.environment}"
-  api_description      = "Teams Meeting Fetcher Graph webhook receiver"
-  path_part            = "graph"
-  http_method          = "POST"
-  authorization        = "NONE"
-  lambda_invoke_arn    = module.lambda.invoke_arn
-  lambda_function_name = module.lambda.function_name
-  stage_name           = var.environment
+  api_name                  = "tmf-graph-webhooks-${var.environment}"
+  api_description           = "Teams Meeting Fetcher Graph webhook receiver"
+  path_part                 = "graph"
+  http_method               = "POST"
+  authorization             = "NONE"
+  lambda_invoke_arn         = module.lambda.invoke_arn
+  lambda_function_name      = module.lambda.function_name
+  authorizer_invoke_arn     = module.authorizer.invoke_arn
+  authorizer_role_arn       = module.authorizer.role_arn
+  authorizer_function_name  = module.authorizer.function_name
+  stage_name                = var.environment
 
   tags = local.common_tags
 }
