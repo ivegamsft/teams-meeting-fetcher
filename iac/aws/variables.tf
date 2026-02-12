@@ -25,6 +25,12 @@ variable "lambda_package_path" {
   default     = "../../apps/aws-lambda/lambda.zip"
 }
 
+variable "notification_email" {
+  description = "Email address to send notifications to (requires confirmation)"
+  type        = string
+  default     = null
+}
+
 variable "aws_profile" {
   description = "AWS CLI profile name (optional, for credential isolation)"
   type        = string

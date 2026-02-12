@@ -1,101 +1,80 @@
-// AWS deployment entry point.
+// AWS deployment entry point - Modularized structure
 // See specs/infrastructure-minimal-serverless-spec.md for the full resource design.
 
-resource "aws_s3_bucket" "webhook_payloads" {
-  bucket = var.s3_bucket_name
-}
-
-resource "aws_iam_role" "lambda_role" {
-  name = "tmf-lambda-${var.environment}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_s3" {
-  name = "tmf-lambda-s3"
-  role = aws_iam_role.lambda_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:PutObject"]
-      Resource = "${aws_s3_bucket.webhook_payloads.arn}/*"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_lambda_function" "webhook_writer" {
-  function_name    = "tmf-webhook-writer-${var.environment}"
-  role             = aws_iam_role.lambda_role.arn
-  handler          = "handler.handler"
-  runtime          = "nodejs18.x"
-  filename         = var.lambda_package_path
-  source_code_hash = filebase64sha256(var.lambda_package_path)
-
-  environment {
-    variables = {
-      BUCKET_NAME = aws_s3_bucket.webhook_payloads.bucket
-    }
+locals {
+  common_tags = {
+    Environment = var.environment
+    Project     = "teams-meeting-fetcher"
+    ManagedBy   = "terraform"
   }
 }
 
-resource "aws_api_gateway_rest_api" "graph_webhooks" {
-  name        = "tmf-graph-webhooks-${var.environment}"
-  description = "Teams Meeting Fetcher Graph webhook receiver"
+//=============================================================================
+// STORAGE MODULE - S3 bucket for webhook payloads
+//=============================================================================
 
-  endpoint_configuration {
-    types = ["REGIONAL"]
+module "storage" {
+  source = "./modules/storage"
+
+  bucket_name       = var.s3_bucket_name
+  enable_versioning = false
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// NOTIFICATIONS MODULE - SNS topic for email alerts
+//=============================================================================
+
+module "notifications" {
+  source = "./modules/notifications"
+
+  topic_name         = "tmf-notifications-${var.environment}"
+  display_name       = "Teams Meeting Fetcher Notifications"
+  notification_email = var.notification_email
+  aws_account_id     = var.aws_account_id
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// LAMBDA MODULE - Function for webhook processing
+//=============================================================================
+
+module "lambda" {
+  source = "./modules/lambda"
+
+  function_name   = "tmf-webhook-writer-${var.environment}"
+  handler         = "handler.handler"
+  runtime         = "nodejs18.x"
+  package_path    = var.lambda_package_path
+  s3_bucket_arn   = module.storage.bucket_arn
+  sns_topic_arn   = module.notifications.topic_arn
+  timeout         = 30
+  memory_size     = 128
+
+  environment_variables = {
+    BUCKET_NAME = module.storage.bucket_name
   }
+
+  tags = local.common_tags
 }
 
-resource "aws_api_gateway_resource" "graph" {
-  rest_api_id = aws_api_gateway_rest_api.graph_webhooks.id
-  parent_id   = aws_api_gateway_rest_api.graph_webhooks.root_resource_id
-  path_part   = "graph"
-}
+//=============================================================================
+// API GATEWAY MODULE - REST API for webhook receiver
+//=============================================================================
 
-resource "aws_api_gateway_method" "graph_post" {
-  rest_api_id   = aws_api_gateway_rest_api.graph_webhooks.id
-  resource_id   = aws_api_gateway_resource.graph.id
-  http_method   = "POST"
-  authorization = "NONE"
-}
+module "api_gateway" {
+  source = "./modules/api-gateway"
 
-resource "aws_api_gateway_integration" "graph_lambda" {
-  rest_api_id             = aws_api_gateway_rest_api.graph_webhooks.id
-  resource_id             = aws_api_gateway_resource.graph.id
-  http_method             = aws_api_gateway_method.graph_post.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.webhook_writer.invoke_arn
-}
+  api_name             = "tmf-graph-webhooks-${var.environment}"
+  api_description      = "Teams Meeting Fetcher Graph webhook receiver"
+  path_part            = "graph"
+  http_method          = "POST"
+  authorization        = "NONE"
+  lambda_invoke_arn    = module.lambda.invoke_arn
+  lambda_function_name = module.lambda.function_name
+  stage_name           = var.environment
 
-resource "aws_lambda_permission" "api_gateway_invoke" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.webhook_writer.function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.graph_webhooks.execution_arn}/*/*"
-}
-
-resource "aws_api_gateway_deployment" "graph" {
-  rest_api_id = aws_api_gateway_rest_api.graph_webhooks.id
-  stage_name  = var.environment
-
-  depends_on = [aws_api_gateway_integration.graph_lambda]
+  tags = local.common_tags
 }
