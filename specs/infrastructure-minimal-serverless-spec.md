@@ -2,6 +2,10 @@
 
 Lightweight Terraform specification for Teams Meeting Fetcher using serverless architecture with minimal infrastructure. Uses AWS Lambda for processing and Azure Event Grid for event routing.
 
+IaC folder layout:
+- Terraform code lives in [iac/aws/](../iac/aws/)
+- Lambda source lives in [apps/aws-lambda/](../apps/aws-lambda/)
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)

@@ -72,10 +72,13 @@ Environment files are loaded in this order (later overrides earlier):
 
 - **`.env.example`** - All possible configuration options with descriptions
 - **`.env.development.example`** - Dev-friendly defaults (shorter polling, verbose logging)
+- **`.env.local.template`** - Local overrides for AWS deployments (generated values + secrets)
+- **`.env.local.azure.template`** - Local overrides for Azure deployments (generated values + secrets)
 
 ### Never Commit
 
 These files **must NEVER be committed**:
+
 ```
 .env
 .env.*.local
@@ -112,16 +115,19 @@ ENTRA_GROUP_ID=11111111-1111-1111-1111-111111111111
 ### Finding These Values
 
 **Tenant ID**:
+
 ```bash
 az account show --query tenantId
 ```
 
 **Client ID & Client Secret**:
+
 - Azure Portal → Azure AD → App registrations → Your app
 - Copy: Application (client) ID
 - Client secret is shown only once during creation
 
 **Group ID**:
+
 ```bash
 az ad group show --group "Group Name" --query id
 ```
@@ -261,6 +267,16 @@ EVENTGRID_KEY=your-event-grid-access-key
 # Get these from Azure Portal after deploying Event Grid
 ```
 
+Generate `.env.local.azure` from Terraform outputs:
+
+```powershell
+./scripts/generate-azure-env.ps1
+```
+
+```bash
+./scripts/generate-azure-env.sh
+```
+
 ### Key Vault (for secure credential storage)
 
 Instead of storing secrets in `.env`, use Azure Key Vault:
@@ -299,6 +315,16 @@ AWS_WEBHOOK_ENDPOINT=https://random.execute-api.us-east-1.amazonaws.com/prod/gra
 # Authentication for Event Grid → AWS
 AWS_API_KEY=your-api-gateway-api-key
 AWS_REGION=us-east-1
+```
+
+Generate `.env.local` from Terraform outputs:
+
+```powershell
+./scripts/generate-aws-env.ps1
+```
+
+```bash
+./scripts/generate-aws-env.sh
 ```
 
 ### AWS Credentials
@@ -383,11 +409,13 @@ GROUP_MEMBERSHIP_CHECK_INTERVAL_MS=86400000  # 24 hours
 ### 1. Secrets Management
 
 **Never store in `.env`:**
+
 - Production credentials
 - API keys
 - Client secrets
 
 **Use instead:**
+
 - ✅ Azure Key Vault (Azure deployments)
 - ✅ AWS Secrets Manager (AWS deployments)
 - ✅ HashiCorp Vault (self-hosted)
@@ -608,6 +636,7 @@ npm run validate:config
 ### Without Restarting
 
 Some settings can be updated without restarting:
+
 - Log level
 - Webhook auth secret (after next Graph subscription check)
 - Polling intervals
@@ -619,4 +648,3 @@ Database connection, server port, HTTPS certificates require application restart
 ### Via Dashboard
 
 For future UI dashboard, configuration can be updated via management UI for non-critical settings.
-

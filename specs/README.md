@@ -14,6 +14,10 @@ specs/
     ├── api-reference.md                       # REST API endpoint documentation
     ├── webhook-specification.md               # Microsoft Graph webhook implementation
     └── usage-examples.md                      # Code examples & integrations
+
+iac/
+├── azure/                                     # Azure-only Terraform deployment
+└── aws/                                       # AWS-only Terraform deployment
 ```
 
 ## Key Documents

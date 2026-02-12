@@ -5,6 +5,7 @@ Automatically record Microsoft Teams meetings and fetch transcriptions with webh
 ## Overview
 
 This project provides a distributed system to:
+
 - 🎥 **Record Teams meetings** (organizer-initiated)
 - 📝 **Auto-fetch transcriptions** via Microsoft Graph API
 - 🔔 **Receive webhook notifications** for meeting events
@@ -68,6 +69,15 @@ curl -X POST http://localhost:3000/api/webhooks/graph \
 
 ```
 teams-meeting-fetcher/
+├── apps/
+│   ├── aws-lambda/            # AWS Lambda webhook processor
+│   │   ├── handler.js          # Lambda handler (S3 writer)
+│   │   ├── test-event.json     # Local test event
+│   │   └── sample-webhook.json # Sample Graph payload
+│   └── azure-service/         # Azure Container App service
+├── iac/
+│   ├── azure/                 # Azure Terraform deployment
+│   └── aws/                   # AWS Terraform deployment
 ├── specs/
 │   ├── system-specification.md   # Complete system specification
 │   ├── setup-guide.md            # Detailed setup guide
@@ -151,18 +161,22 @@ teams-meeting-fetcher/
 ## API Endpoints
 
 ### Webhooks
+
 - `POST /api/webhooks/graph` - Microsoft Graph change notifications
 
 ### Meetings
+
 - `GET /api/meetings` - List meetings with optional filters
 - `GET /api/meetings/:id` - Get single meeting details
 - `GET /api/meetings/:id/transcription` - Get transcription
 
 ### Configuration
+
 - `GET /api/config` - Get current configuration
 - `PUT /api/config` - Update configuration
 
 ### Health
+
 - `GET /health` - Server health check
 
 See [API Documentation](./specs/docs/api-reference.md) for complete reference.
@@ -180,6 +194,7 @@ Authorization: Bearer <WEBHOOK_AUTH_SECRET>
 The token is validated against the environment variable `WEBHOOK_AUTH_SECRET` (32+ characters, random).
 
 **Example webhook delivery from Graph API**:
+
 ```json
 {
   "value": [
@@ -194,6 +209,7 @@ The token is validated against the environment variable `WEBHOOK_AUTH_SECRET` (3
 ```
 
 **Our validation**:
+
 1. Extract `Authorization` header
 2. Verify format: `Bearer <token>`
 3. Compare token to `WEBHOOK_AUTH_SECRET`
@@ -290,7 +306,7 @@ docker run -d \
 # Unit tests
 npm run test:unit
 
-# Integration tests  
+# Integration tests
 npm run test:integration
 
 # All tests with coverage
@@ -314,6 +330,7 @@ npm run test:watch
   - Storage for logs and transcriptions
   - Application Insights monitoring
   - RBAC-only security (no keys in code)
+- **Minimal Serverless (AWS + Azure Event Grid)**: Use [Minimal Serverless Specification](./specs/infrastructure-minimal-serverless-spec.md) with Terraform code under [iac/aws/](./iac/aws/) for low-cost, event-driven deployments
 
 ### Production Checklist
 
@@ -333,10 +350,10 @@ npm run test:watch
 server {
     listen 443 ssl;
     server_name your-domain.com;
-    
+
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
-    
+
     location / {
         proxy_pass http://localhost:3000;
         proxy_set_header X-Real-IP $remote_addr;
@@ -357,6 +374,20 @@ server {
 - **[Usage Examples](./specs/docs/usage-examples.md)** - Code samples
 - **[Architecture](./docs/ARCHITECTURE.md)** - Component diagrams (TBD)
 - **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues (TBD)
+
+### Environment Generation (IaC)
+
+After applying Terraform, generate local env files:
+
+```powershell
+./scripts/generate-aws-env.ps1
+./scripts/generate-azure-env.ps1
+```
+
+```bash
+./scripts/generate-aws-env.sh
+./scripts/generate-azure-env.sh
+```
 
 ---
 
@@ -422,6 +453,7 @@ A: SQLite database (local file). Optional: export to external storage or databas
 ## Support
 
 For issues, questions, or contributions:
+
 1. Check [Setup Guide](./specs/setup-guide.md) troubleshooting section
 2. Review [Usage Examples](./specs/docs/usage-examples.md)
 3. Open an issue on GitHub
@@ -444,4 +476,3 @@ MIT
 - [ ] Deployment guides
 - [ ] Multi-tenant support (future)
 - [ ] Email notifications (future)
-

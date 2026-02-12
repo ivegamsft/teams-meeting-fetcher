@@ -1,0 +1,7 @@
+{
+  "name": "teams-meeting-fetcher-aws-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "main": "handler.js",
+  "license": "MIT"
+}

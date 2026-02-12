@@ -2,6 +2,10 @@
 
 Complete Terraform infrastructure specification for deploying Teams Meeting Fetcher on Azure with enterprise-grade security, networking, and observability.
 
+IaC folder layout:
+- Terraform code lives in [iac/azure/](../iac/azure/)
+- Azure service source lives in [apps/azure-service/](../apps/azure-service/)
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)

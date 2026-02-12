@@ -1,0 +1,9 @@
+{
+  "resource": "/graph",
+  "path": "/graph",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"value\":[{\"subscriptionId\":\"00000000-0000-0000-0000-000000000000\",\"changeType\":\"created\",\"resource\":\"/users/abc/events/def\",\"clientState\":\"test-client-state\"}]}"
+}
