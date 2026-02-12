@@ -113,6 +113,12 @@ output "test_user_principal_name" {
   value       = var.create_test_user ? azuread_user.test_user[0].user_principal_name : null
 }
 
+output "test_user_password" {
+  description = "Test user password (auto-generated)"
+  value       = var.create_test_user ? random_password.test_user.result : null
+  sensitive   = true
+}
+
 output "default_domain" {
   description = "Default verified Azure AD domain"
   value       = data.azuread_domains.aad_domains.domains[0].domain_name

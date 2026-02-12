@@ -25,11 +25,13 @@ WEBHOOK_AUTH_SECRET=your-webhook-secret
 ## Script Execution Sequence
 
 ### 1. Verify Setup ✅
+
 ```bash
 python graph/01-verify-setup.py
 ```
 
 **What it does:**
+
 - Checks environment variables
 - Verifies Graph API permissions
 - Tests group access
@@ -40,11 +42,13 @@ python graph/01-verify-setup.py
 ---
 
 ### 2. Create Webhook Subscription 🔔
+
 ```bash
 python graph/02-create-webhook-subscription.py
 ```
 
 **What it does:**
+
 - Creates Graph webhook subscription for calendar events
 - Lists existing subscriptions
 - Renews or deletes subscriptions
@@ -56,11 +60,13 @@ python graph/02-create-webhook-subscription.py
 ---
 
 ### 3. Manage Group Membership 👥
+
 ```bash
 python graph/05-manage-group.py
 ```
 
 **What it does:**
+
 - Lists group members
 - Adds users to monitored group
 - Removes users from group
@@ -70,18 +76,21 @@ python graph/05-manage-group.py
 ---
 
 ### 4. Create Test Meeting 📅
+
 ```bash
 python graph/03-create-test-meeting.py
 ```
 
 **What it does:**
+
 - Creates Teams meeting with transcript enabled
 - Schedules meeting (default: 1 hour from now)
 - Returns meeting ID and join URL
 
 **Run:** After webhook subscription is created
 
-**Output:** 
+**Output:**
+
 - Event ID
 - Online Meeting ID (needed for transcripts)
 - Join URL
@@ -89,11 +98,13 @@ python graph/03-create-test-meeting.py
 ---
 
 ### 5. Test Webhook Delivery 🔌
+
 ```bash
 python graph/06-test-webhook.py
 ```
 
 **What it does:**
+
 - Sends mock Graph webhook notifications
 - Tests validation token response
 - Verifies webhook processing
@@ -103,11 +114,13 @@ python graph/06-test-webhook.py
 ---
 
 ### 6. Poll for Transcription 📝
+
 ```bash
 python graph/04-poll-transcription.py
 ```
 
 **What it does:**
+
 - Polls for transcript availability
 - Downloads transcript when ready
 - Saves as VTT file
@@ -115,6 +128,7 @@ python graph/04-poll-transcription.py
 **Run:** AFTER the meeting has been recorded and ended
 
 **Requirements:**
+
 - Meeting must have been recorded (manual in Teams)
 - Allow 5-10 minutes after meeting ends
 - Transcript must have been enabled
@@ -215,25 +229,30 @@ config = get_config()
 ## Troubleshooting
 
 ### "Missing required environment variables"
+
 - Ensure `.env.local.azure` exists at repository root
 - Run `./scripts/generate-azure-env.ps1` to regenerate from Terraform
 
 ### "Failed to acquire token: AADSTS700016"
+
 - App registration needs admin consent
 - Go to Azure Portal → App registrations → API permissions → Grant admin consent
 
 ### "403 Forbidden" errors
+
 - Check API permissions are granted
 - Verify admin consent has been granted
 - Ensure service principal has required permissions
 
 ### "No transcript found"
+
 - Meeting must be recorded manually in Teams
 - Transcription takes 5-10 minutes to process after meeting ends
 - Verify `allowTranscription` was enabled
 - Check user has appropriate Teams license
 
 ### Webhook not receiving notifications
+
 - Verify subscription is active (check expiration)
 - Ensure webhook URL is publicly accessible
 - Check webhook auth secret matches

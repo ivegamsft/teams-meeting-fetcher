@@ -27,6 +27,7 @@ Use the **[Teams Meeting Fetcher Workflow Notebook](./Teams-Meeting-Fetcher-Work
 6. 📝 Poll for and download transcripts
 
 **Quick Start with Notebook:**
+
 ```bash
 # Install Python dependencies
 pip install msal requests python-dotenv
@@ -50,6 +51,7 @@ Individual scripts in `scripts/graph/` for automation:
 - `06-test-webhook.py` - Test webhook delivery
 
 **Run scripts individually:**
+
 ```bash
 cd scripts/graph
 python 01-verify-setup.py
@@ -434,12 +436,14 @@ test_user_password            = "YourComplexPassword123!"
 ```
 
 The test user will be:
+
 - Created in Azure AD with UPN using default verified domain (if not specified)
 - Added to the admin group automatically
 - Available for creating test meetings
 - Can be used with the workflow notebook
 
 **How it works:**
+
 - If `test_user_principal_name` is not provided, Terraform fetches the default verified domain and creates: `tmftestuser@yourtenant.onmicrosoft.com`
 - If provided, uses the specified UPN
 

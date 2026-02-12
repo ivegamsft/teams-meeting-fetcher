@@ -14,13 +14,10 @@ azure_client_id       = "<service-principal-client-id>"
 azure_client_secret   = "<service-principal-client-secret>"
 
 # Test User Configuration (optional)
-# If create_test_user is true and test_user_principal_name is not set,
-# Terraform will automatically use the default verified domain: tmftestuser@<default-domain>
-create_test_user         = true
-# test_user_principal_name = "customuser@yourdomain.onmicrosoft.com"  # Optional: defaults to tmftestuser@<default-domain>
-test_user_display_name   = "TMF Test User"
-test_user_password       = "ComplexPassword123!"  # Must meet Azure AD complexity requirements
+# Terraform will automatically generate a random username (using random_pet)
+# and a secure password (using random_password) for the test user
+create_test_user = true
 
 # Note: Test user requires Domain.Read.All permission on the deployment SPN
-# to automatically fetch the default domain. Grant in Azure Portal:
-# Azure AD → App registrations → Your SPN → API permissions → Microsoft Graph → Domain.Read.All
+# to automatically fetch the default domain. Run scripts/bootstrap-azure-spn.ps1
+# or scripts/bootstrap-azure-spn.sh to set up the SPN with all required permissions.

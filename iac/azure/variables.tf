@@ -49,29 +49,11 @@ variable "admin_group_display_name" {
   default     = "Teams Meeting Fetcher Admins"
 }
 variable "create_test_user" {
-  description = "Whether to create a test user for development"
+  description = "Whether to create a test user for development with randomly generated name and password"
   type        = bool
   default     = true
 }
 
-variable "test_user_display_name" {
-  description = "Display name for the test user"
-  type        = string
-  default     = "TMF Test User"
-}
-
-variable "test_user_principal_name" {
-  description = "User principal name (email) for test user. If not provided, uses default verified domain with 'tmftestuser' prefix (e.g., tmftestuser@yourtenant.onmicrosoft.com)"
-  type        = string
-  default     = ""
-}
-
-variable "test_user_password" {
-  description = "Password for test user (must meet complexity requirements)"
-  type        = string
-  default     = ""  # Must be provided if create_test_user = true
-  sensitive   = true
-}
 variable "key_vault_sku" {
   description = "Key Vault SKU (standard or premium)"
   type        = string
