@@ -59,7 +59,7 @@ if ($existingSpn) {
     if ($reset -eq "yes") {
         $appId = $existingSpn
         Write-Host "Resetting credentials for existing SPN..." -ForegroundColor Yellow
-        $spnCredentialsJson = az ad sp credential reset --id $appId 2>&1 | Out-String
+        $spnCredentialsJson = az ad sp credential reset --id $appId --output json --only-show-errors 2>&1 | Out-String
     } else {
         Write-Host "Using existing SPN. You'll need to provide credentials manually." -ForegroundColor Yellow
         $appId = $existingSpn
@@ -70,10 +70,18 @@ if ($existingSpn) {
     $spnCredentialsJson = az ad sp create-for-rbac `
         --name $spnName `
         --role Contributor `
-        --scopes "/subscriptions/$subscriptionId" 2>&1 | Out-String
-    
-    $spnCredentials = $spnCredentialsJson | ConvertFrom-Json
-    $appId = $spnCredentials.appId
+        --scopes "/subscriptions/$subscriptionId" `
+        --output json `
+        --only-show-errors 2>&1 | Out-String
+
+    try {
+        $spnCredentials = $spnCredentialsJson | ConvertFrom-Json
+        $appId = $spnCredentials.appId
+    } catch {
+        Write-Host "❌ Failed to parse SPN credentials output" -ForegroundColor Red
+        Write-Host $spnCredentialsJson
+        exit 1
+    }
 }
 
 if (-not $appId) {
@@ -99,6 +107,7 @@ $graphApiId = "00000003-0000-0000-c000-000000000000"
 # Required Graph API permissions
 $permissions = @{
     "Application.ReadWrite.All" = "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9"
+    "AppCatalog.ReadWrite.All" = "dc149144-f292-421e-b185-5953f2e98d7f"
     "Calendars.Read" = "798ee544-9d2d-430c-a058-570e29e34338"
     "OnlineMeetings.Read.All" = "6931bccd-447a-43d1-b442-00a195474933"
     "OnlineMeetings.ReadWrite" = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"

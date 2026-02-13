@@ -102,6 +102,7 @@ GRAPH_API_ID="00000003-0000-0000-c000-000000000000"
 # Required Graph API permissions
 declare -A PERMISSIONS=(
     ["Application.ReadWrite.All"]="1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9"
+    ["AppCatalog.ReadWrite.All"]="dc149144-f292-421e-b185-5953f2e98d7f"
     ["Calendars.Read"]="798ee544-9d2d-430c-a058-570e29e34338"
     ["OnlineMeetings.Read.All"]="6931bccd-447a-43d1-b442-00a195474933"
     ["OnlineMeetings.ReadWrite"]="b8bb2037-6e08-44ac-a4ea-4674e010e2a4"

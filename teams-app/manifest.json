@@ -1,9 +1,8 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.13/MicrosoftTeams.schema.json",
-  "version": "1.0.0",
-  "manifestVersion": "1.13",
-  "id": "12345678-1234-1234-1234-123456789abc",
-  "packageName": "com.company.teamsmeetingfetcher",
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "version": "1.0.2",
+  "manifestVersion": "1.25",
+  "id": "47b8b5b3-45de-4087-86d6-5f6687ef7c90",
   "developer": {
     "name": "Your Organization",
     "websiteUrl": "https://your-domain.com",
@@ -19,50 +18,55 @@
     "full": "Teams Meeting Fetcher helps your organization automatically record and transcribe Teams meetings. When meeting organizers enable recording, the system automatically fetches the transcriptions for easy reference, compliance, and archival."
   },
   "icons": {
-    "color": "public/icon-color.png",
-    "outline": "public/icon-outline.png"
+    "color": "icon-color.png",
+    "outline": "icon-outline.png"
   },
   "accentColor": "#004578",
-  "permissions": [
-    "identity",
-    "identity.user"
-  ],
-  "webApplicationInfo": {
-    "id": "YOUR_GRAPH_CLIENT_ID_HERE",
-    "resource": "api://your-domain.com/YOUR_GRAPH_CLIENT_ID_HERE"
-  },
-  "validDomains": [
-    "your-domain.com"
-  ],
-  "supportedChannelTypes": [
-    "standard"
-  ],
+  "permissions": ["identity"],
+  "validDomains": ["h0m58vi4y5.execute-api.us-east-1.amazonaws.com"],
   "defaultInstallScope": "team",
-  "defaultGroupCapability": {
-    "team": "tab",
-    "groupChat": "tab"
+  "webApplicationInfo": {
+    "id": "47b8b5b3-45de-4087-86d6-5f6687ef7c90"
   },
-  "scopes": [
-    "team",
-    "personal",
-    "groupChat"
-  ],
-  "staticTabs": [
-    {
-      "entityId": "meetings-list",
-      "name": "Meetings",
-      "contentUrl": "https://your-domain.com/index.html",
-      "scopes": [
-        "personal",
-        "team"
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "OnlineMeeting.ReadBasic.Chat",
+          "type": "Application"
+        },
+        {
+          "name": "OnlineMeetingTranscript.Read.Chat",
+          "type": "Application"
+        }
       ]
     }
-  ],
-  "bots": [],
-  "composeExtensions": [],
-  "connectors": [],
-  "configurableTabs": [],
-  "activityType": "taskModuleIntent",
-  "shortDescription": "Record and transcribe Teams meetings automatically",
-  "longDescription": "Teams Meeting Fetcher is designed for organizations that need to record and transcribe Teams meetings for compliance, documentation, or knowledge management. When a meeting organizer enables recording, the system automatically fetches the transcription once it's available, making it easy to search, reference, and archive meeting content."
+  },
+  "bots": [
+    {
+      "botId": "47b8b5b3-45de-4087-86d6-5f6687ef7c90",
+      "scopes": ["team", "groupChat", "personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "Hi",
+              "description": "Get a greeting from Meeting Fetcher"
+            },
+            {
+              "title": "Hello",
+              "description": "Get a greeting from Meeting Fetcher"
+            },
+            {
+              "title": "Help",
+              "description": "Learn what Meeting Fetcher can do"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

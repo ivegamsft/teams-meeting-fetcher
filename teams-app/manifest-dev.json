@@ -1,9 +1,8 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.13/MicrosoftTeams.schema.json",
-  "version": "1.0.0-dev",
-  "manifestVersion": "1.13",
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
+  "version": "1.0.2-dev",
+  "manifestVersion": "1.25",
   "id": "26464cb0-4c2c-4e0f-9a5d-de53b1234567",
-  "packageName": "com.company.teamsmeetingfetcher.dev",
   "developer": {
     "name": "Your Organization",
     "websiteUrl": "https://localhost:3000",
@@ -19,45 +18,55 @@
     "full": "Teams Meeting Fetcher (Development) - Automatically record and transcribe Teams meetings"
   },
   "icons": {
-    "color": "public/icon-color.png",
-    "outline": "public/icon-outline.png"
+    "color": "icon-color.png",
+    "outline": "icon-outline.png"
   },
   "accentColor": "#004578",
-  "permissions": [
-    "identity",
-    "identity.user"
-  ],
-  "webApplicationInfo": {
-    "id": "YOUR_GRAPH_CLIENT_ID_HERE",
-    "resource": "api://YOUR_NGROK_URL/YOUR_GRAPH_CLIENT_ID_HERE"
-  },
-  "validDomains": [
-    "localhost:3000",
-    "YOUR_NGROK_DOMAIN.ngrok.io"
-  ],
-  "supportedChannelTypes": [
-    "standard"
-  ],
+  "permissions": ["identity"],
+  "validDomains": ["h0m58vi4y5.execute-api.us-east-1.amazonaws.com"],
   "defaultInstallScope": "personal",
-  "scopes": [
-    "personal",
-    "team",
-    "groupChat"
-  ],
-  "staticTabs": [
-    {
-      "entityId": "meetings-list",
-      "name": "Meetings",
-      "contentUrl": "https://YOUR_NGROK_DOMAIN.ngrok.io/index.html",
-      "scopes": [
-        "personal",
-        "team"
+  "webApplicationInfo": {
+    "id": "47b8b5b3-45de-4087-86d6-5f6687ef7c90"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "OnlineMeeting.ReadBasic.Chat",
+          "type": "Application"
+        },
+        {
+          "name": "OnlineMeetingTranscript.Read.Chat",
+          "type": "Application"
+        }
       ]
     }
-  ],
-  "bots": [],
-  "composeExtensions": [],
-  "connectors": [],
-  "configurableTabs": [],
-  "activityType": "taskModuleIntent"
+  },
+  "bots": [
+    {
+      "botId": "47b8b5b3-45de-4087-86d6-5f6687ef7c90",
+      "scopes": ["team", "groupChat", "personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupChat"],
+          "commands": [
+            {
+              "title": "Hi",
+              "description": "Get a greeting from Meeting Fetcher"
+            },
+            {
+              "title": "Hello",
+              "description": "Get a greeting from Meeting Fetcher"
+            },
+            {
+              "title": "Help",
+              "description": "Learn what Meeting Fetcher can do"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

@@ -22,7 +22,8 @@
 
 - **recreate-transcript-subscription.py** - Recreate transcript webhook subscription
 - **create_transcript_subscription.py** - Create transcript subscription (similar to 02, for transcripts only)
-- **create-meeting-started-subscription.py** - Create meeting-started subscription for the bot API
+- **create-meeting-started-subscription.py** - Deprecated (Graph meeting-start subscriptions unsupported)
+- **create-meeting-subscription.py** - Deprecated wrapper (use Teams bot framework instead)
 
 ## Debugging (Optional)
 

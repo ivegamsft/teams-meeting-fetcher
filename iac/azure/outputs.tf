@@ -171,3 +171,17 @@ output "appinsights_app_id" {
   description = "Application Insights application ID"
   value       = module.monitoring.app_insights_app_id
 }
+
+//=============================================================================
+// BOT SERVICE OUTPUTS
+//=============================================================================
+
+output "bot_service_name" {
+  description = "Azure Bot Service resource name"
+  value       = azurerm_bot_service_azure_bot.meeting_bot.name
+}
+
+output "bot_messaging_endpoint" {
+  description = "Bot messaging endpoint URL"
+  value       = azurerm_bot_service_azure_bot.meeting_bot.endpoint
+}

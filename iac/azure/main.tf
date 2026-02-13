@@ -176,3 +176,30 @@ module "monitoring" {
 
   tags = local.common_tags
 }
+
+//=============================================================================
+// AZURE BOT SERVICE - Bot Framework registration + Teams channel
+//=============================================================================
+
+resource "azurerm_bot_service_azure_bot" "meeting_bot" {
+  name                    = "${local.base_name}-bot-${var.region_short}-${local.suffix}"
+  resource_group_name     = azurerm_resource_group.main.name
+  location                = "global"
+  sku                     = "F0"
+  microsoft_app_id        = module.azure_ad.bot_app_client_id
+  microsoft_app_type      = "SingleTenant"
+  microsoft_app_tenant_id = data.azurerm_client_config.current.tenant_id
+
+  developer_app_insights_key            = module.monitoring.app_insights_instrumentation_key
+  developer_app_insights_application_id = module.monitoring.app_insights_app_id
+
+  endpoint = var.bot_messaging_endpoint
+
+  tags = local.common_tags
+}
+
+resource "azurerm_bot_channel_ms_teams" "meeting_bot" {
+  bot_name            = azurerm_bot_service_azure_bot.meeting_bot.name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_bot_service_azure_bot.meeting_bot.location
+}

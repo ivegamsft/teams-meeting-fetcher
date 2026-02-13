@@ -71,3 +71,9 @@ variable "allowed_ip_addresses" {
   type        = list(string)
   default     = []
 }
+
+variable "bot_messaging_endpoint" {
+  description = "HTTPS messaging endpoint for the Teams bot (API Gateway URL + /bot/messages)"
+  type        = string
+  default     = "https://h0m58vi4y5.execute-api.us-east-1.amazonaws.com/bot/messages"
+}

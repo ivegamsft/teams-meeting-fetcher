@@ -22,19 +22,24 @@ The bot targets a specific set of users by enforcing an allow-list based on an E
                                    │ Event
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
+│                   Microsoft Teams Bot Framework                  │
+│  • Meeting start events (bot activities)                         │
+└──────────────────────────────────┬────────────────────────────────┘
+                                   │ Activities
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
 │                      Microsoft Graph API                         │
-│  • /subscriptions (meeting start events)                         │
 │  • /communications/calls/{id}/participants/invite (join)         │
 │  • /communications/calls/{id}/record (start recording)           │
 └──────────────────────────────────┬────────────────────────────────┘
-                                   │ Webhooks
+                                   │ API calls
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         AWS Infrastructure                       │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │ API Gateway                                               │  │
-│  │  - /webhooks/meeting-started (receive Graph notifications)│  │
+│  │  - /bot/callbacks (receive bot activities)                │  │
 │  │  - /health                                                │  │
 │  └────────────────────────┬─────────────────────────────────┘  │
 │                            │                                     │
@@ -87,11 +92,11 @@ The bot targets a specific set of users by enforcing an allow-list based on an E
 
 ## Targeting a Specific User Group (Scalable Approach)
 
-Group calendar subscriptions are not supported with app-only permissions, so the bot uses a tenant-wide meeting notification and filters by group at runtime.
+Group calendar subscriptions are not supported with app-only permissions, so the bot uses meeting-start bot activities and filters by group at runtime.
 
 **Approach:**
 
-- Subscribe to meeting start notifications at the tenant level.
+- Receive meeting-start activities via the Teams bot framework.
 - When a meeting starts, look up the organizer user ID.
 - If organizer is in the allowed Entra group, proceed. Otherwise, ignore.
 
@@ -119,7 +124,7 @@ if not is_user_in_group(organizer_id, ALLOWED_GROUP_ID):
 
 **Graph calls**
 
-- [ ] Webhook: receive `communications/onlineMeetings` notification
+- [ ] Bot activity: receive Teams meeting start event
 - [ ] Organizer lookup: `GET /communications/onlineMeetings/{id}?$select=organizer`
 - [ ] Group membership: `GET /groups/{ALLOWED_GROUP_ID}/members?$select=id`
 - [ ] Cache membership set for 15 minutes
@@ -163,24 +168,21 @@ if not is_user_in_group(organizer_id, ALLOWED_GROUP_ID):
 
 ## Event Schemas (Webhook + Bot Callbacks)
 
-**Webhook: Meeting Started (Graph Subscription)**
+**Bot Activity: Meeting Started (Teams Bot Framework)**
 
 ```
 {
-  "value": [
-    {
-      "subscriptionId": "...",
-      "changeType": "created",
-      "resource": "communications/onlineMeetings/{meeting-id}",
-      "resourceData": {
-        "@odata.type": "#Microsoft.Graph.onlineMeeting",
-        "id": "{meeting-id}",
-        "organizer": {
-          "identity": { "user": { "id": "{organizer-id}" } }
-        }
-      }
+  "type": "event",
+  "name": "application/vnd.microsoft.teams.meetingStart",
+  "channelId": "msteams",
+  "from": { "id": "{user-id}", "aadObjectId": "{organizer-id}" },
+  "conversation": { "id": "{conversation-id}" },
+  "channelData": {
+    "meeting": {
+      "id": "{meeting-id}",
+      "joinUrl": "{join-url}"
     }
-  ]
+  }
 }
 ```
 
@@ -228,14 +230,15 @@ if not is_user_in_group(organizer_id, ALLOWED_GROUP_ID):
 ```mermaid
 sequenceDiagram
   participant Teams as Microsoft Teams
+  participant BotFx as Bot Framework
   participant Graph as Microsoft Graph
   participant API as API Gateway
   participant Bot as Bot Lambda/ECS
   participant DB as DynamoDB
 
-  Teams->>Graph: Meeting starts
-  Graph-->>API: Webhook notification (onlineMeetings)
-  API-->>Bot: Invoke webhook handler
+  Teams->>BotFx: Meeting starts
+  BotFx-->>API: Bot activity (meetingStart)
+  API-->>Bot: Invoke bot handler
   Bot->>Graph: Get organizer + join URL
   Bot->>Graph: Check organizer in allowed group
   alt organizer in group
@@ -340,37 +343,31 @@ ECS Task Definition
 ## Implementation TODO (IaC + Code)
 
 - [ ] Add bot runtime (Lambda or ECS) with IAM role and logging
-- [ ] Add API Gateway routes: `/webhooks/meeting-started`, `/bot/callbacks/*`
+- [ ] Add API Gateway routes: `/bot/meeting-started`, `/bot/callbacks/*`
 - [ ] Add DynamoDB table `meeting-bot-sessions`
 - [ ] Add Secrets Manager entries for bot app ID and secret
 - [ ] Add bot environment variables (group allow-list, cache TTL)
 - [ ] Add CloudWatch alarms for bot failures
-- [ ] Add meeting-start Graph subscription (tenant-wide)
+- [ ] Configure Teams bot messaging endpoint (bot framework)
 - [ ] Add group allow-list check + cache logic
 - [ ] Add join + record flow + status persistence
 - [ ] Add end-to-end test script for bot flow
 
-### Phase 1: Meeting Event Subscription (Week 1)
+### Phase 1: Meeting Event Ingestion (Week 1)
 
-**Goal:** Receive notifications when meetings start
+**Goal:** Receive bot activities when meetings start
 
 **Tasks:**
 
-1. Create new Graph subscription for meeting start events (tenant-wide)
+1. Configure Teams bot messaging endpoint
 
-   ```
-   POST /subscriptions
-   {
-     "changeType": "created",
-     "notificationUrl": "https://api-gateway-url/webhooks/meeting-started",
-     "resource": "communications/onlineMeetings",
-     "expirationDateTime": "..."
-   }
-   ```
+- Set bot endpoint to `https://api-gateway-url/bot/callbacks`
+- Install/sideload Teams app with bot definition
 
-2. Create Lambda/ECS webhook receiver
-   - Validate client state secret
-   - Extract meeting ID and join URL
+2. Create Lambda/ECS bot activity receiver
+
+- Parse meeting start activity payload
+- Extract meeting ID and join URL if available
 
 - Extract organizer ID and check group membership
 - Store in DynamoDB (meeting_id, join_url, status: pending)
@@ -379,7 +376,7 @@ ECS Task Definition
 
 **Deliverables:**
 
-- Webhook endpoint receiving meeting start events ✅
+- Bot endpoint receiving meeting start activities ✅
 - DynamoDB storing active meetings ✅
 
 ---
@@ -393,7 +390,8 @@ ECS Task Definition
 1. Register Teams Bot Application
    - Azure Portal → Bot Services → Create
    - Generate bot secret
-   - Configure messaging endpoint: `https://api-gateway-url/bot/messages`
+
+- Configure messaging endpoint: `https://api-gateway-url/bot/callbacks`
 
 2. Implement bot join logic
 
@@ -691,11 +689,11 @@ aws lambda update-function-code \
   --profile tmf-dev
 ```
 
-### 4. Create Graph Subscription
+### 4. Install Teams Bot App
 
-```bash
-python scripts/graph/create-meeting-subscription.py
-```
+- Update the Teams app manifest with the bot ID
+- Upload/sideload the app in Teams Admin Center
+- Verify the bot messaging endpoint is set to `https://api-gateway-url/bot/callbacks`
 
 ### 5. Test
 
