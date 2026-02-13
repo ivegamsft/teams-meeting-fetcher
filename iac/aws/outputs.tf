@@ -56,6 +56,16 @@ output "s3_bucket_arn" {
   value       = module.storage.bucket_arn
 }
 
+output "subscriptions_table_name" {
+  description = "DynamoDB table for subscription tracking"
+  value       = module.storage.subscriptions_table_name
+}
+
+output "subscriptions_table_arn" {
+  description = "DynamoDB subscriptions table ARN"
+  value       = module.storage.subscriptions_table_arn
+}
+
 //=============================================================================
 // NOTIFICATIONS OUTPUTS
 //=============================================================================
@@ -73,4 +83,62 @@ output "sns_topic_name" {
 output "sns_subscription_arn" {
   description = "SNS email subscription ARN (pending confirmation if email provided)"
   value       = module.notifications.subscription_arn
+}
+
+//=============================================================================
+// SUBSCRIPTION RENEWAL OUTPUTS
+//=============================================================================
+
+output "renewal_lambda_function_name" {
+  description = "Lambda function name for subscription renewal"
+  value       = module.subscription_renewal.lambda_function_name
+}
+
+output "renewal_lambda_function_arn" {
+  description = "Lambda function ARN for subscription renewal"
+  value       = module.subscription_renewal.lambda_function_arn
+}
+
+output "renewal_eventbridge_rule_name" {
+  description = "EventBridge rule name for scheduled subscription renewal"
+  value       = module.subscription_renewal.eventbridge_rule_name
+}
+
+output "renewal_log_group_name" {
+  description = "CloudWatch log group for subscription renewal Lambda"
+  value       = module.subscription_renewal.log_group_name
+}
+
+//=============================================================================
+// MEETING BOT OUTPUTS
+//=============================================================================
+
+output "meeting_bot_function_name" {
+  description = "Meeting bot Lambda function name"
+  value       = module.meeting_bot.function_name
+}
+
+output "meeting_bot_function_arn" {
+  description = "Meeting bot Lambda function ARN"
+  value       = module.meeting_bot.function_arn
+}
+
+output "meeting_bot_table_name" {
+  description = "Meeting bot DynamoDB table name"
+  value       = module.meeting_bot.meetings_table_name
+}
+
+output "bot_api_base_url" {
+  description = "Base URL for meeting bot API"
+  value       = module.bot_api_gateway.api_base_url
+}
+
+output "bot_meeting_started_url" {
+  description = "Meeting-started webhook URL"
+  value       = module.bot_api_gateway.meeting_started_url
+}
+
+output "bot_callbacks_url" {
+  description = "Bot callbacks URL"
+  value       = module.bot_api_gateway.callbacks_url
 }

@@ -48,3 +48,58 @@ variable "aws_profile" {
   type        = string
   default     = null
 }
+
+//=============================================================================
+// SUBSCRIPTION RENEWAL VARIABLES
+//=============================================================================
+
+variable "graph_tenant_id" {
+  description = "Microsoft Graph tenant ID for subscription renewal"
+  type        = string
+  sensitive   = true
+}
+
+variable "graph_client_id" {
+  description = "Microsoft Graph app client ID for subscription renewal"
+  type        = string
+  sensitive   = true
+}
+
+variable "graph_client_secret" {
+  description = "Microsoft Graph app client secret for subscription renewal"
+  type        = string
+  sensitive   = true
+}
+
+variable "renewal_schedule_expression" {
+  description = "AWS Events schedule expression (cron) for subscription renewal (default: 2 AM UTC daily)"
+  type        = string
+  default     = "cron(0 2 * * ? *)"
+}
+
+//=============================================================================
+// MEETING BOT VARIABLES
+//=============================================================================
+
+variable "bot_app_id" {
+  description = "Teams bot app (client) ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "bot_app_secret" {
+  description = "Teams bot app secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "allowed_group_id" {
+  description = "Entra group ID for bot allow-list"
+  type        = string
+}
+
+variable "group_cache_ttl_seconds" {
+  description = "Group membership cache TTL in seconds"
+  type        = number
+  default     = 900
+}

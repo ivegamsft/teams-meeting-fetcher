@@ -118,7 +118,7 @@ def enable_meeting_transcript(online_meeting_id):
     
     payload = {
         "allowTranscription": True,    # Enable transcription
-        "recordAutomatically": False   # Don't auto-record, organizer will start manually
+        "recordAutomatically": True    # Auto-record so transcript is generated
     }
     
     try:
@@ -126,7 +126,7 @@ def enable_meeting_transcript(online_meeting_id):
         
         if response.status_code == 200:
             print("   ✅ Transcript enabled")
-            print("   ⚠️  Organizer must start recording in Teams for transcript to generate")
+            print("   ✅ Auto-record enabled for transcript generation")
             return True
         elif response.status_code == 403:
             print("   ⚠️  Insufficient permissions to enable transcript")

@@ -9,8 +9,14 @@ variable "enable_versioning" {
   default     = false
 }
 
+variable "subscriptions_table_name" {
+  description = "Name of the DynamoDB table for subscription tracking"
+  type        = string
+  default     = "graph-subscriptions"
+}
+
 variable "tags" {
-  description = "Tags to apply to the S3 bucket"
+  description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
 }

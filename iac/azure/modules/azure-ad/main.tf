@@ -21,6 +21,10 @@ locals {
       for role in data.azuread_service_principal.graph.app_roles : role.id
       if role.value == "OnlineMeetingRecording.Read.All" && contains(role.allowed_member_types, "Application")
     ])
+    online_meetings_readwrite_all = one([
+      for role in data.azuread_service_principal.graph.app_roles : role.id
+      if role.value == "OnlineMeetings.ReadWrite.All" && contains(role.allowed_member_types, "Application")
+    ])
     group_read_all = one([
       for role in data.azuread_service_principal.graph.app_roles : role.id
       if role.value == "Group.Read.All" && contains(role.allowed_member_types, "Application")
@@ -49,6 +53,10 @@ resource "azuread_application" "tmf_app" {
     }
     resource_access {
       id   = local.graph_app_role_ids.online_meeting_recording_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.graph_app_role_ids.online_meetings_readwrite_all
       type = "Role"
     }
     resource_access {

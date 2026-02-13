@@ -9,6 +9,7 @@ Scripts for fetching and processing Teams meeting transcripts from Microsoft Gra
 Fetch transcript content directly using meeting and transcript IDs.
 
 **Usage:**
+
 ```bash
 # Fetch and display transcript
 python scripts/graph/05-fetch-transcript.py <user_email> <meeting_id> <transcript_id>
@@ -24,6 +25,7 @@ python scripts/graph/05-fetch-transcript.py user@domain.com meeting_id transcrip
 ```
 
 **Example with real IDs:**
+
 ```bash
 python scripts/graph/05-fetch-transcript.py \
   boldoriole@ibuyspy.net \
@@ -32,6 +34,7 @@ python scripts/graph/05-fetch-transcript.py \
 ```
 
 **Output:**
+
 - Transcript metadata (ID, meeting ID, created date, content URL)
 - Parsed transcript entries with timestamps
 - Formatted, readable text
@@ -41,6 +44,7 @@ python scripts/graph/05-fetch-transcript.py \
 Process webhook notifications and automatically fetch transcript content.
 
 **Usage:**
+
 ```bash
 # Process notification from S3 file
 python process_transcript_notification.py path/to/notification.json
@@ -56,6 +60,7 @@ python process_transcript_notification.py notification.json --output ./transcrip
 ```
 
 **Example workflow:**
+
 ```bash
 # 1. List S3 notifications
 aws s3 ls s3://tmf-webhook-payloads-dev/ --profile tmf-dev
@@ -92,6 +97,7 @@ When a transcript becomes available, you'll receive a notification like:
 ```
 
 **Key fields:**
+
 - `resource`: Contains user ID, meeting ID, and transcript ID
 - `subscriptionId`: Matches your subscription
 - `changeType`: "created" when new transcript available
@@ -113,15 +119,17 @@ Another Speaker: Thanks for joining!
 ## Testing Transcript Flow
 
 1. **Create subscription** (already done):
+
    ```bash
    python create_transcript_subscription.py
    ```
 
 2. **Create and conduct meeting**:
+
    ```bash
    # Create meeting
    python scripts/graph/03-create-test-meeting.py
-   
+
    # Join meeting via Teams client
    # Start recording with transcription enabled
    # Speak for a minute
@@ -129,19 +137,21 @@ Another Speaker: Thanks for joining!
    ```
 
 3. **Monitor for webhook**:
+
    ```bash
    # CloudWatch logs
    aws logs tail /aws/lambda/tmf-webhook-writer-dev --follow --profile tmf-dev
-   
+
    # Or check S3
    aws s3 ls s3://tmf-webhook-payloads-dev/ --profile tmf-dev
    ```
 
 4. **Process notification**:
+
    ```bash
    # Download notification from S3
    aws s3 cp s3://tmf-webhook-payloads-dev/<subscription-id>.json notification.json --profile tmf-dev
-   
+
    # Fetch transcript
    python process_transcript_notification.py notification.json --output ./transcripts
    ```
@@ -149,6 +159,7 @@ Another Speaker: Thanks for joining!
 ## Graph API Permissions
 
 Required permissions (already configured):
+
 - `OnlineMeetingTranscript.Read.All` - Read meeting transcripts
 - `Calendars.ReadWrite` - Create meetings
 
@@ -162,15 +173,18 @@ Required permissions (already configured):
 ## Troubleshooting
 
 **404 Not Found:**
+
 - Transcript not yet available (wait a few minutes)
 - Meeting ID incorrect (verify from notification)
 - Transcript expired or deleted
 
 **403 Forbidden:**
+
 - Permission not granted (check Azure Portal)
 - Admin consent required
 
 **No webhook received:**
+
 - Check subscription expiration: `python create_transcript_subscription.py`
 - Verify CloudWatch logs for Lambda execution
 - Ensure meeting had recording + transcription enabled

@@ -123,6 +123,7 @@ The Azure AD module assigns Microsoft Graph **application permissions** to the a
 - `Calendars.ReadWrite` - Read/write user calendars to create meetings
 - `OnlineMeetingTranscript.Read.All` - Access meeting transcripts via change notifications
 - `OnlineMeetingRecording.Read.All` - Access meeting recordings via change notifications
+- `OnlineMeetings.ReadWrite.All` - Enable transcription/recording settings on meetings
 - `Group.Read.All` - Read group information
 - `User.Read.All` - Read user profiles
 

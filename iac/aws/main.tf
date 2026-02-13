@@ -38,6 +38,27 @@ module "notifications" {
 }
 
 //=============================================================================
+// SUBSCRIPTION RENEWAL MODULE - Auto-renewal of Graph API subscriptions
+//=============================================================================
+
+module "subscription_renewal" {
+  source = "./modules/subscription-renewal"
+
+  environment                 = var.environment
+  aws_region                  = var.aws_region
+  aws_account_id              = var.aws_account_id
+  subscriptions_table_name    = module.storage.subscriptions_table_name
+  subscriptions_table_arn     = module.storage.subscriptions_table_arn
+  graph_tenant_id             = var.graph_tenant_id
+  graph_client_id             = var.graph_client_id
+  graph_client_secret         = var.graph_client_secret
+  renewal_schedule_expression = var.renewal_schedule_expression
+  alarm_actions               = [module.notifications.topic_arn]
+
+  tags = local.common_tags
+}
+
+//=============================================================================
 // LAMBDA MODULE - Function for webhook processing
 //=============================================================================
 
@@ -96,6 +117,46 @@ module "api_gateway" {
   authorizer_invoke_arn    = module.authorizer.invoke_arn
   authorizer_function_name = module.authorizer.function_name
   stage_name               = var.environment
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// MEETING BOT MODULE - Bot Lambda + DynamoDB
+//=============================================================================
+
+module "meeting_bot" {
+  source = "./modules/meeting-bot"
+
+  function_name           = "tmf-meeting-bot-${var.environment}"
+  handler                 = "index.handler"
+  runtime                 = "nodejs18.x"
+  timeout                 = 300
+  memory_size             = 512
+  meetings_table_name     = "meeting-bot-sessions-${var.environment}"
+  graph_tenant_id         = var.graph_tenant_id
+  graph_client_id         = var.graph_client_id
+  graph_client_secret     = var.graph_client_secret
+  bot_app_id              = var.bot_app_id
+  bot_app_secret          = var.bot_app_secret
+  allowed_group_id        = var.allowed_group_id
+  group_cache_ttl_seconds = var.group_cache_ttl_seconds
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// BOT API GATEWAY MODULE - Meeting Bot Webhooks
+//=============================================================================
+
+module "bot_api_gateway" {
+  source = "./modules/bot-api"
+
+  api_name             = "tmf-bot-api-${var.environment}"
+  api_description      = "Teams Meeting Bot webhooks"
+  lambda_invoke_arn    = module.meeting_bot.function_arn
+  lambda_function_name = module.meeting_bot.function_name
+  stage_name           = var.environment
 
   tags = local.common_tags
 }
