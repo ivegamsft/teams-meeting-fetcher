@@ -39,37 +39,37 @@ variable "meetings_table_name" {
   default     = "meeting-bot-sessions"
 }
 
-variable "graph_tenant_id" {
+variable "azure_graph_tenant_id" {
   description = "Microsoft Graph tenant ID"
   type        = string
   sensitive   = true
 }
 
-variable "graph_client_id" {
+variable "azure_graph_client_id" {
   description = "Microsoft Graph app client ID"
   type        = string
   sensitive   = true
 }
 
-variable "graph_client_secret" {
+variable "azure_graph_client_secret" {
   description = "Microsoft Graph app client secret"
   type        = string
   sensitive   = true
 }
 
-variable "bot_app_id" {
+variable "azure_bot_app_id" {
   description = "Teams bot app (client) ID"
   type        = string
   sensitive   = true
 }
 
-variable "bot_app_secret" {
+variable "azure_bot_app_secret" {
   description = "Teams bot app secret"
   type        = string
   sensitive   = true
 }
 
-variable "allowed_group_id" {
+variable "azure_allowed_group_id" {
   description = "Entra group ID for allow-list"
   type        = string
 }

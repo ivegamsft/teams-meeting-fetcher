@@ -49,9 +49,9 @@ module "subscription_renewal" {
   aws_account_id              = var.aws_account_id
   subscriptions_table_name    = module.storage.subscriptions_table_name
   subscriptions_table_arn     = module.storage.subscriptions_table_arn
-  graph_tenant_id             = var.graph_tenant_id
-  graph_client_id             = var.graph_client_id
-  graph_client_secret         = var.graph_client_secret
+  azure_graph_tenant_id       = var.azure_graph_tenant_id
+  azure_graph_client_id       = var.azure_graph_client_id
+  azure_graph_client_secret   = var.azure_graph_client_secret
   renewal_schedule_expression = var.renewal_schedule_expression
   alarm_actions               = [module.notifications.topic_arn]
 
@@ -134,12 +134,12 @@ module "meeting_bot" {
   timeout                 = 300
   memory_size             = 512
   meetings_table_name     = "meeting-bot-sessions-${var.environment}"
-  graph_tenant_id         = var.graph_tenant_id
-  graph_client_id         = var.graph_client_id
-  graph_client_secret     = var.graph_client_secret
-  bot_app_id              = var.bot_app_id
-  bot_app_secret          = var.bot_app_secret
-  allowed_group_id        = var.allowed_group_id
+  azure_graph_tenant_id   = var.azure_graph_tenant_id
+  azure_graph_client_id   = var.azure_graph_client_id
+  azure_graph_client_secret = var.azure_graph_client_secret
+  azure_bot_app_id        = var.azure_bot_app_id
+  azure_bot_app_secret    = var.azure_bot_app_secret
+  azure_allowed_group_id  = var.azure_allowed_group_id
   group_cache_ttl_seconds = var.group_cache_ttl_seconds
 
   tags = local.common_tags

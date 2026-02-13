@@ -92,9 +92,9 @@ resource "aws_lambda_function" "subscription_renewal" {
   environment {
     variables = {
       SUBSCRIPTIONS_TABLE = var.subscriptions_table_name
-      GRAPH_TENANT_ID     = var.graph_tenant_id
-      GRAPH_CLIENT_ID     = var.graph_client_id
-      GRAPH_CLIENT_SECRET = var.graph_client_secret
+      GRAPH_TENANT_ID     = var.azure_graph_tenant_id
+      GRAPH_CLIENT_ID     = var.azure_graph_client_id
+      GRAPH_CLIENT_SECRET = var.azure_graph_client_secret
     }
   }
 

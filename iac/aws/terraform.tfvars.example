@@ -29,14 +29,14 @@ notification_email = "your-email@example.com"
 # These are used for automatically renewing Graph API subscriptions
 
 # Microsoft Graph tenant ID (GUID)
-graph_tenant_id = "your-tenant-id-guid"
+azure_graph_tenant_id = "your-tenant-id-guid"
 
 # Microsoft Graph app client ID (GUID)
-graph_client_id = "your-client-id-guid"
+azure_graph_client_id = "your-client-id-guid"
 
 # Microsoft Graph app client secret
 # Generate this in Azure Entra > App Registrations > Your App > Certificates & Secrets
-graph_client_secret = "your-client-secret-value"
+azure_graph_client_secret = "your-client-secret-value"
 
 # Subscription renewal schedule (AWS Events cron expression)
 # Default: 2 AM UTC daily
@@ -48,13 +48,13 @@ renewal_schedule_expression = "cron(0 2 * * ? *)"
 #=============================================================================
 
 # Teams bot app client ID (from Azure Bot registration)
-bot_app_id = "your-bot-app-id"
+azure_bot_app_id = "your-bot-app-id"
 
 # Teams bot app secret
-bot_app_secret = "your-bot-app-secret"
+azure_bot_app_secret = "your-bot-app-secret"
 
 # Entra group ID to allow-list meeting organizers
-allowed_group_id = "your-entra-group-id"
+azure_allowed_group_id = "your-entra-group-id"
 
 # Group membership cache TTL (seconds)
 group_cache_ttl_seconds = 900

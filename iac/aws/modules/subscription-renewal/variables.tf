@@ -30,19 +30,19 @@ variable "lambda_source_file" {
   default     = "../../lambda/renewal-function.py"
 }
 
-variable "graph_tenant_id" {
+variable "azure_graph_tenant_id" {
   description = "Microsoft Graph tenant ID"
   type        = string
   sensitive   = true
 }
 
-variable "graph_client_id" {
+variable "azure_graph_client_id" {
   description = "Microsoft Graph app client ID"
   type        = string
   sensitive   = true
 }
 
-variable "graph_client_secret" {
+variable "azure_graph_client_secret" {
   description = "Microsoft Graph app client secret"
   type        = string
   sensitive   = true
