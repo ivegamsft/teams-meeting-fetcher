@@ -414,7 +414,7 @@ terraform plan
 terraform apply
 ```
 
-The deployment creates a unique 6-character suffix for all resources (e.g., `7onuku`) to ensure globally unique names.
+The deployment creates a unique 6-character suffix for all resources (e.g., `abc123`) to ensure globally unique names.
 
 #### Create Test User (Optional)
 

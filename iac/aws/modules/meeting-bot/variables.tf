@@ -80,6 +80,12 @@ variable "group_cache_ttl_seconds" {
   default     = 900
 }
 
+variable "callback_url" {
+  description = "Graph Comms Platform callback URL for call-state notifications"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

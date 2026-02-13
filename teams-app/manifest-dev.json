@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
-  "version": "1.0.2-dev",
+  "version": "1.0.3-dev",
   "manifestVersion": "1.25",
   "id": "26464cb0-4c2c-4e0f-9a5d-de53b1234567",
   "developer": {
@@ -37,6 +37,10 @@
         },
         {
           "name": "OnlineMeetingTranscript.Read.Chat",
+          "type": "Application"
+        },
+        {
+          "name": "OnlineMeetingRecording.Read.Chat",
           "type": "Application"
         }
       ]

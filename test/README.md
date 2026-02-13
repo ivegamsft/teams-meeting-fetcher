@@ -135,8 +135,8 @@ AZURE_SUBSCRIPTION_ID=your-subscription-id
 AZURE_TENANT_ID=your-tenant-id
 AZURE_CLIENT_ID=your-client-id
 AZURE_CLIENT_SECRET=your-client-secret
-AZURE_KEYVAULT_NAME=tmf-kv-eus-7onuku
-AZURE_STORAGE_ACCOUNT=tmfsteus7onuku
+AZURE_KEYVAULT_NAME=tmf-kv-eus-<suffix>
+AZURE_STORAGE_ACCOUNT=tmfsteus<suffix>
 
 # Graph API Test Configuration
 GRAPH_TENANT_ID=your-tenant-id
@@ -251,7 +251,7 @@ cat ~/.aws/credentials
 az account show
 
 # Check Key Vault permissions
-az role assignment list --assignee $(az ad signed-in-user show --query id -o tsv) --scope /subscriptions/.../providers/Microsoft.KeyVault/vaults/tmf-kv-eus-7onuku
+az role assignment list --assignee $(az ad signed-in-user show --query id -o tsv) --scope /subscriptions/.../providers/Microsoft.KeyVault/vaults/tmf-kv-eus-<suffix>
 ```
 
 ### S3 Object Not Found (Eventual Consistency)

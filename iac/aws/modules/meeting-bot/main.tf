@@ -106,6 +106,7 @@ resource "aws_lambda_function" "meeting_bot" {
       ALLOWED_GROUP_ID        = var.azure_allowed_group_id
       GROUP_CACHE_TTL_SECONDS = tostring(var.group_cache_ttl_seconds)
       MEETINGS_TABLE          = aws_dynamodb_table.meeting_bot_sessions.name
+      CALLBACK_URL            = var.callback_url
     }
   }
 

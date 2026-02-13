@@ -85,7 +85,7 @@ Use the [Teams Developer Portal](https://dev.teams.microsoft.com) to register, c
 
 3. **Review Basic Information**
    - Under **Configure → Basic information**, verify:
-     - **App ID**: matches your bot's app registration (`47b8b5b3-45de-4087-86d6-5f6687ef7c90`)
+     - **App ID**: matches your bot's app registration
      - **Short name**: `Meeting Fetcher`
      - **Version**: `1.0.1`
      - **Developer information**: website, privacy, and terms URLs are correct
@@ -94,13 +94,13 @@ Use the [Teams Developer Portal](https://dev.teams.microsoft.com) to register, c
 4. **Verify App Features**
    - Go to **Configure → App features**
    - Confirm **Bot** is listed with:
-     - **Bot ID**: `47b8b5b3-45de-4087-86d6-5f6687ef7c90`
+     - **Bot ID**: your bot's app (client) ID from Entra
      - **Scopes**: Personal, Team, Group Chat
      - **Commands**: Hi, Hello, Help
    - If the bot isn't present, click **Bot** to add it and enter the Bot ID
 
 5. **Check Domains and SSO**
-   - Under **Configure → Domains**, verify `h0m58vi4y5.execute-api.us-east-1.amazonaws.com` is listed
+   - Under **Configure → Domains**, verify your API Gateway domain is listed
    - Under **Configure → Single sign-on**, verify the Application ID URI matches your Entra app registration
 
 6. **Validate the App**

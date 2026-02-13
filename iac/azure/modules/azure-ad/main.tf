@@ -36,9 +36,11 @@ locals {
   }
 
   bot_graph_app_role_ids = {
-    online_meetings_readwrite_all = local.graph_app_role_ids.online_meetings_readwrite_all
-    group_read_all                = local.graph_app_role_ids.group_read_all
-    user_read_all                 = local.graph_app_role_ids.user_read_all
+    online_meetings_readwrite_all      = local.graph_app_role_ids.online_meetings_readwrite_all
+    online_meeting_transcript_read_all = local.graph_app_role_ids.online_meeting_transcript_read_all
+    online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
+    group_read_all                     = local.graph_app_role_ids.group_read_all
+    user_read_all                      = local.graph_app_role_ids.user_read_all
     calls_join_group_call_all = one([
       for role in data.azuread_service_principal.graph.app_roles : role.id
       if role.value == "Calls.JoinGroupCall.All" && contains(role.allowed_member_types, "Application")
@@ -101,6 +103,14 @@ resource "azuread_application" "tmf_bot_app" {
     }
     resource_access {
       id   = local.bot_graph_app_role_ids.calls_initiate_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.bot_graph_app_role_ids.online_meeting_transcript_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.bot_graph_app_role_ids.online_meeting_recording_read_all
       type = "Role"
     }
     resource_access {

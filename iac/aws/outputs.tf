@@ -138,11 +138,6 @@ output "bot_api_base_url" {
   value       = module.bot_api_gateway.api_base_url
 }
 
-output "bot_meeting_started_url" {
-  description = "Meeting-started webhook URL"
-  value       = module.bot_api_gateway.meeting_started_url
-}
-
 output "bot_callbacks_url" {
   description = "Bot callbacks URL"
   value       = module.bot_api_gateway.callbacks_url
