@@ -89,6 +89,11 @@ exports.handler = async (event) => {
 
     console.log(`📥 ${path} → type=${body?.type || 'none'} name=${body?.name || 'none'}`);
 
+    // ── Config page for meeting tab (GET /bot/config) ──
+    if (path.includes('/bot/config')) {
+      return serveConfigPage();
+    }
+
     // ── Bot Framework activities (POST /bot/messages) ──
     if (path.includes('/bot/messages') || path.includes('/bot/meeting-started')) {
       if (!body || !body.type) {
@@ -310,9 +315,7 @@ async function fetchTranscript(meetingId, session) {
 async function handleConversationUpdate(activity) {
   const botId = BOT_APP_ID;
   const added = activity.membersAdded || [];
-  const botWasAdded = added.some(
-    (m) => m.id && (m.id.includes(botId) || m.id === `28:${botId}`)
-  );
+  const botWasAdded = added.some((m) => m.id && (m.id.includes(botId) || m.id === `28:${botId}`));
 
   if (!botWasAdded) {
     // A user was added, not the bot – ignore
@@ -338,6 +341,43 @@ async function handleConversationUpdate(activity) {
   }
 
   return respond(200, { ok: true, action: 'bot_added' });
+}
+
+// ─── Meeting tab config page ─────────────────────────────────────────────────
+
+function serveConfigPage() {
+  const html = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"/>
+<title>Meeting Fetcher</title>
+<script src="https://res.cdn.office.net/teams-js/2.19.0/js/MicrosoftTeams.min.js"></script>
+<style>body{font-family:Segoe UI,sans-serif;margin:2rem;color:#333}
+h2{color:#004578}p{color:#666;margin-top:.5rem}</style>
+</head><body>
+<h2>Meeting Fetcher</h2>
+<p>This app automatically records and transcribes meetings.<br>
+Click <b>Save</b> to enable it for this meeting.</p>
+<script>
+(async()=>{
+  await microsoftTeams.app.initialize();
+  microsoftTeams.pages.config.registerOnSaveHandler(e=>{
+    microsoftTeams.pages.config.setConfig({
+      entityId:"meeting-fetcher",
+      contentUrl:window.location.origin+"/dev/bot/config",
+      suggestedDisplayName:"Meeting Fetcher"
+    });
+    e.notifySuccess();
+  });
+  microsoftTeams.pages.config.setValidityState(true);
+})();
+</script>
+</body></html>`;
+
+  return {
+    statusCode: 200,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+    body: html,
+  };
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "manifestVersion": "1.25",
   "id": "47b8b5b3-45de-4087-86d6-5f6687ef7c90",
   "developer": {
@@ -24,7 +24,10 @@
   "accentColor": "#004578",
   "permissions": ["identity"],
   "validDomains": ["h0m58vi4y5.execute-api.us-east-1.amazonaws.com"],
-  "defaultInstallScope": "team",
+  "defaultInstallScope": "meetings",
+  "defaultGroupCapability": {
+    "meetings": "tab"
+  },
   "webApplicationInfo": {
     "id": "47b8b5b3-45de-4087-86d6-5f6687ef7c90"
   },
@@ -46,6 +49,14 @@
       ]
     }
   },
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://h0m58vi4y5.execute-api.us-east-1.amazonaws.com/dev/bot/config",
+      "canUpdateConfiguration": false,
+      "scopes": ["groupChat"],
+      "context": ["meetingSidePanel", "meetingChatTab", "meetingDetailsTab"]
+    }
+  ],
   "bots": [
     {
       "botId": "47b8b5b3-45de-4087-86d6-5f6687ef7c90",
