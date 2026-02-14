@@ -141,6 +141,11 @@ module "meeting_bot" {
   azure_bot_app_secret      = var.azure_bot_app_secret
   azure_allowed_group_id    = var.azure_allowed_group_id
   group_cache_ttl_seconds   = var.group_cache_ttl_seconds
+  transcript_bucket_name    = module.storage.bucket_name
+  transcript_bucket_arn     = module.storage.bucket_arn
+  teams_catalog_app_id      = var.teams_catalog_app_id
+  watched_user_ids          = var.watched_user_ids
+  poll_lookahead_minutes    = var.poll_lookahead_minutes
 
   tags = local.common_tags
 }

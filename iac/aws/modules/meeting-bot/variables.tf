@@ -86,8 +86,48 @@ variable "callback_url" {
   default     = ""
 }
 
+variable "transcript_bucket_name" {
+  description = "S3 bucket name for storing meeting transcripts"
+  type        = string
+  default     = ""
+}
+
+variable "transcript_bucket_arn" {
+  description = "S3 bucket ARN for transcript storage (needed for IAM policy)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
+}
+
+//=============================================================================
+// AUTO-INSTALL VARIABLES
+//=============================================================================
+
+variable "teams_catalog_app_id" {
+  description = "Teams app catalog ID for auto-installation (from Get-TeamsApp)"
+  type        = string
+  default     = ""
+}
+
+variable "watched_user_ids" {
+  description = "Comma-separated AAD user IDs to watch for upcoming meetings. If empty, uses group members."
+  type        = string
+  default     = ""
+}
+
+variable "poll_lookahead_minutes" {
+  description = "How many minutes ahead to look for upcoming meetings"
+  type        = number
+  default     = 60
+}
+
+variable "poll_schedule_expression" {
+  description = "EventBridge schedule expression for the auto-install poll (default: every 10 min)"
+  type        = string
+  default     = "rate(10 minutes)"
 }

@@ -42,7 +42,35 @@ This creates:
 - **CloudWatch logs**: Lambda execution logs (14-day retention)
 - **CloudWatch alarm**: Alerts on renewal failures
 
-## 3. Save Current Subscriptions to DynamoDB
+## 3. Configure Teams Admin Policies (post-Terraform)
+
+Teams admin policies cannot be managed via Terraform — they require the MicrosoftTeams
+PowerShell module. Run this **once** after `terraform apply`:
+
+```powershell
+# Install the module (if needed)
+Install-Module -Name MicrosoftTeams -Force -Scope CurrentUser
+
+# Run the setup script
+.\scripts\setup-teams-policies.ps1 `
+  -GroupId "<SECURITY-GROUP-OBJECT-ID>" `
+  -CatalogAppId "<TEAMS-CATALOG-APP-ID>" `
+  -BotAppId "<BOT-APP-ID>"
+```
+
+This configures three policies:
+
+| Policy                                                | Purpose                                               | Scope          |
+| ----------------------------------------------------- | ----------------------------------------------------- | -------------- |
+| **App Setup Policy** "Recorded Line"                  | Auto-installs Meeting Fetcher for group members       | Security group |
+| **Meeting Policy** "Recorded Line"                    | Enforces auto-recording + transcription               | Security group |
+| **Application Access Policy** "MeetingFetcher-Policy" | Grants bot Graph API access to users' online meetings | Global         |
+
+> **⏱️ Propagation:** App Setup and Meeting policies take 4–24 hours. Application Access Policy takes up to 30 minutes.
+
+See [docs/TEAMS-ADMIN-POLICIES.md](docs/TEAMS-ADMIN-POLICIES.md) for manual steps and troubleshooting.
+
+## 4. Save Current Subscriptions to DynamoDB
 
 After Terraform deployment, record your existing Graph API subscriptions:
 
@@ -60,7 +88,7 @@ python scripts/aws/subscription-tracker.py save \
   --type "transcript"
 ```
 
-## 4. Verify Deployment
+## 5. Verify Deployment
 
 ```bash
 # List subscriptions in DynamoDB
@@ -70,7 +98,7 @@ python scripts/aws/subscription-tracker.py list
 aws logs tail /aws/lambda/tmf-subscription-renewal-dev --follow --profile tmf-dev
 ```
 
-## 5. Monitor Renewals
+## 6. Monitor Renewals
 
 Lambda runs automatically daily at 2 AM UTC:
 

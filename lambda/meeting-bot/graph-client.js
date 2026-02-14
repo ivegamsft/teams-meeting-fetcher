@@ -83,21 +83,23 @@ async function graphRequest(method, path, body) {
 
 /**
  * Get meeting transcripts.
+ * @param {string} userId - The meeting organizer's AAD user ID
  * @param {string} onlineMeetingId - The online meeting ID (not joinUrl)
  */
-async function getMeetingTranscripts(onlineMeetingId) {
-  return graphRequest('GET', `/communications/onlineMeetings/${onlineMeetingId}/transcripts`);
+async function getMeetingTranscripts(userId, onlineMeetingId) {
+  return graphRequest('GET', `/users/${userId}/onlineMeetings/${onlineMeetingId}/transcripts`);
 }
 
 /**
  * Download a specific transcript content.
+ * @param {string} userId - The meeting organizer's AAD user ID
  * @param {string} onlineMeetingId
  * @param {string} transcriptId
  * @param {string} [format='text/vtt'] - 'text/vtt' or 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
  */
-async function getTranscriptContent(onlineMeetingId, transcriptId, format) {
+async function getTranscriptContent(userId, onlineMeetingId, transcriptId, format) {
   const token = await getAccessToken();
-  const url = `https://graph.microsoft.com/v1.0/communications/onlineMeetings/${onlineMeetingId}/transcripts/${transcriptId}/content`;
+  const url = `https://graph.microsoft.com/v1.0/users/${userId}/onlineMeetings/${onlineMeetingId}/transcripts/${transcriptId}/content`;
   const fmt = format || 'text/vtt';
 
   return new Promise((resolve, reject) => {
@@ -132,8 +134,12 @@ async function getTranscriptContent(onlineMeetingId, transcriptId, format) {
  * Requires the bot's serviceUrl and conversation ID from the original activity.
  */
 async function sendBotMessage(serviceUrl, conversationId, text) {
+  console.log(
+    `📤 sendBotMessage → serviceUrl=${serviceUrl}, conversationId=${conversationId?.substring(0, 40)}...`
+  );
   const token = await getBotFrameworkToken();
   const url = `${serviceUrl}v3/conversations/${conversationId}/activities`;
+  console.log(`📤 POST ${url.substring(0, 80)}...`);
 
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -169,12 +175,37 @@ async function sendBotMessage(serviceUrl, conversationId, text) {
 
 /**
  * Get a Bot Framework token for proactive messaging.
+ *
+ * Azure Bot Service registration type vs. token scope:
+ *   MultiTenant  → scope: https://api.botframework.com/.default
+ *   SingleTenant → scope: https://api.botframework.com/.default  (same scope, tenant-specific authority)
+ *
+ * The MSAL authority is already tenant-specific (set in getMsalClient).
  */
 async function getBotFrameworkToken() {
-  const result = await getMsalClient().acquireTokenByClientCredential({
-    scopes: ['https://api.botframework.com/.default'],
-  });
-  return result.accessToken;
+  const scope = 'https://api.botframework.com/.default';
+  console.log(
+    `🔑 Acquiring Bot Framework token – scope=${scope}, authority=https://login.microsoftonline.com/${TENANT_ID}`
+  );
+  try {
+    const result = await getMsalClient().acquireTokenByClientCredential({
+      scopes: [scope],
+    });
+    // Log token metadata (NOT the token itself) for debugging
+    if (result && result.accessToken) {
+      const parts = result.accessToken.split('.');
+      if (parts.length === 3) {
+        const claims = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+        console.log(
+          `🔑 Token acquired – aud=${claims.aud}, iss=${claims.iss}, appid=${claims.appid}, tid=${claims.tid}`
+        );
+      }
+    }
+    return result.accessToken;
+  } catch (err) {
+    console.error(`❌ Token acquisition failed: ${err.message}`);
+    throw err;
+  }
 }
 
 /**
@@ -191,6 +222,78 @@ async function isUserInGroup(userId, groupId) {
     console.warn('⚠️ Group membership check failed, allowing:', err.message);
     return true; // Fail-open to avoid blocking meetings
   }
+}
+
+// ─── Calendar & Auto-Install APIs ────────────────────────────────────────────
+
+/**
+ * Get upcoming online meetings from a user's calendar.
+ * Uses calendarView which returns occurrences of recurring events too.
+ * @param {string} userId - AAD user ID
+ * @param {number} [lookaheadMinutes=60] - How far ahead to look
+ * @returns {Promise<object[]>} Calendar events with online meeting info
+ */
+async function getUpcomingOnlineMeetings(userId, lookaheadMinutes = 60) {
+  const now = new Date();
+  const end = new Date(now.getTime() + lookaheadMinutes * 60 * 1000);
+  const startStr = now.toISOString();
+  const endStr = end.toISOString();
+  const select = 'id,subject,start,end,isOnlineMeeting,onlineMeeting';
+  // Note: isOnlineMeeting does not support $filter on calendarView – filter client-side
+  const path = `/users/${userId}/calendarView?startDateTime=${startStr}&endDateTime=${endStr}&$select=${select}&$top=50`;
+  const result = await graphRequest('GET', path);
+  // Filter to only events that are online meetings with a joinUrl
+  const events = (result.value || []).filter(
+    (e) => e.isOnlineMeeting && e.onlineMeeting?.joinUrl
+  );
+  return { ...result, value: events };
+}
+
+/**
+ * Look up an online meeting by its join URL to get the chat thread ID.
+ * @param {string} userId - AAD user ID (organizer)
+ * @param {string} joinUrl - The Teams meeting join URL
+ * @returns {Promise<object|null>} Online meeting object with chatInfo, or null
+ */
+async function getOnlineMeetingByJoinUrl(userId, joinUrl) {
+  let decoded = joinUrl;
+  try { decoded = decodeURIComponent(joinUrl); } catch (_) { /* already decoded */ }
+  const filterUrl = decoded.replace(/'/g, "''");
+  const filter = `joinWebUrl eq '${filterUrl}'`;
+  const path = `/users/${userId}/onlineMeetings?$filter=${encodeURIComponent(filter)}&$select=id,chatInfo,joinWebUrl,subject`;
+  const result = await graphRequest('GET', path);
+  return (result.value && result.value.length > 0) ? result.value[0] : null;
+}
+
+/**
+ * List apps installed in a chat.
+ * @param {string} chatId - The chat thread ID (e.g. 19:meeting_xxx@thread.v2)
+ * @returns {Promise<object>} Graph response with installed apps
+ */
+async function getInstalledAppsInChat(chatId) {
+  return graphRequest('GET', `/chats/${chatId}/installedApps?$expand=teamsApp&$top=100`);
+}
+
+/**
+ * Install a Teams app into a chat (proactive installation).
+ * @param {string} chatId - The chat thread ID
+ * @param {string} teamsAppId - The Teams app catalog ID (not the manifest external ID)
+ * @returns {Promise<object>} Graph response
+ */
+async function installAppInChat(chatId, teamsAppId) {
+  return graphRequest('POST', `/chats/${chatId}/installedApps`, {
+    'teamsApp@odata.bind': `https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/${teamsAppId}`,
+  });
+}
+
+/**
+ * List members of an Entra ID group.
+ * @param {string} groupId - The group's object ID
+ * @returns {Promise<object[]>} Array of group members
+ */
+async function getGroupMembers(groupId) {
+  const result = await graphRequest('GET', `/groups/${groupId}/members?$select=id,displayName,userPrincipalName&$top=999`);
+  return result.value || [];
 }
 
 /**
@@ -238,4 +341,9 @@ module.exports = {
   sendBotMessage,
   replyToActivity,
   isUserInGroup,
+  getUpcomingOnlineMeetings,
+  getOnlineMeetingByJoinUrl,
+  getInstalledAppsInChat,
+  installAppInChat,
+  getGroupMembers,
 };

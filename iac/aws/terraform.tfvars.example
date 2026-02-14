@@ -60,3 +60,19 @@ azure_allowed_group_id = "your-entra-group-id"
 
 # Group membership cache TTL (seconds)
 group_cache_ttl_seconds = 900
+
+#=============================================================================
+# AUTO-INSTALL VARIABLES (Optional)
+#=============================================================================
+# When set, an EventBridge rule polls calendars and proactively installs
+# the bot into upcoming meeting chats before the meeting starts.
+
+# Teams app catalog ID (Get-TeamsApp -DistributionMethod Organization)
+teams_catalog_app_id = ""
+
+# Comma-separated AAD user IDs whose calendars are polled
+# If empty and ALLOWED_GROUP_ID is set, group members are polled instead
+watched_user_ids = ""
+
+# Minutes into the future to scan for upcoming meetings (default: 60)
+poll_lookahead_minutes = 60

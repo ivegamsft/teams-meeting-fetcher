@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
     Configures Teams admin policies for Meeting Fetcher.
-    Scoped to a security group — NOT tenant-wide.
+    Scoped to a security group — NOT tenant-wide (except Application Access Policy).
 
 .DESCRIPTION
     1. Configures the "Recorded Line" App Setup Policy to auto-install Meeting Fetcher.
     2. Configures a "Recorded Line" Meeting Policy to enforce transcription + auto-recording.
-    3. Assigns both policies to a specified Azure AD security group.
+    3. Creates an Application Access Policy granting the bot Graph API access to users' online meetings.
+    4. Assigns setup + meeting policies to a specified Azure AD security group.
 
 .PARAMETER GroupId
     The Azure AD Object ID of the security group to assign policies to.
@@ -17,16 +18,19 @@
 .PARAMETER CatalogAppId
     The Teams catalog app ID for Meeting Fetcher (not the manifest external ID).
     Find via: Get-TeamsApp -DistributionMethod Organization
-    Defaults to Meeting Fetcher's catalog ID.
+
+.PARAMETER BotAppId
+    The Azure AD app (client) ID for the bot. Same as BOT_APP_ID in Lambda env vars.
+    Required for the Application Access Policy that enables Graph API meeting access.
 
 .PARAMETER DryRun
     If set, only shows what would be done without making changes.
 
 .EXAMPLE
-    .\setup-teams-policies.ps1 -GroupId "<YOUR-GROUP-OBJECT-ID>" -CatalogAppId "<YOUR-CATALOG-APP-ID>"
+    .\setup-teams-policies.ps1 -GroupId "<GROUP-ID>" -CatalogAppId "<CATALOG-ID>" -BotAppId "<BOT-APP-ID>"
 
 .EXAMPLE
-    .\setup-teams-policies.ps1 -GroupId "<YOUR-GROUP-OBJECT-ID>" -CatalogAppId "<YOUR-CATALOG-APP-ID>" -DryRun
+    .\setup-teams-policies.ps1 -GroupId "<GROUP-ID>" -CatalogAppId "<CATALOG-ID>" -BotAppId "<BOT-APP-ID>" -DryRun
 #>
 
 param(
@@ -40,6 +44,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$CatalogAppId,
 
+    # Azure AD App (client) ID for the bot — used for the Application Access Policy.
+    # This is the same value as BOT_APP_ID / GRAPH_CLIENT_ID in your Lambda env vars.
+    [Parameter(Mandatory = $true)]
+    [string]$BotAppId,
+
     [switch]$DryRun
 )
 
@@ -52,6 +61,7 @@ Write-Host "`n=== Meeting Fetcher – Teams Policy Setup ===" -ForegroundColor C
 Write-Host "Policy name    : $PolicyName"
 Write-Host "Target group   : $GroupId $GroupName"
 Write-Host "Catalog App ID : $CatalogAppId"
+Write-Host "Bot App ID     : $BotAppId"
 if ($DryRun) { Write-Host "[DRY RUN] No changes will be made." -ForegroundColor Yellow }
 Write-Host ""
 
@@ -154,7 +164,65 @@ if ($null -eq $meetingPolicy) {
     }
 }
 
-# ─── 3. Assign both policies to the security group ────────────────────────────
+# ─── 3. Application Access Policy (Graph API) ─────────────────────────────────────
+# Required for the bot to access /users/{id}/onlineMeetings via Graph API.
+# Without this, Graph returns 403 "No application access policy found".
+
+Write-Host "`n--- Application Access Policy: 'MeetingFetcher-Policy' ---" -ForegroundColor Cyan
+
+$accessPolicyName = "MeetingFetcher-Policy"
+$existingAccessPolicy = $null
+try {
+    $existingAccessPolicy = Get-CsApplicationAccessPolicy -Identity $accessPolicyName -ErrorAction Stop
+    Write-Host "  Found existing policy." -ForegroundColor Green
+} catch {
+    Write-Host "  Policy not found – will create." -ForegroundColor Yellow
+}
+
+if ($null -eq $existingAccessPolicy) {
+    Write-Host "  Creating Application Access Policy '$accessPolicyName' for app $BotAppId..."
+    if (-not $DryRun) {
+        New-CsApplicationAccessPolicy `
+            -Identity $accessPolicyName `
+            -AppIds $BotAppId `
+            -Description "Allow Meeting Fetcher bot to access online meetings via Graph API"
+        Write-Host "  Created." -ForegroundColor Green
+    }
+} else {
+    $existingAppIds = $existingAccessPolicy.AppIds
+    if ($existingAppIds -contains $BotAppId) {
+        Write-Host "  Bot app already in policy – no change needed." -ForegroundColor Green
+    } else {
+        Write-Host "  Adding bot app $BotAppId to existing policy..."
+        if (-not $DryRun) {
+            Set-CsApplicationAccessPolicy `
+                -Identity $accessPolicyName `
+                -AppIds ($existingAppIds + $BotAppId)
+            Write-Host "  Updated." -ForegroundColor Green
+        }
+    }
+}
+
+# Grant globally so the bot can query any user's meetings
+Write-Host "  Granting Application Access Policy globally..."
+$currentGlobal = $null
+try {
+    $currentGlobal = Get-CsApplicationAccessPolicy -Identity Global -ErrorAction Stop
+} catch { }
+
+if ($currentGlobal -and $currentGlobal.AppIds -contains $BotAppId) {
+    Write-Host "  Already granted globally." -ForegroundColor Green
+} else {
+    if (-not $DryRun) {
+        Grant-CsApplicationAccessPolicy -PolicyName $accessPolicyName -Global
+        Write-Host "  Granted globally." -ForegroundColor Green
+        Write-Host "  ⚠️  Note: Application Access Policies take up to 30 min to propagate." -ForegroundColor Yellow
+    } else {
+        Write-Host "  [DRY RUN] Would grant globally." -ForegroundColor Yellow
+    }
+}
+
+# ─── 4. Assign setup + meeting policies to the security group ─────────────
 
 Write-Host "`n--- Group Policy Assignment ---" -ForegroundColor Cyan
 Write-Host "  Group: $GroupId"
@@ -210,7 +278,7 @@ if ($existingMeetingAssignment -and $existingMeetingAssignment.PolicyName -eq $P
     }
 }
 
-# ─── 4. Verify ────────────────────────────────────────────────────────────────
+# ─── 5. Verify ────────────────────────────────────────────────────────────────
 
 Write-Host "`n--- Verification ---" -ForegroundColor Cyan
 
@@ -223,6 +291,9 @@ Write-Host "  Meeting Policy:"
 Get-CsTeamsMeetingPolicy -Identity $PolicyName |
     Select-Object Identity, AllowTranscription, AllowCloudRecording, AutoRecording |
     Format-List
+
+Write-Host "  Application Access Policy:"
+Get-CsApplicationAccessPolicy | Format-List Identity, AppIds, Description
 
 Write-Host "  Group Assignments:"
 Get-CsGroupPolicyAssignment -GroupId $GroupId |

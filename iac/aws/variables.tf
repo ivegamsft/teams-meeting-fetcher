@@ -103,3 +103,25 @@ variable "group_cache_ttl_seconds" {
   type        = number
   default     = 900
 }
+
+//=============================================================================
+// AUTO-INSTALL VARIABLES
+//=============================================================================
+
+variable "teams_catalog_app_id" {
+  description = "Teams app catalog ID for auto-installation (Get-TeamsApp -DistributionMethod Organization)"
+  type        = string
+  default     = ""
+}
+
+variable "watched_user_ids" {
+  description = "Comma-separated AAD user IDs whose calendars are polled. If empty, uses group members."
+  type        = string
+  default     = ""
+}
+
+variable "poll_lookahead_minutes" {
+  description = "How many minutes ahead to look for upcoming meetings"
+  type        = number
+  default     = 60
+}

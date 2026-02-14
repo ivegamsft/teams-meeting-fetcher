@@ -86,6 +86,24 @@ resource "aws_iam_role_policy" "meeting_bot_dynamodb_indexes" {
   })
 }
 
+// Policy for S3 transcript storage
+resource "aws_iam_role_policy" "meeting_bot_s3" {
+  count = var.transcript_bucket_arn != "" ? 1 : 0
+  name  = "${var.function_name}-s3"
+  role  = aws_iam_role.meeting_bot_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = "${var.transcript_bucket_arn}/transcripts/*"
+      }
+    ]
+  })
+}
+
 resource "aws_lambda_function" "meeting_bot" {
   function_name    = var.function_name
   role             = aws_iam_role.meeting_bot_role.arn
@@ -107,6 +125,10 @@ resource "aws_lambda_function" "meeting_bot" {
       GROUP_CACHE_TTL_SECONDS = tostring(var.group_cache_ttl_seconds)
       MEETINGS_TABLE          = aws_dynamodb_table.meeting_bot_sessions.name
       CALLBACK_URL            = var.callback_url
+      TRANSCRIPT_BUCKET       = var.transcript_bucket_name
+      TEAMS_CATALOG_APP_ID    = var.teams_catalog_app_id
+      WATCHED_USER_IDS        = var.watched_user_ids
+      POLL_LOOKAHEAD_MINUTES  = tostring(var.poll_lookahead_minutes)
     }
   }
 
@@ -137,4 +159,33 @@ resource "aws_lambda_function_url" "meeting_bot_webhook" {
     allow_headers = ["*"]
     max_age       = 86400
   }
+}
+
+//=============================================================================
+// AUTO-INSTALL: EventBridge scheduled rule to poll for upcoming meetings
+//=============================================================================
+
+resource "aws_cloudwatch_event_rule" "meeting_bot_poll" {
+  count               = var.teams_catalog_app_id != "" ? 1 : 0
+  name                = "${var.function_name}-poll"
+  description         = "Polls for upcoming meetings and auto-installs the bot"
+  schedule_expression = var.poll_schedule_expression
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_event_target" "meeting_bot_poll" {
+  count     = var.teams_catalog_app_id != "" ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.meeting_bot_poll[0].name
+  target_id = "meeting-bot-poll"
+  arn       = aws_lambda_function.meeting_bot.arn
+}
+
+resource "aws_lambda_permission" "meeting_bot_poll" {
+  count         = var.teams_catalog_app_id != "" ? 1 : 0
+  statement_id  = "AllowEventBridgePoll"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.meeting_bot.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.meeting_bot_poll[0].arn
 }
