@@ -65,7 +65,12 @@ class SubscriptionManager {
     this.clientState = options.clientState;
     this.saveSession = options.saveSession;
     this.getSession = options.getSession;
-    this.log = options.logger || console.log;
+    
+    // Use provided logger or create a simple wrapper around console
+    this.log = options.logger || ((level, msg, data) => {
+      const logFn = level === 'ERROR' ? console.error : (level === 'WARN' ? console.warn : console.log);
+      logFn(`[${level}] ${msg}`, data || {});
+    });
   }
 
   /**
