@@ -349,7 +349,7 @@ describe('Meeting Bot Handler', () => {
       // Should send success message
       expect(mockReplyToActivity).toHaveBeenCalled();
       const replyText = mockReplyToActivity.mock.calls[0][3];
-      expect(replyText).toContain('Auto-recording and transcription have been enabled');
+      expect(replyText).toContain('Auto-recording configured for this meeting');
     });
 
     it('should show warning when no join_url available for record command', async () => {

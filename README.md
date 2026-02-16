@@ -11,6 +11,7 @@ This project provides a distributed system to:
 - 🔔 **Receive webhook notifications** for meeting events
 - 🔐 **Secure webhook delivery** with Bearer token authentication
 - 👥 **Monitor specific Entra groups** rather than all organization meetings
+- 🔄 **Unified subscription management** for user and tenant-wide Graph subscriptions
 - 🌐 **Deploy anywhere** - on-premises, self-hosted cloud, or Azure with IaC
 
 ## Quick Start
@@ -214,6 +215,17 @@ teams-meeting-fetcher/
 - `GET /api/meetings/:id` - Get single meeting details
 - `GET /api/meetings/:id/transcription` - Get transcription
 
+### Subscription Management
+
+- `GET /bot/subscriptions/:key` - Get subscription details
+- `POST /bot/subscriptions/tenant-transcripts` - Create/manage tenant transcript subscription
+- `POST /bot/subscriptions/user-transcripts` - Create/manage user transcript subscription
+- `POST /bot/subscriptions/user-calendar` - Create/manage user calendar subscription
+- `POST /bot/subscriptions/group-calendar` - Create/manage group calendar subscription
+- `DELETE /bot/subscriptions/:id` - Delete a subscription
+
+See [Subscription API Documentation](./docs/SUBSCRIPTION_API.md) for detailed subscription management guide.
+
 ### Configuration
 
 - `GET /api/config` - Get current configuration
@@ -224,6 +236,44 @@ teams-meeting-fetcher/
 - `GET /health` - Server health check
 
 See [API Documentation](./specs/docs/api-reference.md) for complete reference.
+
+---
+
+## Subscription Management
+
+The system includes a unified subscription management interface that handles both user-specific and tenant-wide Microsoft Graph API subscriptions.
+
+### Key Features
+
+- **Unified API**: Manage all subscription types through a consistent interface
+- **Auto-Renewal**: Subscriptions are automatically renewed before expiration
+- **State Tracking**: Subscription metadata stored in DynamoDB
+- **Multiple Types**: Support for transcript, calendar, and meeting subscriptions
+- **Lifecycle Handling**: Automatic handling of Graph API lifecycle notifications
+
+### Supported Subscription Types
+
+1. **Tenant-Wide Transcripts**: Monitor all meeting transcripts in the organization
+2. **User-Specific Transcripts**: Monitor transcripts for a single user's meetings
+3. **User Calendar**: Monitor calendar events for a specific user
+4. **Group Calendar**: Monitor calendar events for an Entra ID group
+5. **Tenant-Wide Meetings**: Monitor when meetings start across the organization
+
+### Quick Example
+
+```bash
+# Create tenant-wide transcript subscription
+curl -X POST https://your-api.com/bot/subscriptions/tenant-transcripts \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Create user-specific calendar subscription
+curl -X POST https://your-api.com/bot/subscriptions/user-calendar \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "user@example.com"}'
+```
+
+See [Subscription API Documentation](./docs/SUBSCRIPTION_API.md) for complete guide.
 
 ---
 
