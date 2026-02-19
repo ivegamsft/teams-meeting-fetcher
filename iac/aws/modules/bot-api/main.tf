@@ -53,21 +53,19 @@ resource "aws_lambda_permission" "authorizer_invoke" {
 }
 
 resource "aws_api_gateway_method" "callbacks_post" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.callbacks.id
-  http_method             = "POST"
-  authorization           = "CUSTOM"
-  authorizer_id           = aws_api_gateway_authorizer.lambda_authorizer.id
-  authorization_type      = "CUSTOM"
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.callbacks.id
+  http_method   = "POST"
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.lambda_authorizer.id
 }
 
 resource "aws_api_gateway_method" "messages_post" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.messages.id
-  http_method             = "POST"
-  authorization           = "CUSTOM"
-  authorizer_id           = aws_api_gateway_authorizer.lambda_authorizer.id
-  authorization_type      = "CUSTOM"
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.messages.id
+  http_method   = "POST"
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.lambda_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "callbacks_integration" {

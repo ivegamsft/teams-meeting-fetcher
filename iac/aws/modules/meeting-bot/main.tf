@@ -88,8 +88,8 @@ resource "aws_iam_role_policy" "meeting_bot_dynamodb_indexes" {
 
 // Policy for S3 transcript storage
 resource "aws_iam_role_policy" "meeting_bot_s3" {
-  name  = "${var.function_name}-s3"
-  role  = aws_iam_role.meeting_bot_role.id
+  name = "${var.function_name}-s3"
+  role = aws_iam_role.meeting_bot_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -145,7 +145,7 @@ resource "aws_lambda_function" "meeting_bot" {
 
 data "archive_file" "meeting_bot_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/../../lambda/meeting-bot"
+  source_dir  = "${path.root}/../lambda/meeting-bot"
   output_path = "${path.module}/.build/meeting-bot.zip"
 
   excludes = [".git", ".gitignore", "package-lock.json"]

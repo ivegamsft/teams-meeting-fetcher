@@ -16,8 +16,9 @@ locals {
 module "storage" {
   source = "./modules/storage"
 
-  bucket_name       = var.s3_bucket_name
-  enable_versioning = false
+  bucket_name                     = var.s3_bucket_name
+  enable_versioning               = false
+  eventhub_checkpoints_table_name = var.eventhub_checkpoints_table_name
 
   tags = local.common_tags
 }
@@ -71,12 +72,43 @@ module "lambda" {
   package_path  = var.lambda_package_path
   s3_bucket_arn = module.storage.bucket_arn
   sns_topic_arn = module.notifications.topic_arn
-  timeout       = 30
-  memory_size   = 128
+  # No DynamoDB for this Lambda
+  timeout     = 30
+  memory_size = 128
 
   environment_variables = {
     BUCKET_NAME  = module.storage.bucket_name
     CLIENT_STATE = var.client_state
+  }
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// EVENT HUB PROCESSOR LAMBDA - Polls Azure Event Hub with SDK
+//=============================================================================
+
+module "eventhub_processor" {
+  source = "./modules/lambda"
+
+  function_name      = "tmf-eventhub-processor-${var.environment}"
+  handler            = "handler.handler"
+  runtime            = "nodejs18.x"
+  package_path       = var.eventhub_lambda_package_path
+  s3_bucket_arn      = module.storage.bucket_arn
+  sns_topic_arn      = module.notifications.topic_arn
+  dynamodb_table_arn = module.storage.eventhub_checkpoints_table_arn
+  timeout            = 60
+  memory_size        = 256
+
+  environment_variables = {
+    BUCKET_NAME                   = module.storage.bucket_name
+    EVENTHUB_CHECKPOINT_TABLE     = module.storage.eventhub_checkpoints_table_name
+    EVENT_HUB_CONNECTION_STRING   = var.eventhub_connection_string
+    EVENT_HUB_NAME                = var.eventhub_name
+    EVENT_HUB_CONSUMER_GROUP      = var.eventhub_consumer_group
+    EVENT_HUB_POLL_WINDOW_MINUTES = var.eventhub_poll_window_minutes
+    EVENT_HUB_MAX_EVENTS          = var.eventhub_max_events
   }
 
   tags = local.common_tags
@@ -119,6 +151,37 @@ module "api_gateway" {
   stage_name               = var.environment
 
   tags = local.common_tags
+}
+
+//=============================================================================
+// EVENT HUB POLLING SCHEDULE - EventBridge rule to invoke processor
+//=============================================================================
+
+resource "aws_cloudwatch_event_rule" "eventhub_poll" {
+  name                = "tmf-eventhub-poll-${var.environment}"
+  description         = "Poll Azure Event Hub for Graph notifications"
+  schedule_expression = var.eventhub_poll_schedule_expression
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_event_target" "eventhub_poll_target" {
+  rule      = aws_cloudwatch_event_rule.eventhub_poll.name
+  target_id = "EventHubProcessorLambda"
+  arn       = module.eventhub_processor.function_arn
+
+  retry_policy {
+    maximum_retry_attempts       = 2
+    maximum_event_age_in_seconds = 3600
+  }
+}
+
+resource "aws_lambda_permission" "eventhub_poll_invoke" {
+  statement_id  = "AllowEventBridgeInvokeEventHubProcessor"
+  action        = "lambda:InvokeFunction"
+  function_name = module.eventhub_processor.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.eventhub_poll.arn
 }
 
 //=============================================================================

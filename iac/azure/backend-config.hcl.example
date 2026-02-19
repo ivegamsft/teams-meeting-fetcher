@@ -1,0 +1,9 @@
+# Terraform Backend Configuration
+# This file contains the Azure Storage credentials for the Terraform state backend
+# DO NOT commit this file to version control - it's in .gitignore
+
+# Get account key via:
+# az storage account keys list --resource-group tmf-state-rg --account-name tmfstateeus001 --query "[0].value" --output tsv
+
+# Then initialize Terraform with:
+# terraform init -backend-config="backend-config.hcl"

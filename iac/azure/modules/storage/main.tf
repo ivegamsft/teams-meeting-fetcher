@@ -26,6 +26,10 @@ resource "azurerm_storage_account" "main" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 // Grant Storage Blob Data Contributor to deployment SPN for Terraform management
@@ -48,8 +52,6 @@ resource "azurerm_storage_container" "containers" {
 
 // Diagnostic settings — send storage logs to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "storage" {
-  count = var.log_analytics_workspace_id != "" ? 1 : 0
-
   name                       = "${var.storage_account_name}-diag"
   target_resource_id         = azurerm_storage_account.main.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -61,8 +63,6 @@ resource "azurerm_monitor_diagnostic_setting" "storage" {
 
 // Diagnostic settings for blob service
 resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
-  count = var.log_analytics_workspace_id != "" ? 1 : 0
-
   name                       = "${var.storage_account_name}-blob-diag"
   target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -89,4 +89,11 @@ resource "azurerm_role_assignment" "app_storage" {
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.app_principal_id
+}
+// Grant Storage Blob Data Contributor to Microsoft Graph Change Tracking service principal
+// Allows Graph API to store rich notification payloads > 1MB
+resource "azurerm_role_assignment" "graph_change_tracking_storage" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = "0bf30f3b-4a52-48df-9a82-234910c4a086" // Microsoft Graph Change Tracking app ID (hardcoded - stable)
 }

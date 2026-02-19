@@ -31,6 +31,12 @@ variable "sns_topic_arn" {
   default     = null
 }
 
+variable "dynamodb_table_arn" {
+  description = "ARN of a DynamoDB table for Lambda to read/write (optional)"
+  type        = string
+  default     = null
+}
+
 variable "timeout" {
   description = "Lambda function timeout in seconds"
   type        = number

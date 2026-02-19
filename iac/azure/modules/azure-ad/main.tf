@@ -2,37 +2,25 @@
 // Manages Azure Active Directory resources for Teams Meeting Fetcher
 
 // Microsoft Graph service principal (for app role assignments)
-data "azuread_service_principal" "graph" {
-  client_id = "00000003-0000-0000-c000-000000000000"
-}
+// NOTE: Commented out - requires Directory.Read.All permission on SPN
+// data "azuread_service_principal" "graph" {
+//   client_id = "00000003-0000-0000-c000-000000000000"
+// }
 
+// Hard-code Graph API values since data source requires extra permissions
 locals {
-  // Resolve Microsoft Graph application role IDs by value to avoid hardcoding
+  graph_client_id = "00000003-0000-0000-c000-000000000000"
+
+  // Hard-coded Graph API app role IDs (from Microsoft Graph)
   graph_app_role_ids = {
-    calendars_readwrite = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "Calendars.ReadWrite" && contains(role.allowed_member_types, "Application")
-    ])
-    online_meeting_transcript_read_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "OnlineMeetingTranscript.Read.All" && contains(role.allowed_member_types, "Application")
-    ])
-    online_meeting_recording_read_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "OnlineMeetingRecording.Read.All" && contains(role.allowed_member_types, "Application")
-    ])
-    online_meetings_readwrite_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "OnlineMeetings.ReadWrite.All" && contains(role.allowed_member_types, "Application")
-    ])
-    group_read_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "Group.Read.All" && contains(role.allowed_member_types, "Application")
-    ])
-    user_read_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "User.Read.All" && contains(role.allowed_member_types, "Application")
-    ])
+    calendars_readwrite                = "ef54d2bf-783f-4e0f-bca1-3210c0444d99"
+    online_meeting_transcript_read_all = "a4a80d8d-d283-4bd8-8504-555ec3870630"
+    online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
+    online_meetings_readwrite_all      = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
+    group_read_all                     = "5b567255-7703-4780-807c-7be8301ae99b"
+    user_read_all                      = "df021288-bdef-4463-88db-98f22de89214"
+    calls_join_group_call_all          = "f6b49018-60ab-4f81-83bd-22caeabfed2d"
+    calls_initiate_all                 = "284383ee-7f6e-4e40-a2a8-e85dcb029101"
   }
 
   bot_graph_app_role_ids = {
@@ -41,14 +29,8 @@ locals {
     online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
     group_read_all                     = local.graph_app_role_ids.group_read_all
     user_read_all                      = local.graph_app_role_ids.user_read_all
-    calls_join_group_call_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "Calls.JoinGroupCall.All" && contains(role.allowed_member_types, "Application")
-    ])
-    calls_initiate_all = one([
-      for role in data.azuread_service_principal.graph.app_roles : role.id
-      if role.value == "Calls.Initiate.All" && contains(role.allowed_member_types, "Application")
-    ])
+    calls_join_group_call_all          = local.graph_app_role_ids.calls_join_group_call_all
+    calls_initiate_all                 = local.graph_app_role_ids.calls_initiate_all
   }
 }
 
@@ -57,7 +39,7 @@ resource "azuread_application" "tmf_app" {
   display_name = var.app_display_name
 
   required_resource_access {
-    resource_app_id = data.azuread_service_principal.graph.client_id
+    resource_app_id = local.graph_client_id
 
     resource_access {
       id   = local.graph_app_role_ids.calendars_readwrite
@@ -97,7 +79,7 @@ resource "azuread_application" "tmf_bot_app" {
   sign_in_audience = "AzureADMultipleOrgs"
 
   required_resource_access {
-    resource_app_id = data.azuread_service_principal.graph.client_id
+    resource_app_id = local.graph_client_id
 
     resource_access {
       id   = local.bot_graph_app_role_ids.online_meetings_readwrite_all
@@ -139,21 +121,23 @@ resource "azuread_service_principal" "tmf_bot_app" {
   client_id = azuread_application.tmf_bot_app.client_id
 }
 
-resource "azuread_app_role_assignment" "graph_app_roles" {
-  for_each = local.graph_app_role_ids
-
-  app_role_id         = each.value
-  principal_object_id = azuread_service_principal.tmf_app.object_id
-  resource_object_id  = data.azuread_service_principal.graph.object_id
-}
-
-resource "azuread_app_role_assignment" "bot_graph_app_roles" {
-  for_each = local.bot_graph_app_role_ids
-
-  app_role_id         = each.value
-  principal_object_id = azuread_service_principal.tmf_bot_app.object_id
-  resource_object_id  = data.azuread_service_principal.graph.object_id
-}
+// NOTE: App role assignments commented out - requires Directory.Read.All to get Graph SPN object ID
+// These will be granted via admin consent URL or Azure Portal instead
+// resource "azuread_app_role_assignment" "graph_app_roles" {
+//   for_each = local.graph_app_role_ids
+//
+//   app_role_id         = each.value
+//   principal_object_id = azuread_service_principal.tmf_app.object_id
+//   resource_object_id  = "<Graph SPN object ID>"  // Would come from data.azuread_service_principal.graph.object_id
+// }
+//
+// resource "azuread_app_role_assignment" "bot_graph_app_roles" {
+//   for_each = local.bot_graph_app_role_ids
+//
+//   app_role_id         = each.value
+//   principal_object_id = azuread_service_principal.tmf_bot_app.object_id
+//   resource_object_id  = "<Graph SPN object ID>"  // Would come from data.azuread_service_principal.graph.object_id
+// }
 
 // Application password/secret
 resource "azuread_application_password" "tmf_app" {

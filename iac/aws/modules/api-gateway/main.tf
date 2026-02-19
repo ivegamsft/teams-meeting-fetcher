@@ -39,21 +39,19 @@ resource "aws_lambda_permission" "authorizer_invoke" {
 }
 
 resource "aws_api_gateway_method" "method" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.resource.id
-  http_method             = var.http_method
-  authorization           = "CUSTOM"
-  authorizer_id           = aws_api_gateway_authorizer.lambda_authorizer.id
-  authorization_type      = "CUSTOM"
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.resource.id
+  http_method   = var.http_method
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.lambda_authorizer.id
 }
 
 resource "aws_api_gateway_method" "get_method" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.resource.id
-  http_method             = "GET"
-  authorization           = "CUSTOM"
-  authorizer_id           = aws_api_gateway_authorizer.lambda_authorizer.id
-  authorization_type      = "CUSTOM"
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.resource.id
+  http_method   = "GET"
+  authorization = "CUSTOM"
+  authorizer_id = aws_api_gateway_authorizer.lambda_authorizer.id
 }
 
 resource "aws_api_gateway_integration" "lambda_integration" {

@@ -90,3 +90,28 @@ resource "aws_dynamodb_table" "graph_subscriptions" {
 
   depends_on = [aws_s3_bucket.webhook_payloads]
 }
+
+//=============================================================================
+// DYNAMODB TABLE - Event Hub Checkpoints
+//=============================================================================
+
+resource "aws_dynamodb_table" "eventhub_checkpoints" {
+  name         = var.eventhub_checkpoints_table_name
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "partition_id"
+  range_key    = "consumer_group"
+
+  attribute {
+    name = "partition_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "consumer_group"
+    type = "S"
+  }
+
+  tags = var.tags
+
+  depends_on = [aws_s3_bucket.webhook_payloads]
+}
