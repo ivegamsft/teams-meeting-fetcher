@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-02-19T05:14:51.386Z",
+  "description": "Sample calendar events with sanitized user and tenant data",
+  "eventCount": 3,
+  "files": [
+    {
+      "filename": "event-1-eventhub-meeting.json",
+      "subject": "eventhub meeting",
+      "eventId": "SAMPLE-EVENT-ID-001"
+    },
+    {
+      "filename": "event-2-team-standup.json",
+      "subject": "Team Standup",
+      "eventId": "SAMPLE-EVENT-ID-002"
+    },
+    {
+      "filename": "event-3-project-review.json",
+      "subject": "Project Review",
+      "eventId": "SAMPLE-EVENT-ID-003"
+    }
+  ],
+  "sanitizationNotes": {
+    "userIds": "Replaced with generic pattern (attendee1@company.com, etc)",
+    "tenantIds": "Replaced with generic group identifiers",
+    "eventIds": "Replaced with SAMPLE-EVENT-ID-XXX pattern",
+    "emailAddresses": "Replaced with sanitized@company.com pattern",
+    "timestamps": "Kept realistic format for testing"
+  }
+}
