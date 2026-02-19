@@ -165,7 +165,10 @@ This exports:
 ### Prerequisites
 
 - Node.js 18+
-- Microsoft Entra tenant with admin access
+- Microsoft 365 tenant with:
+  - **Privileged Role Administrator or Global Administrator** (to create app registrations and service principals)
+  - **Teams Administrator** (to deploy Teams app)
+  - **Contributor or Owner** on Azure subscription (for infrastructure deployment)
 - Target Entra group created
 - Server with HTTPS capability (for webhooks)
 - (Optional) AWS Account for Lambda deployments
@@ -469,55 +472,55 @@ npm run test:watch
 
 ## Deployment
 
+### ⚠️ IMPORTANT: Unified Deployment Only
+
+**[📖 READ: DEPLOYMENT_RULES.md](./DEPLOYMENT_RULES.md)** - Critical rules for deployments
+
+✅ **Deploy using `iac/`** (single command deploys Azure + AWS together)
+❌ **DO NOT use `iac/azure/` or `iac/aws/` subdirectories** (those are modules only)
+
 ### Deployment Options
 
 - **On-Premises or Self-Hosted**: Use [Setup Guide](./specs/setup-guide.md) with Docker or systemd
-- **Azure (Recommended for Production)**: Use [Infrastructure Terraform Specification](./specs/infrastructure-terraform-spec.md) for enterprise-grade deployment with:
-  - Virtual Network with private endpoints
-  - Container Apps for managed compute
-  - Key Vault for secrets management
-  - Storage for logs and transcriptions
-  - Application Insights monitoring
-  - RBAC-only security (no keys in code)
-- **Minimal Serverless (AWS + Azure Event Grid)**: Use [Minimal Serverless Specification](./specs/infrastructure-minimal-serverless-spec.md) with Terraform code under [iac/aws/](./iac/aws/) for low-cost, event-driven deployments
+- **Cloud Infrastructure (Recommended)**: Use unified Terraform deployment in [`iac/`](./iac/) which provisions:
+  - **Azure**: App registrations, Key Vault, Event Hub, Storage (RBAC-only), monitoring
+  - **AWS**: Lambda functions, API Gateway, DynamoDB, Event Bridge scheduling
+  - Both platforms together in one deployment with automatic dependency management
+- **[Legacy Single-Cloud Deployments](./iac/README.md)**: Old separate deployments (do not use)
 
-### Azure Deployment with Terraform
+### Unified Cloud Deployment with Terraform
 
-The Azure infrastructure uses Terraform to provision:
+Deploy **both Azure and AWS** from a single unified configuration:
 
-- Azure AD app registration with Microsoft Graph API permissions
-- Service principal for the application
-- Admin security group
-- Key Vault (RBAC-enabled) for secrets storage
-- Storage Account (RBAC-only, no key-based authentication)
-- Blob container for webhook payloads
-- Role assignments for proper RBAC access
+```bash
+cd iac
+
+# Initialize (first time)
+terraform init
+
+# Review the plan
+terraform plan
+
+# Deploy everything (Azure first, then AWS using Azure outputs)
+terraform apply
+```
+
+**What gets provisioned:**
+
+- **Azure (19 resources)**: AD app, Event Hub, Storage, Key Vault, monitoring
+- **AWS (74 resources)**: Lambda, API Gateway, DynamoDB, EventBridge, S3
+- **Integration**: Automatic dependency resolution between clouds
 
 #### Prerequisites
 
-1. Azure CLI installed and authenticated
-2. Terraform >= 1.0 installed
-3. Azure subscription with permissions to:
-   - Create Azure AD applications and service principals
-   - Assign Azure AD API permissions (requires Application.ReadWrite.All, Group.ReadWrite.All)
-   - Create Azure resources (Contributor role on subscription)
-4. **Service Principal (SPN) requires additional Azure AD permission:**
-   - `Domain.Read.All` - Required to read tenant domains for automatic test user creation
-   - Grant via: Azure Portal → Azure AD → App registrations → Your SPN → API permissions → Add permission → Microsoft Graph → Application permissions → Domain.Read.All → Grant admin consent
-
-#### Deploy Azure Infrastructure
-
-```bash
-cd iac/azure
-
-# Copy terraform.tfvars.example to terraform.tfvars
-# Update with your subscription ID, tenant ID, and service principal credentials
-# Add your public IPs to allowed_ip_addresses for Key Vault and Storage firewall access
-
-terraform init
-terraform plan
-terraform apply
-```
+1. **Azure**:
+   - Azure CLI logged in: `az login`
+   - Service Principal credentials (in `.env` or `iac/terraform.tfvars`)
+   - Subscription ID and tenant ID
+2. **AWS**:
+   - AWS credentials configured: `aws configure` or environment variables
+   - AWS profile `tmf-dev` configured (or update `iac/terraform.tfvars`)
+3. **Terraform**: >= 1.0 installed
 
 The deployment creates a unique 6-character suffix for all resources (e.g., `abc123`) to ensure globally unique names.
 

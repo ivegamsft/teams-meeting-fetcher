@@ -10,8 +10,9 @@ if (-not (Test-Path $IaCDir)) {
   exit 1
 }
 
-Push-Location $IaCDir
 try {
+  $originalLocation = Get-Location
+  Push-Location $IaCDir
   $json = terraform output -json
   if (-not $json) {
     Write-Error "Terraform output is empty. Run 'terraform apply' first."
@@ -37,25 +38,25 @@ try {
     "# Do not commit this file",
     "",
     "# Azure Application (from Terraform)",
-    "GRAPH_TENANT_ID=$($appTenantId ? $appTenantId : '<REPLACE_ME>')",
-    "GRAPH_CLIENT_ID=$($appClientId ? $appClientId : '<REPLACE_ME>')",
+    "GRAPH_TENANT_ID=$(if ($appTenantId) { $appTenantId } else { '<REPLACE_ME>' })",
+    "GRAPH_CLIENT_ID=$(if ($appClientId) { $appClientId } else { '<REPLACE_ME>' })",
     "GRAPH_CLIENT_SECRET=<GET_FROM_KEY_VAULT>",
-    "ENTRA_GROUP_ID=$($adminGroupId ? $adminGroupId : '<REPLACE_ME>')",
+    "ENTRA_GROUP_ID=$(if ($adminGroupId) { $adminGroupId } else { '<REPLACE_ME>' })",
     "",
     "# Key Vault",
-    "AZURE_KEYVAULT_URL=$($kvUri ? $kvUri : '<REPLACE_ME>')",
-    "AZURE_KEYVAULT_NAME=$($kvName ? $kvName : '<REPLACE_ME>')",
+    "AZURE_KEYVAULT_URL=$(if ($kvUri) { $kvUri } else { '<REPLACE_ME>' })",
+    "AZURE_KEYVAULT_NAME=$(if ($kvName) { $kvName } else { '<REPLACE_ME>' })",
     "",
     "# Storage",
-    "AZURE_STORAGE_ACCOUNT=$($storageAccount ? $storageAccount : '<REPLACE_ME>')",
-    "AZURE_STORAGE_CONTAINER=$($storageContainer ? $storageContainer : '<REPLACE_ME>')",
+    "AZURE_STORAGE_ACCOUNT=$(if ($storageAccount) { $storageAccount } else { '<REPLACE_ME>' })",
+    "AZURE_STORAGE_CONTAINER=$(if ($storageContainer) { $storageContainer } else { '<REPLACE_ME>' })",
     "",
     "# Event Grid",
-    "EVENTGRID_URI=$($eventGridUri ? $eventGridUri : '<REPLACE_ME>')",
-    "EVENTGRID_KEY=$($eventGridKey ? $eventGridKey : '<REPLACE_ME>')",
+    "EVENTGRID_URI=$(if ($eventGridUri) { $eventGridUri } else { '<REPLACE_ME>' })",
+    "EVENTGRID_KEY=$(if ($eventGridKey) { $eventGridKey } else { '<REPLACE_ME>' })",
     "",
     "# Application Insights",
-    "APPINSIGHTS_INSTRUMENTATION_KEY=$($appInsightsKey ? $appInsightsKey : '<REPLACE_ME>')",
+    "APPINSIGHTS_INSTRUMENTATION_KEY=$(if ($appInsightsKey) { $appInsightsKey } else { '<REPLACE_ME>' })",
     "",
     "# Required secrets",
     "WEBHOOK_AUTH_SECRET=<REPLACE_ME>"
@@ -65,7 +66,5 @@ try {
   Set-Content -Path $OutputFile -Value $content -Encoding UTF8
   Write-Host "Wrote $OutputFile"
 } finally {
-  if ((Get-Location).Path -eq (Resolve-Path $IaCDir).Path) {
-    Pop-Location
-  }
+  Set-Location $originalLocation
 }

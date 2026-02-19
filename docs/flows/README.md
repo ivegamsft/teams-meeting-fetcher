@@ -49,6 +49,7 @@ All infrastructure is defined in Terraform under [`iac/aws/`](../../iac/aws/).
 ## Documentation Structure
 
 This directory provides **code-based flows** with emphasis on:
+
 - **Terraform/IaC** as the primary deployment method
 - **Production code** (Node.js, Python) with exact file locations
 - **Runtime context** (where code executes)

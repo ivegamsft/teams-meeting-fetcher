@@ -1,4 +1,10 @@
-# Deployment Guide
+# Deployment Guide — UNIFIED
+
+## ⚠️ CRITICAL: Use Unified `infra/` Directory Only
+
+**ALWAYS deploy from the `infra/` folder.** Do NOT use `iac/aws/` or `iac/azure/` (deprecated).
+
+See `.github/copilot-instructions.md` for detailed unified deployment rules.
 
 ## Prerequisites
 
@@ -9,7 +15,7 @@
 
 ## 1. Set Credentials in Terraform
 
-Update `iac/aws/terraform.tfvars` with your Azure credentials:
+Update `infra/terraform.tfvars` with your Azure credentials:
 
 ```hcl
 # Azure Graph API credentials (from Azure IaC outputs)
@@ -19,10 +25,11 @@ azure_graph_client_secret = "<terraform output app_client_secret>"
 renewal_schedule_expression = "cron(0 2 * * ? *)"  # 2 AM UTC daily
 ```
 
-## 2. Deploy Infrastructure
+## 2. Deploy Infrastructure (Unified)
 
 ```bash
-cd iac/aws
+# ALWAYS use the infra/ folder — NEVER use iac/aws/ or iac/azure/
+cd infra
 
 # Initialize Terraform
 terraform init
@@ -30,17 +37,30 @@ terraform init
 # Preview changes
 terraform plan -out=tfplan
 
-# Deploy
+# Deploy both Azure + AWS together
 terraform apply tfplan
 ```
 
 This creates:
+
+**Azure (19 resources):**
+
+- Event Hub (webhook ingestion)
+- Azure AD apps (Microsoft Graph authentication)
+- Storage Account (webhook payload archival)
+- Key Vault (secrets storage)
+- Application Insights (monitoring)
+- Bot Service (Teams integration)
+
+**AWS (74 resources):**
 
 - **DynamoDB table**: `graph-subscriptions` (stores subscription metadata and renewal tracking)
 - **Lambda function**: Renewal handler (runs daily at 2 AM UTC to renew expiring subscriptions)
 - **EventBridge rule**: Triggers Lambda on schedule
 - **CloudWatch logs**: Lambda execution logs (14-day retention)
 - **CloudWatch alarm**: Alerts on renewal failures
+- **API Gateway**: Webhook endpoint for Teams bot
+- **S3 bucket**: Webhook payload archival
 
 ## 3. Configure Teams Admin Policies (post-Terraform)
 
@@ -97,6 +117,19 @@ python scripts/aws/subscription-tracker.py list
 # Monitor Lambda logs
 aws logs tail /aws/lambda/tmf-subscription-renewal-dev --follow --profile tmf-dev
 ```
+
+## ⛔ DO NOT Use These (Deprecated)
+
+**NEVER run these commands:**
+
+- ❌ `cd iac/aws && terraform apply`
+- ❌ `cd iac/azure && terraform apply`
+
+These will create duplicate resources and break the deployment. If you did use them, immediately:
+
+1. Delete duplicate resources from Azure Portal and AWS Console
+2. Run `rm -Force terraform.tfstate*` and `rm -Force .terraform` in those folders
+3. Deploy correctly from `infra/` instead
 
 ## 6. Monitor Renewals
 
