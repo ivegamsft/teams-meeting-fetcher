@@ -1,0 +1,7 @@
+{
+  "clientId": "839144a2-2eb5-441c-a083-45109a4fe004",
+  "consentType": "AllPrincipals",
+  "principalId": null,
+  "resourceId": "db061d5f-aa5f-45f7-8982-e78b72723721",
+  "scope": "Calendars.Read OnlineMeetingTranscript.Read.All"
+}

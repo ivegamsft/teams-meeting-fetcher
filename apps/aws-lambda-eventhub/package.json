@@ -1,0 +1,16 @@
+{
+  "name": "teams-meeting-fetcher-aws-eventhub",
+  "version": "0.1.0",
+  "private": true,
+  "main": "handler.js",
+  "license": "MIT",
+  "scripts": {
+    "test": "echo \"No tests configured\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.744.0",
+    "@aws-sdk/client-dynamodb": "^3.744.0",
+    "@aws-sdk/lib-dynamodb": "^3.744.0",
+    "@azure/event-hubs": "^5.11.0"
+  }
+}

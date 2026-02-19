@@ -8,18 +8,17 @@ const handler = require('./authorizer').handler;
 process.env.CLIENT_STATE = 'test-secret-value';
 
 describe('Lambda Authorizer for Graph Webhooks', () => {
-  
   test('allows GET request with validationToken', async () => {
     const event = {
       httpMethod: 'GET',
       queryStringParameters: {
-        validationToken: 'some-validation-token-from-microsoft'
+        validationToken: 'some-validation-token-from-microsoft',
       },
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/GET/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/GET/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Allow');
   });
@@ -33,16 +32,16 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
             clientState: 'test-secret-value',
             subscriptionId: 'sub-123',
             resource: 'teams/teams',
-            changeType: 'created'
-          }
-        ]
+            changeType: 'created',
+          },
+        ],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Allow');
   });
@@ -56,16 +55,16 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
             clientState: 'wrong-secret',
             subscriptionId: 'sub-123',
             resource: 'teams/teams',
-            changeType: 'created'
-          }
-        ]
+            changeType: 'created',
+          },
+        ],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
   });
@@ -78,16 +77,16 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
           {
             subscriptionId: 'sub-123',
             resource: 'teams/teams',
-            changeType: 'created'
-          }
-        ]
+            changeType: 'created',
+          },
+        ],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
   });
@@ -101,22 +100,22 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
             clientState: 'test-secret-value',
             subscriptionId: 'sub-123',
             resource: 'teams/teams',
-            changeType: 'created'
+            changeType: 'created',
           },
           {
             clientState: 'test-secret-value',
             subscriptionId: 'sub-124',
             resource: 'teams/teams',
-            changeType: 'updated'
-          }
-        ]
+            changeType: 'updated',
+          },
+        ],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Allow');
   });
@@ -130,22 +129,22 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
             clientState: 'test-secret-value',
             subscriptionId: 'sub-123',
             resource: 'teams/teams',
-            changeType: 'created'
+            changeType: 'created',
           },
           {
             clientState: 'wrong-secret',
             subscriptionId: 'sub-124',
             resource: 'teams/teams',
-            changeType: 'updated'
-          }
-        ]
+            changeType: 'updated',
+          },
+        ],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
   });
@@ -154,14 +153,14 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
     const event = {
       httpMethod: 'POST',
       body: JSON.stringify({
-        value: []
+        value: [],
       }),
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
   });
@@ -170,11 +169,11 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
     const event = {
       httpMethod: 'DELETE',
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/DELETE/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/DELETE/graph',
     };
 
     const result = await handler(event);
-    
+
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
   });
@@ -184,11 +183,11 @@ describe('Lambda Authorizer for Graph Webhooks', () => {
       httpMethod: 'POST',
       body: 'invalid json',
       headers: {},
-      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph'
+      methodArn: 'arn:aws:execute-api:us-east-1:123456789012:abc123/dev/POST/graph',
     };
 
     const result = await handler(event);
-    
+
     // Should deny on parse error
     expect(result.principalId).toBe('user');
     expect(result.policyDocument.Statement[0].Effect).toBe('Deny');
