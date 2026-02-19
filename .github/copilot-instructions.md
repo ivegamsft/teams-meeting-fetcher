@@ -49,6 +49,7 @@ The expected tenant ID is `62837751-4e48-4d06-8bcb-57be1a669b78` (GRAPH_TENANT_I
 **CRITICAL:** Before creating Graph subscriptions, read: [docs/GRAPH_SUBSCRIPTIONS_SETUP.md](../docs/GRAPH_SUBSCRIPTIONS_SETUP.md)
 
 **Key rules:**
+
 - ✅ Subscriptions MUST target GROUP resource: `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a`
 - ❌ Never use individual user paths: `/users/user@domain.com/events`
 - ✅ Event Hub URL format MUST include `/eventhubname/` path segment and `?tenantId=<domain>`
@@ -58,6 +59,7 @@ The expected tenant ID is `62837751-4e48-4d06-8bcb-57be1a669b78` (GRAPH_TENANT_I
   - "Storage Blob Data Contributor" role on storage account (for rich notifications)
 
 **If creating subscriptions, always:**
+
 1. Verify tenant is correct
 2. Ensure resource is a group path, not user path
 3. Use exact Event Hub URL format (see GRAPH_SUBSCRIPTIONS_SETUP.md)

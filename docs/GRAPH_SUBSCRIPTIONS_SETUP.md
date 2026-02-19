@@ -9,12 +9,14 @@ This document explains how to correctly set up Microsoft Graph API subscriptions
 ### 1. Subscription Resource MUST be a GROUP, Not a User
 
 ❌ **WRONG:**
+
 ```
 GRAPH_SUBSCRIPTION_RESOURCE=/users/user@company.com/events
 GRAPH_SUBSCRIPTION_RESOURCE=/users/{userId}/events
 ```
 
 ✅ **CORRECT:**
+
 ```
 GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
 ```
@@ -31,15 +33,16 @@ EventHub:https://<eventhubnamespace>.servicebus.windows.net/eventhubname/<eventh
 
 #### Breaking It Down:
 
-| Component | Example | Notes |
-|-----------|---------|-------|
-| Protocol | `EventHub:` | Literal string, REQUIRED |
-| Namespace endpoint | `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` | From Event Hub → Overview → Host name |
-| **Path segment** | `eventhubname/` | **Literal string**, NOT optional, NOT the hub name |
-| Hub name | `tmf-eh-eus-6an5wk` | The actual Event Hub name |
-| Tenant query param | `?tenantId=ibuyspy.net` | Tenant's primary domain (Azure AD → Overview) |
+| Component          | Example                                               | Notes                                              |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------- |
+| Protocol           | `EventHub:`                                           | Literal string, REQUIRED                           |
+| Namespace endpoint | `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` | From Event Hub → Overview → Host name              |
+| **Path segment**   | `eventhubname/`                                       | **Literal string**, NOT optional, NOT the hub name |
+| Hub name           | `tmf-eh-eus-6an5wk`                                   | The actual Event Hub name                          |
+| Tenant query param | `?tenantId=ibuyspy.net`                               | Tenant's primary domain (Azure AD → Overview)      |
 
 #### Complete Example:
+
 ```
 EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
 ```
@@ -52,6 +55,7 @@ The **Microsoft Graph Change Tracking** service principal must have:
 - **Storage Blob Data Contributor** role on the storage account (for rich notifications > 1MB)
 
 **Verify:**
+
 ```bash
 # List role assignments
 az role assignment list --scope /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.EventHub/namespaces/<ns>
@@ -92,6 +96,7 @@ npm run subscribe
 ```
 
 **Expected output:**
+
 ```
 ✅ Subscription created!
    ID: 7181c11e-9b4a-4000-8e8f-0eaeae5c1642
@@ -115,6 +120,7 @@ npm run subscribe
 **Cause:** URL format is wrong (missing `/eventhubname/` or `?tenantId=`)
 
 **Fix:**
+
 ```
 ❌ Wrong: https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk
 ✅ Right: https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
@@ -123,10 +129,12 @@ npm run subscribe
 ### Error: `400 ValidationError`
 
 **Causes:**
+
 - Tenant domain doesn't match (check Azure AD → Overview → Primary domain)
 - Graph SPN missing "Azure Event Hubs Data Sender" role
 
 **Fix:**
+
 ```bash
 # Verify SPN has role
 az role assignment list --scope <eventhub-scope> | grep "Data Sender"
@@ -143,6 +151,7 @@ az role assignment create \
 **Cause:** `.env` has user path instead of group path
 
 **Fix:**
+
 ```dotenv
 # WRONG
 GRAPH_SUBSCRIPTION_RESOURCE=/users/user@company.com/events
@@ -154,6 +163,7 @@ GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
 ### No Notifications Received
 
 **Check:**
+
 1. Processor is running: `Get-Job -Name processor`
 2. Subscription is active: `cat data/subscription.json`
 3. Group has members: `az ad group member list --group 5e7708f8-b0d2-467d-97f9-d9da4818084a`

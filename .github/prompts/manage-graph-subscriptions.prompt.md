@@ -13,11 +13,13 @@ EventHub:https://<eventhubnamespace>.servicebus.windows.net/eventhubname/<eventh
 ```
 
 **Example for our deployment:**
+
 ```
 EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
 ```
 
 ### Breaking Down the Format:
+
 - `EventHub:` - Protocol prefix (REQUIRED)
 - `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` - Event Hub namespace endpoint
 - `eventhubname/` - Literal path segment (REQUIRED, NOT just the hub name)
@@ -25,6 +27,7 @@ EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-
 - `?tenantId=ibuyspy.net` - Tenant domain (REQUIRED for RBAC authentication)
 
 ### Common Mistakes to Avoid:
+
 ❌ Missing `/eventhubname/` segment
 ❌ Missing `?tenantId=<domain>` query parameter
 ❌ Using wrong domain (must match tenant's primary domain)
@@ -42,6 +45,7 @@ Before creating any subscription:
    - Processor running: `Get-Job -Name processor`
 
 2. **Verify Graph Change Tracking SPN has correct roles:**
+
    ```bash
    # Should have "Azure Event Hubs Data Sender" role
    az role assignment list --scope /subscriptions/.../providers/Microsoft.EventHub/namespaces/tmf-ehns-eus-6an5wk
@@ -81,12 +85,10 @@ GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a npm run
 
 ## Troubleshooting
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Invalid event hub notification url` | Wrong URL format (missing `/eventhubname/`) | Use exact format above |
-| `400 ValidationError` | Tenant domain mismatch | Verify primary domain matches |
-| `403 Forbidden` | Graph SPN missing role | Assign "Azure Event Hubs Data Sender" |
-| `No notifications received` | Processor not running | `npm run process` |
-| `Subscription not active` | Used user path instead | Use `/groups/{id}` |
-
-
+| Error                                | Cause                                       | Fix                                   |
+| ------------------------------------ | ------------------------------------------- | ------------------------------------- |
+| `Invalid event hub notification url` | Wrong URL format (missing `/eventhubname/`) | Use exact format above                |
+| `400 ValidationError`                | Tenant domain mismatch                      | Verify primary domain matches         |
+| `403 Forbidden`                      | Graph SPN missing role                      | Assign "Azure Event Hubs Data Sender" |
+| `No notifications received`          | Processor not running                       | `npm run process`                     |
+| `Subscription not active`            | Used user path instead                      | Use `/groups/{id}`                    |
