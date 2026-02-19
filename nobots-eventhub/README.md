@@ -208,6 +208,31 @@ Once running, the workflow is fully automatic:
 4. **Transcript available** → Downloads automatically
 5. **Saves to** `data/transcripts/*.vtt`
 
+## Sample Events for Testing
+
+Pre-built sample calendar events are included for testing the processor without needing real meetings:
+
+```bash
+# Generate more sample events
+node create-sample-events.js
+```
+
+Sample events are located in [`test/fixtures/sample-events/`](../test/fixtures/sample-events/):
+
+- **event-1-eventhub-meeting.json** - Simple online meeting with 2 attendees
+- **event-2-team-standup.json** - Recurring daily standup meeting
+- **event-3-project-review.json** - Multi-hour review with attachments & 3 attendees
+- **manifest.json** - Registry of all sample events and sanitization documentation
+- **all-events.json** - Combined bundle for batch testing
+
+All sample events have been **sanitized** (user IDs and emails replaced with generic placeholders) for safe sharing and testing.
+
+**Use cases:**
+- Unit tests for event processing
+- Documentation and examples
+- Integration testing without real meetings
+- CI/CD pipeline validation
+
 ## Files Created
 
 ```
