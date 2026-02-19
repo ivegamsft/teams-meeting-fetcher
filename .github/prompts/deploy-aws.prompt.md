@@ -1,10 +1,36 @@
 # Deploy AWS — Infrastructure + Lambda Code
 
-## Purpose
+⚠️ **DEPRECATED — USE `deploy-unified.prompt.md` INSTEAD**
 
-Deploy or update the full AWS stack: Terraform infrastructure and Lambda function code. Update local env files when done.
+This prompt references the old separate `iac/aws/` folder which is **DEPRECATED** and will create duplicate resources.
 
-## Instructions
+## ⛔ DO NOT USE THIS PROMPT
+
+**INSTEAD: Use [deploy-unified.prompt.md](deploy-unified.prompt.md) to deploy from the `infra/` directory.**
+
+The old `iac/aws/` folder will cause:
+
+- ❌ Duplicate Lambda functions
+- ❌ Duplicate API Gateways
+- ❌ Duplicate DynamoDB tables
+- ❌ Conflicting Terraform state
+- ❌ Unnecessary AWS costs
+
+## Correct Approach
+
+```bash
+cd infra
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+See [deploy-unified.prompt.md](deploy-unified.prompt.md) for complete instructions.
+
+---
+
+## Legacy Content (DO NOT USE)
+
+For reference only. This section describes the old approach:
 
 ### Step 1: Verify AWS Identity
 

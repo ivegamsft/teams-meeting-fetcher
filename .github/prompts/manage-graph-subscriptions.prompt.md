@@ -1,48 +1,92 @@
-# Manage Graph Subscriptions — Webhook Lifecycle
+# Manage Graph Subscriptions — Event Hub & Webhook Lifecycle
 
 ## Purpose
 
-Help me create, check, renew, and troubleshoot Microsoft Graph webhook subscriptions for Teams meeting events.
+Help me create, check, renew, and troubleshoot Microsoft Graph subscriptions for calendar change notifications via Event Hub.
+
+## CRITICAL: Event Hub Subscription URL Format
+
+For **Event Hub subscriptions**, the notification URL MUST follow this exact format:
+
+```
+EventHub:https://<eventhubnamespace>.servicebus.windows.net/eventhubname/<eventhubname>?tenantId=<domain>
+```
+
+**Example for our deployment:**
+```
+EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
+```
+
+### Breaking Down the Format:
+- `EventHub:` - Protocol prefix (REQUIRED)
+- `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` - Event Hub namespace endpoint
+- `eventhubname/` - Literal path segment (REQUIRED, NOT just the hub name)
+- `tmf-eh-eus-6an5wk` - Actual Event Hub name
+- `?tenantId=ibuyspy.net` - Tenant domain (REQUIRED for RBAC authentication)
+
+### Common Mistakes to Avoid:
+❌ Missing `/eventhubname/` segment
+❌ Missing `?tenantId=<domain>` query parameter
+❌ Using wrong domain (must match tenant's primary domain)
+❌ Subscribing to individual users instead of GROUP resource path
 
 ## Instructions
 
-### Step 1: Check Current State
+### Step 1: Verify Prerequisites
 
-1. Verify Graph API credentials: `python scripts/graph/01-verify-setup.py`
-2. List active subscriptions: `python scripts/graph/list-subscriptions.py`
-3. For each subscription, report:
-   - Resource (e.g., `/communications/callRecords`)
-   - Expiration date/time
-   - Notification URL (should match deployed webhook)
-   - Whether it expires within 24 hours (**warn** if so)
+Before creating any subscription:
 
-### Step 2: Determine Action
+1. **Verify Event Hub is configured:**
+   - Namespace: `tmf-ehns-eus-6an5wk`
+   - Hub: `tmf-eh-eus-6an5wk`
+   - Processor running: `Get-Job -Name processor`
 
-Based on the results, suggest the appropriate action:
+2. **Verify Graph Change Tracking SPN has correct roles:**
+   ```bash
+   # Should have "Azure Event Hubs Data Sender" role
+   az role assignment list --scope /subscriptions/.../providers/Microsoft.EventHub/namespaces/tmf-ehns-eus-6an5wk
+   ```
 
-- **No subscriptions exist**: Offer to create one via `python scripts/graph/02-create-webhook-subscription.py`
-- **Subscription expiring soon**: Offer to renew via the renewal Lambda or manually
-- **Subscription URL mismatched**: The webhook URL has changed (new deployment?) — offer to delete and recreate
-- **Subscription healthy**: Report "All good" and suggest a test meeting
+3. **Verify subscription resource is GROUP, not user:**
+   - ✅ Correct: `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a`
+   - ❌ Wrong: `/users/user@domain.com/events`
 
-### Step 3: Troubleshoot (if needed)
+### Step 2: Create Group Subscription
 
-If subscriptions aren't receiving notifications:
+```bash
+cd nobots-eventhub
+GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a npm run subscribe
+```
 
-1. Check the webhook endpoint is reachable: `curl -s <api_webhook_url>`
-2. Verify the Lambda is running: `aws logs tail /aws/lambda/<function> --since 1h --profile tmf-dev`
-3. Check Graph subscription status via `python scripts/graph/check-subscriptions.py`
-4. Review recent webhook deliveries: `python scripts/graph/check_latest_webhook.py`
+### Step 3: Verify Subscription Created
+
+1. Check subscription.json was created: `cat data/subscription.json`
+2. Processor receives validation notification (ignore it, expected)
+3. Calendar changes now trigger Event Hub notifications
 
 ### Step 4: Test
 
-1. Create a test meeting: `python scripts/graph/03-create-test-meeting.py`
-2. Send a manual webhook test: `python scripts/graph/06-test-webhook.py`
-3. Poll for transcription: `python scripts/graph/04-poll-transcription.py`
+1. **Create a meeting** in group member's calendar
+2. **Check processor output:** `Get-Job -Name processor | Receive-Job -Keep`
+3. **Should see**: Notification from Event Hub with change details
 
-### Rules
+### Rules (CRITICAL)
 
-- Always verify Graph setup before creating subscriptions.
-- The webhook URL must match the currently deployed API Gateway URL.
-- Subscriptions expire — always check expiration.
-- Use `--profile tmf-dev` for any AWS CLI commands.
+- **Event Hub subscriptions MUST use Group resource path** (`/groups/{id}`), not user paths
+- **URL format is strict** - missing `/eventhubname/` will cause 400 errors from Graph API
+- **tenantId must match the tenant's primary domain** (from Azure AD → Overview)
+- **Subscriptions expire in 24 hours** - run subscribe script daily
+- **Graph Change Tracking SPN must have Event Hubs Data Sender role**
+- **Processor must be running** to receive notifications
+
+## Troubleshooting
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Invalid event hub notification url` | Wrong URL format (missing `/eventhubname/`) | Use exact format above |
+| `400 ValidationError` | Tenant domain mismatch | Verify primary domain matches |
+| `403 Forbidden` | Graph SPN missing role | Assign "Azure Event Hubs Data Sender" |
+| `No notifications received` | Processor not running | `npm run process` |
+| `Subscription not active` | Used user path instead | Use `/groups/{id}` |
+
+
