@@ -1,41 +1,64 @@
-# AWS Lambda Webhook Stub
+# AWS Lambda Functions
 
-This Lambda function receives Microsoft Graph webhook payloads and stores them in S3.
+This package contains Lambda handlers for processing Teams meeting notifications from Azure Event Hub and storing in S3.
+
+## Handlers
+
+- **handler.js** - Webhook receiver (Graph API webhooks via HTTP)
+- **eventhub-handler.js** - Event Hub consumer ⭐ NEW (cross-cloud integration)
 
 ## Files
 
-- `handler.js` - Lambda entry point
-- `test-event.json` - API Gateway proxy event for local testing
-- `sample-webhook.json` - Sample Graph webhook payload (body)
-- `package.ps1` - PowerShell packaging helper
-- `package.sh` - Bash packaging helper
+- `eventhub-handler.js` - NEW: Event Hub consumer handler
+- `eventhub-client.js` - NEW: Azure Event Hub client
+- `test-eventhub.js` - NEW: Local test script
+- `EVENTHUB_INTEGRATION.md` - NEW: Complete setup guide
+- `package.sh` / `package.ps1` - Deployment packaging scripts
 
-## Environment Variables
-
-- `BUCKET_NAME` - S3 bucket name where payloads are stored
-
-## Packaging
-
-Create a zip package for deployment:
+## Quick Start
 
 ```bash
-# From repo root
-cd apps/aws-lambda
+# Install + test
+npm install
+npm run test:eventhub
+
+# Deploy
 ./package.sh
 ```
 
-```powershell
-# From repo root
-Set-Location apps/aws-lambda
-./package.ps1
+## Event Hub Integration ⭐
+
+See **[EVENTHUB_INTEGRATION.md](./EVENTHUB_INTEGRATION.md)** for:
+- Setup instructions
+- Deployment guide  
+- Environment configuration
+- Troubleshooting
+- Cost estimates
+
+## Architecture
+
+**New Event Hub Path** (AWS ↔ Azure cross-cloud):
+```
+Graph API → Event Hub → Lambda → S3
 ```
 
-The Terraform in `iac/aws` references this zip file.
+**Existing Webhook Path**:
+```
+Graph API → API Gateway → Lambda → S3
+```
 
-## Local Test
-
-Use the test event file with AWS SAM or local Lambda runner:
+## Environment Variables
 
 ```bash
-node -e "const fn=require('./handler').handler; const fs=require('fs'); const evt=JSON.parse(fs.readFileSync('test-event.json','utf8')); fn(evt,{awsRequestId:'local'}).then(console.log).catch(console.error)"
+EVENT_HUB_CONNECTION_STRING=Endpoint=sb://...
+EVENT_HUB_NAME=tmf-eh-eus-6an5wk
+BUCKET_NAME=tmf-webhook-payloads-dev
+```
+
+## Dependencies
+
+```
+@azure/event-hubs ^5.11.0  (NEW)
+@aws-sdk/client-s3 ^3.744.0
+aws-sdk ^2.1600.0
 ```
