@@ -27,7 +27,7 @@ variable "subscriptions_table_arn" {
 variable "lambda_source_file" {
   description = "Path to renewal Lambda function source file (relative to iac/aws)"
   type        = string
-  default     = "../../lambda/renewal-function.py"
+  default     = "../lambda/renewal-function.py"
 }
 
 variable "azure_graph_tenant_id" {

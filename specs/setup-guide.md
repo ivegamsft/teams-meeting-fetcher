@@ -18,8 +18,9 @@ This guide walks you through setting up the Teams Meeting Fetcher from scratch.
 ## Prerequisites
 
 - **Microsoft 365 tenant** with admin access
-- **Entra ID admin role** (to create app registrations)
+- **Privileged Role Administrator or Global Administrator** role (to create app registrations and assign directory roles)
 - **Teams admin role** (to deploy Teams app)
+- **Contributor or Owner role** on Azure subscription (for infrastructure deployment)
 - **Server or hosting provider** for external application
 - **HTTPS certificate** (Let's Encrypt recommended)
 - **Node.js 18+** installed locally or on server

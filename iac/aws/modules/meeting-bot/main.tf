@@ -143,9 +143,7 @@ resource "aws_lambda_function" "meeting_bot" {
   tags = var.tags
 }
 
-// Package the Lambda code from repo
-
-# Code packaging disabled - deploy code separately via AWS CLI or Console
+// Package the Lambda code from repo (deploy separately)
 # data "archive_file" "meeting_bot_zip" {
 #   type        = "zip"
 #   source_dir  = "${path.root}/../../lambda/meeting-bot"

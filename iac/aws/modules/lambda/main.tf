@@ -48,6 +48,21 @@ resource "aws_iam_role_policy" "lambda_sns" {
   })
 }
 
+// DynamoDB policy (commented out - chicken/egg with computed ARN)
+// resource "aws_iam_role_policy" "lambda_dynamodb" {
+//   count = var.dynamodb_table_arn != null ? 1 : 0
+//   name = "${var.function_name}-dynamodb"
+//   role = aws_iam_role.lambda_role.id
+//   policy = jsonencode({
+//     Version = "2012-10-17"
+//     Statement = [{
+//       Effect = "Allow"
+//       Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"]
+//       Resource = var.dynamodb_table_arn
+//     }]
+//   })
+// }
+
 // CloudWatch Logs policy
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda_role.name

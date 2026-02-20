@@ -18,7 +18,7 @@ module "storage" {
 
   bucket_name                     = var.s3_bucket_name
   enable_versioning               = false
-  eventhub_checkpoints_table_name = "eventhub-checkpoints-${var.environment}"
+  eventhub_checkpoints_table_name = var.eventhub_checkpoints_table_name
 
   tags = local.common_tags
 }
@@ -72,8 +72,9 @@ module "lambda" {
   package_path  = var.lambda_package_path
   s3_bucket_arn = module.storage.bucket_arn
   sns_topic_arn = module.notifications.topic_arn
-  timeout       = 30
-  memory_size   = 128
+  # No DynamoDB for this Lambda
+  timeout     = 30
+  memory_size = 128
 
   environment_variables = {
     BUCKET_NAME  = module.storage.bucket_name
@@ -182,6 +183,37 @@ module "eventhub_processor" {
   sns_topic_arn                = module.notifications.topic_arn
 
   tags = local.common_tags
+}
+
+//=============================================================================
+// EVENT HUB POLLING SCHEDULE - EventBridge rule to invoke processor
+//=============================================================================
+
+resource "aws_cloudwatch_event_rule" "eventhub_poll" {
+  name                = "tmf-eventhub-poll-${var.environment}"
+  description         = "Poll Azure Event Hub for Graph notifications"
+  schedule_expression = var.eventhub_poll_schedule_expression
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_event_target" "eventhub_poll_target" {
+  rule      = aws_cloudwatch_event_rule.eventhub_poll.name
+  target_id = "EventHubProcessorLambda"
+  arn       = module.eventhub_processor.function_arn
+
+  retry_policy {
+    maximum_retry_attempts       = 2
+    maximum_event_age_in_seconds = 3600
+  }
+}
+
+resource "aws_lambda_permission" "eventhub_poll_invoke" {
+  statement_id  = "AllowEventBridgeInvokeEventHubProcessor"
+  action        = "lambda:InvokeFunction"
+  function_name = module.eventhub_processor.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.eventhub_poll.arn
 }
 
 //=============================================================================

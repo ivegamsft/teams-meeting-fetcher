@@ -28,6 +28,16 @@ output "lambda_function_arn" {
   value       = module.lambda.function_arn
 }
 
+output "eventhub_processor_function_name" {
+  description = "Event Hub processor Lambda function name"
+  value       = module.eventhub_processor.function_name
+}
+
+output "eventhub_processor_function_arn" {
+  description = "Event Hub processor Lambda function ARN"
+  value       = module.eventhub_processor.function_arn
+}
+
 //=============================================================================
 // AUTHORIZER OUTPUTS
 //=============================================================================

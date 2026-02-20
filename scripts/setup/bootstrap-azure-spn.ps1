@@ -27,6 +27,47 @@ try {
     az login
 }
 
+# Validate current user has required permissions
+Write-Host ""
+Write-Host "Validating your Azure AD permissions..." -ForegroundColor Cyan
+
+$currentUserId = az ad signed-in-user show --query id -o tsv 2>$null
+if (-not $currentUserId) {
+    Write-Host "❌ Unable to get current user information" -ForegroundColor Red
+    Write-Host "Please ensure you're logged in with: az login" -ForegroundColor Yellow
+    exit 1
+}
+
+# Check for required directory roles
+$privilegedRoleAdminId = "e8611ab8-c189-46e8-94e1-60213ab1f814"
+$globalAdminId = "62e90394-69f5-4237-9190-012177145e10"
+
+$userRoles = az rest --method GET --uri "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments?`$filter=principalId eq '$currentUserId'&`$expand=roleDefinition" --query "value[].roleDefinition.id" -o tsv 2>$null
+
+$hasPrivilegedRoleAdmin = $userRoles -contains $privilegedRoleAdminId
+$hasGlobalAdmin = $userRoles -contains $globalAdminId
+
+if ($hasGlobalAdmin) {
+    Write-Host "✅ You have Global Administrator role" -ForegroundColor Green
+} elseif ($hasPrivilegedRoleAdmin) {
+    Write-Host "✅ You have Privileged Role Administrator role" -ForegroundColor Green
+} else {
+    Write-Host "❌ Missing required Azure AD role" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "This script requires one of the following roles:" -ForegroundColor Yellow
+    Write-Host "  • Global Administrator" -ForegroundColor Gray
+    Write-Host "  • Privileged Role Administrator" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "These roles are needed to grant directory roles to the Service Principal." -ForegroundColor Gray
+    Write-Host "Contact your Azure AD administrator to get the appropriate role assigned." -ForegroundColor Yellow
+    Write-Host ""
+    $override = Read-Host "Continue anyway? (yes/no)"
+    if ($override -ne "yes") {
+        exit 1
+    }
+    Write-Host "⚠️  Proceeding without validation - some operations may fail" -ForegroundColor Yellow
+}
+
 # Get current subscription
 $subscriptionId = az account show --query id -o tsv
 $tenantId = az account show --query tenantId -o tsv
@@ -174,19 +215,18 @@ try {
 
 Write-Host "✅ Azure RBAC roles assigned" -ForegroundColor Green
 
-# Assign Azure AD Directory roles (needed for creating users and managing groups)
+# Assign Azure AD Directory roles (needed for creating users, apps, and groups)
 Write-Host ""
-Write-Host "Assigning Azure AD Directory roles..." -ForegroundColor Cyan
-Write-Host "  Assigning: Directory.ReadWrite.All" -ForegroundColor Gray
+Write-Host "Assigning Azure AD Directory Roles..." -ForegroundColor Cyan
+Write-Host "  (These allow Terraform to create App Registrations and Security Groups)" -ForegroundColor Gray
 
 try {
-    # Get the Directory.ReadWrite.All role ID
+    # Directory.ReadWrite.All via Directory Writers role or Graph app role
+    Write-Host "  Assigning: Directory.ReadWrite.All" -ForegroundColor Gray
     $directoryWriteRoleId = az ad role list --query "[?displayName=='Directory Writers'].id" -o tsv
     
     if (-not $directoryWriteRoleId) {
         Write-Host "    (Directory Writers role not found, trying alternative)" -ForegroundColor DarkGray
-        # Alternative: use a built-in role that has sufficient permissions
-        # Create a custom role assignment using the Graph API
         $graphToken = az account get-access-token --resource https://graph.microsoft.com --query accessToken -o tsv
         
         $headers = @{
@@ -194,7 +234,6 @@ try {
             "Content-Type"  = "application/json"
         }
         
-        # Assign Directory.ReadWrite.All app role
         $appRoleAssignment = @{
             principalId = $objectId
             resourceId  = "97e44b74-bbb5-4ee9-9a57-80eb6e3f3e29"
@@ -202,11 +241,11 @@ try {
         } | ConvertTo-Json
         
         try {
-            $response = Invoke-WebRequest -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$objectId/appRoleAssignments" `
+            Invoke-WebRequest -Uri "https://graph.microsoft.com/v1.0/servicePrincipals/$objectId/appRoleAssignments" `
                 -Headers $headers `
                 -Method Post `
                 -Body $appRoleAssignment `
-                -ErrorAction SilentlyContinue
+                -ErrorAction SilentlyContinue | Out-Null
             Write-Host "    ✅ Directory.ReadWrite.All app role assigned via Graph API" -ForegroundColor Green
         } catch {
             Write-Host "    (may already exist or insufficient permissions to assign)" -ForegroundColor DarkGray
@@ -226,6 +265,62 @@ try {
     Read-Host "Press Enter after manual assignment or to continue anyway"
 }
 
+# Wait for propagation
+Start-Sleep -Seconds 5
+
+# Application Administrator role (to create App Registrations)
+Write-Host "  Assigning: Application Administrator" -ForegroundColor Gray
+$appAdminRoleId = "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3"
+$appAdminBody = @{
+    principalId = $objectId
+    roleDefinitionId = $appAdminRoleId
+    directoryScopeId = "/"
+} | ConvertTo-Json -Compress
+
+$tempFile = [System.IO.Path]::GetTempFileName()
+$appAdminBody | Out-File -FilePath $tempFile -Encoding utf8
+try {
+    $result = az rest --method POST --uri "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments" `
+        --headers "Content-Type=application/json" `
+        --body "@$tempFile" 2>&1
+    Write-Host "    ✅ Application Administrator granted" -ForegroundColor Green
+} catch {
+    if ($result -match "already exists") {
+        Write-Host "    (already assigned)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "    ⚠️  Failed (may need manual assignment)" -ForegroundColor Yellow
+    }
+} finally {
+    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+}
+
+# Groups Administrator role (to create Security Groups)
+Write-Host "  Assigning: Groups Administrator" -ForegroundColor Gray
+$groupsAdminRoleId = "fdd7a751-b60b-444a-984c-02652fe8fa1c"
+$groupsAdminBody = @{
+    principalId = $objectId
+    roleDefinitionId = $groupsAdminRoleId
+    directoryScopeId = "/"
+} | ConvertTo-Json -Compress
+
+$tempFile = [System.IO.Path]::GetTempFileName()
+$groupsAdminBody | Out-File -FilePath $tempFile -Encoding utf8
+try {
+    $result = az rest --method POST --uri "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments" `
+        --headers "Content-Type=application/json" `
+        --body "@$tempFile" 2>&1
+    Write-Host "    ✅ Groups Administrator granted" -ForegroundColor Green
+} catch {
+    if ($result -match "already exists") {
+        Write-Host "    (already assigned)" -ForegroundColor DarkGray
+    } else {
+        Write-Host "    ⚠️  Failed (may need manual assignment)" -ForegroundColor Yellow
+    }
+} finally {
+    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "✅ Directory roles assigned" -ForegroundColor Green
 # Output credentials
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
@@ -245,6 +340,13 @@ if ($spnCredentialsJson) {
     Write-Host "azure_client_secret   = `"$clientSecret`""
     Write-Host ""
     Write-Host "⚠️  IMPORTANT: Save the client_secret now - it won't be shown again!" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Permissions granted:" -ForegroundColor Cyan
+    Write-Host "  • Contributor (manage Azure resources)" -ForegroundColor Gray
+    Write-Host "  • User Access Administrator (assign RBAC roles)" -ForegroundColor Gray
+    Write-Host "  • Application Administrator (create App Registrations)" -ForegroundColor Gray
+    Write-Host "  • Groups Administrator (create Security Groups)" -ForegroundColor Gray
+    Write-Host "  • Graph API permissions (Calendar, Meetings, etc.)" -ForegroundColor Gray
     Write-Host ""
     
     # Optionally write to terraform.tfvars
@@ -283,8 +385,9 @@ create_test_user = true
 
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "1. cd iac/azure"
-Write-Host "2. terraform init"
-Write-Host "3. terraform plan"
-Write-Host "4. terraform apply"
+Write-Host "1. ⚠️  WAIT 5-10 minutes for Azure AD permissions to propagate" -ForegroundColor Yellow
+Write-Host "2. cd infra (use unified deployment, not iac/azure)" -ForegroundColor Gray
+Write-Host "3. terraform init" -ForegroundColor Gray
+Write-Host "4. terraform plan -out=tfplan" -ForegroundColor Gray
+Write-Host "5. terraform apply tfplan" -ForegroundColor Gray
 Write-Host ""

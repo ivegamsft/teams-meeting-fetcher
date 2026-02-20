@@ -147,12 +147,56 @@ TEST_USER_EMAIL=test.user@yourdomain.com
 
 ## Test Fixtures
 
-Sample data in `test/fixtures/`:
+### Sample Data in `test/fixtures/`
 
 - `graph-webhook-created.json` - Meeting created notification
 - `graph-webhook-updated.json` - Meeting updated notification
 - `graph-meeting-details.json` - Meeting details from Graph API (TBD)
 - `invalid-webhook.json` - Invalid payload for negative tests (TBD)
+
+### Calendar Events (`test/fixtures/sample-events/`)
+
+Pre-built, sanitized sample calendar events for testing without real meetings:
+
+**Files:**
+- `event-1-eventhub-meeting.json` - Simple online meeting (2 attendees)
+- `event-2-team-standup.json` - Recurring daily standup 
+- `event-3-project-review.json` - Multi-hour review (3 attendees, attachments)
+- `manifest.json` - Event registry and sanitization documentation
+- `all-events.json` - Combined bundle for batch tests
+
+**Data Sanitization:**
+- Real user IDs replaced with `attendee1@company.com` pattern
+- Event IDs replaced with `SAMPLE-EVENT-ID-XXX`
+- Tenant identifiers removed
+- Safe for git, CI/CD, documentation, and public sharing
+
+**Generating More Sample Events:**
+
+```bash
+cd nobots-eventhub
+node create-sample-events.js
+```
+
+**Using in Tests:**
+
+```javascript
+// Load sample event
+const event = require('../fixtures/sample-events/event-1-eventhub-meeting.json');
+
+// Use in processor tests
+const result = processor.handleCalendarEvent(event);
+```
+
+```python
+# Load sample event
+import json
+with open('test/fixtures/sample-events/event-1-eventhub-meeting.json') as f:
+    event = json.load(f)
+
+# Use in event parsing tests
+assert event['subject'] == 'eventhub meeting'
+```
 
 ## Writing Tests
 

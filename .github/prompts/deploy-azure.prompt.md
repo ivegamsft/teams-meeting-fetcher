@@ -1,10 +1,35 @@
 # Deploy Azure — Infrastructure + Services
 
-## Purpose
+⚠️ **DEPRECATED — USE `deploy-unified.prompt.md` INSTEAD**
 
-Deploy or update the Azure stack: Terraform infrastructure (Azure AD apps, Bot Service, Key Vault, Storage, Monitoring). Update local env files when done.
+This prompt references the old separate `iac/azure/` folder which is **DEPRECATED** and will create duplicate resources.
 
-## Instructions
+## ⛔ DO NOT USE THIS PROMPT
+
+**INSTEAD: Use [deploy-unified.prompt.md](deploy-unified.prompt.md) to deploy from the `infra/` directory.**
+
+The old `iac/azure/` folder will cause:
+
+- ❌ Duplicate Azure AD apps
+- ❌ Duplicate security groups
+- ❌ Conflicting Terraform state
+- ❌ Unnecessary Azure costs
+
+## Correct Approach
+
+```bash
+cd infra
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+See [deploy-unified.prompt.md](deploy-unified.prompt.md) for complete instructions.
+
+---
+
+## Legacy Content (DO NOT USE)
+
+For reference only. This section describes the old approach:
 
 ### Step 1: Verify Azure Tenant
 

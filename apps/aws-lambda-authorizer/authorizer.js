@@ -28,18 +28,20 @@ exports.handler = async (event) => {
     if (method === 'POST') {
       const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
       const notifications = body.value || [];
-      
+
       if (notifications.length === 0) {
         console.log('POST request with no notifications, denying');
         return generatePolicy('user', 'Deny', event.methodArn);
       }
-      
+
       const allValid = notifications.every((notification) => {
         const match = notification.clientState === expectedClientState;
-        console.log(`Notification clientState validation: ${match ? 'PASS' : 'FAIL'} (expected: ${expectedClientState}, got: ${notification.clientState})`);
+        console.log(
+          `Notification clientState validation: ${match ? 'PASS' : 'FAIL'} (expected: ${expectedClientState}, got: ${notification.clientState})`
+        );
         return match;
       });
-      
+
       if (allValid) {
         console.log('All notifications passed clientState validation, allowing');
         return generatePolicy('user', 'Allow', event.methodArn);

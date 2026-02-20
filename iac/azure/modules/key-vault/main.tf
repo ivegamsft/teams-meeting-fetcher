@@ -20,6 +20,10 @@ resource "azurerm_key_vault" "main" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 // Grant Key Vault Secrets Officer to deployment SPN
@@ -38,8 +42,6 @@ resource "azurerm_role_assignment" "app_kv_secrets" {
 
 // Diagnostic settings — send audit/access logs to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
-  count = var.log_analytics_workspace_id != "" ? 1 : 0
-
   name                       = "${var.key_vault_name}-diag"
   target_resource_id         = azurerm_key_vault.main.id
   log_analytics_workspace_id = var.log_analytics_workspace_id

@@ -1,18 +1,51 @@
-# Infrastructure as Code (IaC)
+# Infrastructure as Code (IaC) — DEPRECATED
 
-This folder contains Terraform deployments split by cloud provider.
+⚠️ **DEPRECATED — DO NOT USE THIS FOLDER FOR DEPLOYMENTS**
 
-## Structure
+This folder contains old separate Terraform deployments split by cloud provider. **These should not be used anymore.**
+
+## ⛔ DO NOT USE
+
+The `iac/` folder is DEPRECATED. Using `iac/azure/` or `iac/aws/` will:
+
+- ❌ Create duplicate Azure AD apps and security groups
+- ❌ Create duplicate Lambda functions and API Gateways
+- ❌ Create conflicting Terraform state files
+- ❌ Cause unnecessary costs
+
+## ✅ USE `infra/` INSTEAD
+
+**All deployments now use the unified `infra/` directory** which manages both Azure and AWS together.
+
+See [../infra/README.md](../infra/README.md) for the correct deployment approach.
+
+---
+
+## Legacy Structure (DO NOT USE)
+
+For reference only:
 
 ```
 iac/
-├── azure/  # Azure-only deployment (Container Apps + supporting services)
-└── aws/    # AWS-only deployment (Lambda + API Gateway + supporting services)
+├── azure/  # ⛔ OLD Azure-only deployment (DEPRECATED)
+└── aws/    # ⛔ OLD AWS-only deployment (DEPRECATED)
 ```
 
-## How to Use
+## Previous References
 
-- Azure full-stack deployment: see [specs/infrastructure-terraform-spec.md](../specs/infrastructure-terraform-spec.md)
-- Minimal serverless deployment: see [specs/infrastructure-minimal-serverless-spec.md](../specs/infrastructure-minimal-serverless-spec.md)
+If you see documentation mentioning:
 
-Each subfolder will contain Terraform files and provider-specific configuration.
+- `iac/azure/terraform apply`
+- `iac/aws/terraform apply`
+- Separate Azure and AWS deployments
+
+**IGNORE IT.** Use the unified [../infra/](../infra/) folder instead.
+
+## Cleanup
+
+If resources were deployed from this folder, delete the duplicates:
+
+1. Check what was deployed: `terraform state list` (in the old folders)
+2. Delete duplicates from Azure Portal and AWS Console
+3. Run `rm -Force terraform.tfstate*` and `rm -Force .terraform` to clean up old state files
+4. Deploy correctly from `infra/` folder instead

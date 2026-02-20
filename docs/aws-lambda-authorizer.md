@@ -23,8 +23,9 @@ Microsoft Graph        Teams Bot Framework
 ```
 
 **Protected Endpoints:**
+
 - `POST /graph` - Microsoft Graph webhook notifications
-- `GET /graph` - Subscription validation requests  
+- `GET /graph` - Subscription validation requests
 - `POST /bot/callbacks` - Bot framework callbacks
 - `POST /bot/messages` - Bot message handling
 

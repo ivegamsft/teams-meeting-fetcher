@@ -76,3 +76,15 @@ variable "bot_messaging_endpoint" {
   description = "HTTPS messaging endpoint for the Teams bot (API Gateway URL + /bot/messages)"
   type        = string
 }
+
+variable "current_user_object_id" {
+  description = "Object ID of the current user for RBAC role assignments. If not provided, uses the Terraform executor's identity."
+  type        = string
+  default     = null
+}
+
+variable "eventhub_local_auth_enabled" {
+  description = "Enable local authentication (SharedAccessKey) for Event Hub. Set to false to enforce RBAC only."
+  type        = bool
+  default     = false
+}

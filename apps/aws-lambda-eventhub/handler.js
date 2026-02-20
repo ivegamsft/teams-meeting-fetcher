@@ -10,7 +10,6 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib
 if (!globalThis.crypto) {
   globalThis.crypto = webcrypto;
 }
-
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -26,7 +25,6 @@ function requireEnv(name) {
   }
   return value;
 }
-
 function parseNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -92,7 +90,6 @@ function createAadCredential(tenantId, clientId, clientSecret) {
     },
   };
 }
-
 async function getCheckpoint(tableName, partitionId, consumerGroup) {
   if (!tableName) return null;
 

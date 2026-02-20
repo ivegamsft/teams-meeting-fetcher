@@ -96,10 +96,11 @@ output "test_user_password" {
   sensitive   = true
 }
 
-output "default_domain" {
-  description = "Default verified Azure AD domain"
-  value       = data.azuread_domains.aad_domains.domains[0].domain_name
-}
+# Commented out - requires data.azuread_domains
+# output "default_domain" {
+#   description = "Default verified Azure AD domain"
+#   value       = data.azuread_domains.aad_domains.domains[0].domain_name
+# }
 
 //=============================================================================
 // KEY VAULT OUTPUTS
@@ -152,6 +153,22 @@ output "eventgrid_topic_name" {
 output "eventgrid_topic_key" {
   description = "Event Grid topic access key"
   value       = module.monitoring.eventgrid_topic_primary_access_key
+  sensitive   = true
+}
+
+output "eventhub_namespace_name" {
+  description = "Event Hub namespace name"
+  value       = module.monitoring.eventhub_namespace_name
+}
+
+output "eventhub_name" {
+  description = "Event Hub name"
+  value       = module.monitoring.eventhub_name
+}
+
+output "eventhub_connection_string" {
+  description = "Event Hub connection string"
+  value       = module.monitoring.eventhub_connection_string
   sensitive   = true
 }
 

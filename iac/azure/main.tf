@@ -49,8 +49,14 @@ data "azurerm_client_config" "current" {}
 data "azuread_client_config" "current" {}
 
 // Get Azure AD domains to use default verified domain for test user
-data "azuread_domains" "aad_domains" {
-  only_default = true
+// NOTE: Commented out - requires Directory.Read.All permission on SPN
+// data "azuread_domains" "aad_domains" {
+//   only_default = true
+// }
+
+locals {
+  // Hard-code domain since data source requires extra permissions
+  default_domain = "ibuyspy.net"
 }
 
 
@@ -77,9 +83,10 @@ locals {
   law_name     = "${local.base_name}-law-${var.region_short}-${local.suffix}"
   ai_name      = "${local.base_name}-ai-${var.region_short}-${local.suffix}"
   eg_name      = "${local.base_name}-egt-${var.region_short}-${local.suffix}"
+  ehns_name    = "${local.base_name}-ehns-${var.region_short}-${local.suffix}"
+  eh_name      = "${local.base_name}-eh-${var.region_short}-${local.suffix}"
 
   // Test user configuration
-  default_domain          = data.azuread_domains.aad_domains.domains[0].domain_name
   test_user_upn           = "${random_pet.test_user.id}@${local.default_domain}"
   test_user_display_name  = "TMF ${title(random_pet.test_user.id)}"
   test_user_mail_nickname = random_pet.test_user.id
@@ -160,7 +167,10 @@ module "storage" {
 
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 
-  container_names = ["webhooks"]
+  container_names = [
+    "webhooks",
+    "microsoft-graph-change-notifications" // Required by Graph API for rich notifications > 1MB
+  ]
 
   tags = local.common_tags
 }
@@ -175,8 +185,12 @@ module "monitoring" {
   log_analytics_workspace_name = local.law_name
   app_insights_name            = local.ai_name
   eventgrid_topic_name         = local.eg_name
+  eventhub_namespace_name      = local.ehns_name
+  eventhub_name                = local.eh_name
   resource_group_name          = azurerm_resource_group.main.name
   location                     = azurerm_resource_group.main.location
+  current_user_object_id       = var.current_user_object_id
+  eventhub_local_auth_enabled  = var.eventhub_local_auth_enabled
 
   tags = local.common_tags
 }

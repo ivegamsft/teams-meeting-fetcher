@@ -40,3 +40,19 @@ output "eventgrid_topic_primary_access_key" {
   value       = azurerm_eventgrid_topic.main.primary_access_key
   sensitive   = true
 }
+
+output "eventhub_namespace_name" {
+  description = "Event Hub namespace name"
+  value       = azurerm_eventhub_namespace.main.name
+}
+
+output "eventhub_name" {
+  description = "Event Hub name"
+  value       = azurerm_eventhub.main.name
+}
+
+output "eventhub_connection_string" {
+  description = "Event Hub connection string"
+  value       = azurerm_eventhub_authorization_rule.main.primary_connection_string
+  sensitive   = true
+}

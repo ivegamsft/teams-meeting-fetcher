@@ -1,0 +1,48 @@
+{
+  "id": "SAMPLE-EVENT-ID-001",
+  "subject": "eventhub meeting",
+  "bodyPreview": "Test meeting for Event Hub pipeline",
+  "start": {
+    "dateTime": "2026-02-19T10:00:00.0000000",
+    "timeZone": "UTC"
+  },
+  "end": {
+    "dateTime": "2026-02-19T10:30:00.0000000",
+    "timeZone": "UTC"
+  },
+  "isReminderOn": true,
+  "reminderMinutesBeforeStart": 15,
+  "hasAttachments": false,
+  "isOnlineMeeting": true,
+  "onlineMeetingProvider": "teamsForBusiness",
+  "seriesMasterId": null,
+  "transactionId": null,
+  "categories": [
+    "Graph API Test"
+  ],
+  "changeKey": "REDACTED",
+  "createdDateTime": "2026-02-19T00:07:59Z",
+  "lastModifiedDateTime": "2026-02-19T00:10:59Z",
+  "organizerEmail": "group-organizer@company.com",
+  "organizerName": "Group Calendar",
+  "attendees": [
+    {
+      "emailAddress": "attendee1@company.com",
+      "displayName": "Attendee 1",
+      "type": "required",
+      "status": {
+        "response": "accepted",
+        "time": "2026-02-19T00:08:00Z"
+      }
+    },
+    {
+      "emailAddress": "attendee2@company.com",
+      "displayName": "Attendee 2",
+      "type": "optional",
+      "status": {
+        "response": "notResponded",
+        "time": "0001-01-01T00:00:00Z"
+      }
+    }
+  ]
+}

@@ -5,10 +5,12 @@
   "main": "handler.js",
   "license": "MIT",
   "scripts": {
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "test:eventhub": "node test-eventhub.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.744.0",
+    "@azure/event-hubs": "^5.11.0",
     "aws-sdk": "^2.1600.0"
   },
   "devDependencies": {

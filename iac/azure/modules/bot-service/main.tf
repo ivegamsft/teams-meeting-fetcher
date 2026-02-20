@@ -24,8 +24,6 @@ resource "azurerm_bot_service_azure_bot" "main" {
 
 // Diagnostic settings — send bot service logs to Log Analytics
 resource "azurerm_monitor_diagnostic_setting" "bot" {
-  count = var.log_analytics_workspace_id != "" ? 1 : 0
-
   name                       = "${var.bot_name}-diag"
   target_resource_id         = azurerm_bot_service_azure_bot.main.id
   log_analytics_workspace_id = var.log_analytics_workspace_id

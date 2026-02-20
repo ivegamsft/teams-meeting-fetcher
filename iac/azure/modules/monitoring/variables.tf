@@ -13,6 +13,34 @@ variable "eventgrid_topic_name" {
   type        = string
 }
 
+variable "eventhub_namespace_name" {
+  description = "Name of the Event Hub namespace"
+  type        = string
+}
+
+variable "eventhub_name" {
+  description = "Name of the Event Hub"
+  type        = string
+}
+
+variable "eventhub_sku" {
+  description = "Event Hub namespace SKU"
+  type        = string
+  default     = "Standard"
+}
+
+variable "eventhub_capacity" {
+  description = "Event Hub namespace capacity"
+  type        = number
+  default     = 1
+}
+
+variable "eventhub_message_retention" {
+  description = "Event Hub message retention in days"
+  type        = number
+  default     = 1
+}
+
 variable "resource_group_name" {
   description = "Name of the resource group"
   type        = string
@@ -46,3 +74,16 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "eventhub_local_auth_enabled" {
+  description = "Enable local authentication (SharedAccessKey) for Event Hub. Set to false to enforce RBAC only."
+  type        = bool
+  default     = true
+}
+
+variable "current_user_object_id" {
+  description = "Object ID of the current user for RBAC role assignments. If not provided, uses the Terraform executor's identity."
+  type        = string
+  default     = null
+}
+

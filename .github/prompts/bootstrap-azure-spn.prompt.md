@@ -7,7 +7,8 @@
 **Prerequisites**:
 
 - Azure CLI installed (`az --version`)
-- Owner or Contributor role on Azure subscription
+- **Privileged Role Administrator or Global Administrator** on Azure AD tenant (to assign directory roles to SPN)
+- Contributor role on Azure subscription (or Owner to grant additional RBAC roles)
 - GitHub account with repo admin rights (for secrets)
 
 ---

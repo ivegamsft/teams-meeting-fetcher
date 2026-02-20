@@ -19,10 +19,22 @@ variable "s3_bucket_name" {
   type        = string
 }
 
+variable "eventhub_checkpoints_table_name" {
+  description = "DynamoDB table name for Event Hub checkpoints"
+  type        = string
+  default     = "eventhub-checkpoints"
+}
+
 variable "lambda_package_path" {
   description = "Path to Lambda zip package"
   type        = string
   default     = "../../apps/aws-lambda/lambda.zip"
+}
+
+variable "eventhub_lambda_package_path" {
+  description = "Path to Event Hub processor Lambda zip package"
+  type        = string
+  default     = "../../apps/aws-lambda-eventhub/lambda.zip"
 }
 
 variable "authorizer_package_path" {
@@ -53,6 +65,47 @@ variable "notification_email" {
   description = "Email address to send notifications to (requires confirmation)"
   type        = string
   default     = null
+}
+
+//=============================================================================
+// EVENT HUB PROCESSOR VARIABLES
+//=============================================================================
+
+variable "eventhub_connection_string" {
+  description = "Azure Event Hub connection string"
+  type        = string
+  sensitive   = true
+  default     = "" // Optional - can deploy without Event Hub initially
+}
+
+variable "eventhub_name" {
+  description = "Azure Event Hub name"
+  type        = string
+  default     = "tmf-events" // Default value for when Event Hub isn't created yet
+}
+
+variable "eventhub_consumer_group" {
+  description = "Event Hub consumer group"
+  type        = string
+  default     = "$Default"
+}
+
+variable "eventhub_poll_schedule_expression" {
+  description = "EventBridge schedule for Event Hub polling"
+  type        = string
+  default     = "rate(1 minute)"
+}
+
+variable "eventhub_poll_window_minutes" {
+  description = "Minutes to look back when polling Event Hub"
+  type        = number
+  default     = 10
+}
+
+variable "eventhub_max_events" {
+  description = "Max events to read per partition per poll"
+  type        = number
+  default     = 50
 }
 
 variable "aws_profile" {

@@ -1,8 +1,8 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.25/MicrosoftTeams.schema.json",
-  "version": "1.0.8-dev",
+  "version": "1.0.9-dev",
   "manifestVersion": "1.25",
-  "id": "26464cb0-4c2c-4e0f-9a5d-de53b1234567",
+  "id": "5fb90d80-a7cd-43c0-97e3-eb7577e40169",
   "developer": {
     "name": "Your Organization",
     "websiteUrl": "https://localhost:3000",
@@ -23,7 +23,7 @@
   },
   "accentColor": "#004578",
   "permissions": ["identity"],
-  "validDomains": ["${{BOT_DOMAIN}}"],
+  "validDomains": ["epo20g6lg3.execute-api.us-east-1.amazonaws.com"],
   "defaultInstallScope": "meetings",
   "defaultGroupCapability": {
     "team": "bot",
@@ -31,7 +31,7 @@
     "meetings": "tab"
   },
   "webApplicationInfo": {
-    "id": "${{BOT_APP_ID}}"
+    "id": "5fb90d80-a7cd-43c0-97e3-eb7577e40169"
   },
   "authorization": {
     "permissions": {
@@ -53,7 +53,7 @@
   },
   "configurableTabs": [
     {
-      "configurationUrl": "https://${{BOT_DOMAIN}}/dev/bot/config",
+      "configurationUrl": "https://epo20g6lg3.execute-api.us-east-1.amazonaws.com/dev/bot/config",
       "canUpdateConfiguration": false,
       "scopes": ["groupChat"],
       "context": ["meetingSidePanel", "meetingChatTab", "meetingDetailsTab"]
@@ -61,7 +61,7 @@
   ],
   "bots": [
     {
-      "botId": "${{BOT_APP_ID}}",
+      "botId": "5fb90d80-a7cd-43c0-97e3-eb7577e40169",
       "scopes": ["team", "groupChat"],
       "supportsFiles": false,
       "isNotificationOnly": false,
