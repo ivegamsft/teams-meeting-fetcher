@@ -144,9 +144,38 @@ async function receivePartitionEvents(
     startPosition = { enqueuedOn: new Date(Date.now() - pollWindowMinutes * 60 * 1000) };
   }
 
-  return consumer.receiveBatch(partitionId, maxEvents, {
-    maxWaitTimeInSeconds: 5,
-    startPosition,
+  const events = [];
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      resolve(events);
+    }, 5000);
+
+    consumer
+      .subscribe(
+        {
+          processEvents: async (receivedEvents, context) => {
+            events.push(...receivedEvents);
+            if (events.length >= maxEvents) {
+              clearTimeout(timeout);
+              resolve(events);
+            }
+          },
+          processError: async (err, context) => {
+            console.error(`Error processing partition ${partitionId}:`, err);
+            clearTimeout(timeout);
+            reject(err);
+          },
+        },
+        {
+          startPosition,
+          maxWaitTimeInSeconds: 5,
+        }
+      )
+      .catch((err) => {
+        console.error(`Failed to subscribe to partition ${partitionId}:`, err);
+        clearTimeout(timeout);
+        reject(err);
+      });
   });
 }
 
@@ -159,9 +188,17 @@ exports.handler = async (event, context) => {
   const maxEvents = parseNumber(getEnv('EVENT_HUB_MAX_EVENTS', '50'), 50);
   const pollWindowMinutes = parseNumber(getEnv('EVENT_HUB_POLL_WINDOW_MINUTES', '10'), 10);
 
+  // MESSAGE_PROCESSING_MODE: 'consume' (default) or 'peek'
+  // - consume: Read messages and advance consumer group offset (normal operation)
+  // - peek: Read messages WITHOUT advancing offset (for testing/debugging)
+  const processingMode = getEnv('MESSAGE_PROCESSING_MODE', 'consume').toLowerCase();
+  const shouldUpdateCheckpoint = processingMode === 'consume';
+
   const tenantId = requireEnv('AZURE_TENANT_ID');
   const clientId = requireEnv('AZURE_CLIENT_ID');
   const clientSecret = requireEnv('AZURE_CLIENT_SECRET');
+
+  console.log(`Processing mode: ${processingMode} (checkpoint updates: ${shouldUpdateCheckpoint})`);
 
   const credential = createAadCredential(tenantId, clientId, clientSecret);
   const consumer = new EventHubConsumerClient(
@@ -191,13 +228,21 @@ exports.handler = async (event, context) => {
           null
         );
 
-        await putCheckpoint(
-          checkpointTable,
-          partitionId,
-          consumerGroup,
-          maxSequenceEvent.sequenceNumber,
-          maxSequenceEvent.enqueuedTimeUtc
-        );
+        // Only update checkpoint if in 'consume' mode
+        // In 'peek' mode, we read messages without advancing the consumer offset
+        if (shouldUpdateCheckpoint) {
+          await putCheckpoint(
+            checkpointTable,
+            partitionId,
+            consumerGroup,
+            maxSequenceEvent.sequenceNumber,
+            maxSequenceEvent.enqueuedTimeUtc
+          );
+        } else {
+          console.log(
+            `Peek mode: NOT updating checkpoint for partition ${partitionId} (seq: ${maxSequenceEvent.sequenceNumber})`
+          );
+        }
 
         allEvents.push(
           ...events.map((evt) => ({
@@ -219,8 +264,11 @@ exports.handler = async (event, context) => {
     const payload = {
       receivedAt: new Date().toISOString(),
       requestId,
+      processingMode,
+      consumerGroup,
       eventCount: allEvents.length,
       pollWindowMinutes,
+      checkpointUpdated: shouldUpdateCheckpoint,
       events: allEvents,
     };
 
@@ -237,7 +285,10 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       body: JSON.stringify({
         status: 'ok',
+        processingMode,
+        consumerGroup,
         eventCount: allEvents.length,
+        checkpointUpdated: shouldUpdateCheckpoint,
         key,
       }),
     };
