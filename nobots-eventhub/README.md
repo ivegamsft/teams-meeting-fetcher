@@ -1,348 +1,251 @@
-# nobots-eventhub - Event-Driven Transcript Fetcher
+# nobots-eventhub — Event-Driven Transcript Workflow
 
-Event Hub-based workflow that uses **Microsoft Graph API subscriptions** to receive real-time notifications when meetings are created/updated, then automatically downloads transcripts.
+**Event Hub-based workflow** that uses Microsoft Graph API subscriptions to receive real-time notifications when meetings are created/updated, then automatically processes transcripts.
 
-## Architecture
+> **This is a complete, self-contained scenario package.** Everything you need is in this folder: documentation, scripts, code, and configuration.
+
+## 🎯 When to Use EventHub Approach
+
+| Feature | nobots (Polling) | nobots-eventhub (EventHub) |
+|---------|------------------|---------------------------|
+| **Latency** | 30-60 seconds | Real-time (<5 sec) |
+| **API Calls** | Continuous polling | On-demand only |
+| **Complexity** | Simple | Requires EventHub |
+| **Cost** | Higher (polling) | Lower (event-driven) |
+| **Use Case** | Development, demos | Production workloads |
+
+**Choose EventHub if you need**: Real-time updates, low API quota usage, scalability
+
+## 📂 Quick Navigation
+
+### 🚀 Getting Started
+1. **[README.md](README.md)** ← You are here
+2. **[SETUP.md](SETUP.md)** — Prerequisites & initial configuration
+3. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
+4. **[MONITORING.md](MONITORING.md)** — Operational monitoring
+
+### 💻 Implementation
+- **[src/](src/)** — Lambda handlers and utilities
+  - `handler.js` — Event Hub consumer
+  - `package.json` — Dependencies
+  
+- **[scripts/](scripts/)** — Management and testing scripts
+  - `create-group-eventhub-subscription.py` — Create Graph subscription
+  - `create-test-meeting.py` — Create test meeting
+  - `list-subscriptions.py` — View active subscriptions
+
+### 🧪 Testing
+- **[tests/](tests/)** — Automated tests
+  - `unit/` — Handler logic tests
+  - `integration/` — Lambda + EventHub integration
+  - `e2e/` — Full flow end-to-end
+  
+- **[data/fixtures/](data/fixtures/)** — Sample event payloads
+
+### ⚙️ Configuration
+- **[config/](config/)** — Configuration templates
+  - `.env.example` — Environment variables
+  - `terraform.tfvars.example` — Infrastructure variables
+
+## 🏗️ Architecture
 
 ```
-Calendar Event Created/Updated
-    ↓
+User Creates Meeting in Teams
+            ↓
 Microsoft Graph API
-  ↓ (webhook notification)
-Webhook Receiver (this app)
-  ↓ (forward)
-Azure Event Grid (optional)
-  ↓
+  ↓ (change notification)
 Azure Event Hub
-    ↓ (consumer)
-This Application
-    ↓
-Download Transcript → Save VTT File
+  ↓ (1-minute polling)
+AWS Lambda: tmf-eventhub-processor-dev
+            ↓
+AWS Lambda: tmf-webhook-writer-dev
+    ├─→ AWS S3: Stores webhook payload
+    └─→ AWS DynamoDB: Updates checkpoint offset
 ```
 
-## vs. nobots (Polling Approach)
+## ⚡ Quick Start (5 minutes)
 
-| Feature            | nobots (Polling)   | nobots-eventhub (Events) |
-| ------------------ | ------------------ | ------------------------ |
-| **Latency**        | 30-60 seconds      | Real-time (<5 seconds)   |
-| **API Calls**      | Continuous polling | On-demand only           |
-| **Complexity**     | Simple             | Requires Event Hub setup |
-| **Cost**           | Higher (polling)   | Lower (event-driven)     |
-| **Infrastructure** | None needed        | Event Hub required       |
+### Prerequisites
+- Azure AD app with `Calendars.Read` permission
+- AWS account (or use existing deployment)
+- Python 3.8+ and Node.js 18+
 
-## Prerequisites
-
-### 1. Azure AD App Registration
-
-Create an app with these **Application** permissions:
-
-- `Calendars.Read`
-- `OnlineMeetingTranscript.Read.All`
-
-Grant admin consent for these permissions.
-
-### 2. Azure Event Hub
-
-#### RBAC Authentication (Recommended)
-
-This application now uses **Azure RBAC** for Event Hub authentication via `DefaultAzureCredential`.
-
+### 1. Configure Environment
 ```bash
-# Create Resource Group
-az group create --name tmf-rg --location eastus
+# Copy and edit
+cp config/.env.example ../.env.local.azure
 
-# Create Event Hub Namespace (with RBAC enabled)
-az eventhubs namespace create \
-  --name tmf-eventhub-ns \
-  --resource-group tmf-rg \
-  --location eastus \
-  --sku Standard \
-  --disable-local-auth true
-
-# Create Event Hub
-az eventhubs eventhub create \
-  --name teams-notifications \
-  --namespace-name tmf-eventhub-ns \
-  --resource-group tmf-rg
-
-# Grant your user the "Azure Event Hubs Data Owner" role
-az role assignment create \
-  --role "Azure Event Hubs Data Owner" \
-  --assignee <your-user-principal-name-or-object-id> \
-  --scope /subscriptions/<sub-id>/resourceGroups/tmf-rg/providers/Microsoft.EventHub/namespaces/tmf-eventhub-ns
-```
-
-**Configuration:** Set these environment variables in `.env`:
-
-- `EVENT_HUB_NAMESPACE=tmf-eventhub-ns.servicebus.windows.net`
-- `EVENT_HUB_NAME=teams-notifications`
-
-**Authentication:** The app uses `DefaultAzureCredential`, which authenticates using:
-
-1. Environment variables (Azure CLI credentials)
-2. Managed Identity (when deployed to Azure)
-3. Visual Studio Code / Azure CLI credentials (local development)
-
-#### Legacy: Connection String Authentication
-
-If you need to use SharedAccessKey authentication (not recommended):
-
-```bash
-# Enable local authentication
-az eventhubs namespace update \
-  --name tmf-eventhub-ns \
-  --resource-group tmf-rg \
-  --disable-local-auth false
-
-# Get connection string
-az eventhubs namespace authorization-rule keys list \
-  --resource-group tmf-rg \
-  --namespace-name tmf-eventhub-ns \
-  --name RootManageSharedAccessKey \
-  --query primaryConnectionString -o tsv
-```
-
-Set `EVENT_HUB_CONNECTION_STRING` in `.env` (uncomment in `config.js`).
-
-### 3. Webhook Receiver (Required)
-
-Graph subscriptions require a public HTTPS webhook that responds to validation tokens.
-Run the webhook receiver from this project and expose it (e.g., Azure Functions, App Service, or a public tunnel).
-
-```bash
-npm run webhook
-```
-
-Set `NOTIFICATION_URL` to your public webhook URL.
-
-### 4. Event Grid Integration (Optional)
-
-Graph API webhooks need an HTTP endpoint. Use Event Grid to forward to Event Hub:
-
-```bash
-# Create Event Grid topic
-az eventgrid topic create \
-  --name tmf-graph-notifications \
-  --resource-group tmf-rg \
-  --location eastus
-
-# Create Event Grid subscription → Event Hub
-az eventgrid event-subscription create \
-  --name to-event-hub \
-  --source-resource-id /subscriptions/{sub-id}/resourceGroups/tmf-rg/providers/Microsoft.EventGrid/topics/tmf-graph-notifications \
-  --endpoint-type eventhub \
-  --endpoint /subscriptions/{sub-id}/resourceGroups/tmf-rg/providers/Microsoft.EventHub/namespaces/tmf-eventhub-ns/eventhubs/teams-notifications
-
-# Get Event Grid endpoint
-az eventgrid topic show \
-  --name tmf-graph-notifications \
-  --resource-group tmf-rg \
-  --query endpoint -o tsv
-```
-
-## Setup
-
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your credentials
-```
-
-Required values:
-
-```bash
-GRAPH_TENANT_ID=your-tenant-id
-GRAPH_CLIENT_ID=your-app-id
+# Fill in from Azure & AWS
+GRAPH_TENANT_ID=62837751-4e48-4d06-8bcb-57be1a669b78
+GRAPH_CLIENT_ID=1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8
 GRAPH_CLIENT_SECRET=your-secret
-WATCH_USER_ID=user@company.com
-
-EVENT_HUB_NAMESPACE=tmf-eventhub-ns.servicebus.windows.net
-EVENT_HUB_NAME=teams-notifications
-EVENT_HUB_CONNECTION_STRING=Endpoint=sb://...
-
-# Webhook endpoint (this app)
-WEBHOOK_URL=https://your-public-webhook-endpoint/api/notifications
-NOTIFICATION_URL=https://your-public-webhook-endpoint/api/notifications
-
-# Event Grid topic endpoint (optional)
-EVENT_GRID_TOPIC_ENDPOINT=https://tmf-graph-notifications.eastus-1.eventgrid.azure.net/api/events
-EVENT_GRID_TOPIC_KEY=your-eventgrid-topic-key
+ENTRA_GROUP_ID=5e7708f8-b0d2-467d-97f9-d9da4818084a
+AZURE_EVENTHUB_CONNECTION_STRING=your-connection-string
 ```
 
-### 3. Create Graph Subscription
-
+### 2. Install Dependencies
 ```bash
-npm run subscribe
+cd scripts
+pip install -r requirements.txt
 ```
 
-This creates a subscription that sends calendar change notifications to your webhook.
-
-**Note**: Subscriptions expire after 24 hours. Run this daily or set up automatic renewal.
-
-### 4. Start Event Consumer
-
+### 3. Verify Setup
 ```bash
-npm run process
+python 01-verify-setup.py
 ```
 
-This starts listening for notifications and automatically:
-
-- Detects when meetings end
-- Resolves online meeting IDs
-- Downloads transcripts as VTT files
-
-## Usage
-
-Once running, the workflow is fully automatic:
-
-1. **Meeting is created** → Notification sent
-2. **Meeting ends** → Notification sent
-3. **Consumer detects end** → Waits 30-90s
-4. **Transcript available** → Downloads automatically
-5. **Saves to** `data/transcripts/*.vtt`
-
-## Sample Events for Testing
-
-Pre-built sample calendar events are included for testing the processor without needing real meetings:
-
+### 4. Create Graph Subscription
 ```bash
-# Generate more sample events
-node create-sample-events.js
+python create-group-eventhub-subscription.py
 ```
 
-Sample events are located in [`test/fixtures/sample-events/`](../test/fixtures/sample-events/):
-
-- **event-1-eventhub-meeting.json** - Simple online meeting with 2 attendees
-- **event-2-team-standup.json** - Recurring daily standup meeting
-- **event-3-project-review.json** - Multi-hour review with attachments & 3 attendees
-- **manifest.json** - Registry of all sample events and sanitization documentation
-- **all-events.json** - Combined bundle for batch testing
-
-All sample events have been **sanitized** (user IDs and emails replaced with generic placeholders) for safe sharing and testing.
-
-**Use cases:**
-- Unit tests for event processing
-- Documentation and examples
-- Integration testing without real meetings
-- CI/CD pipeline validation
-
-## Files Created
-
-```
-nobots-eventhub/
-├── data/
-│   ├── subscription.json     # Active subscription details
-│   └── transcripts/           # Downloaded VTT files
-│       └── Meeting_Title_timestamp.vtt
-```
-
-## Troubleshooting
-
-### "Subscription creation failed"
-
-- Check `NOTIFICATION_URL` is correct
-- Verify Event Hub/Event Grid is publicly accessible
-- Ensure app has `Calendars.Read` permission
-
-### "No notifications received"
-
-- Verify Event Hub connection string
-- Check subscription is active: `cat data/subscription.json`
-- Test Event Hub connectivity:
-  ```bash
-  az eventhubs eventhub show \
-    --name teams-notifications \
-    --namespace-name tmf-eventhub-ns \
-    --resource-group tmf-rg
-  ```
-
-### "Transcript not found"
-
-- Wait 30-90 seconds after meeting ends
-- Verify recording was enabled
-- Check user has access to the meeting
-
-## Subscription Renewal
-
-Subscriptions expire after 24 hours. To auto-renew:
-
-### Option 1: Cron Job (Linux/Mac)
-
+### 5. Create Test Meeting
 ```bash
-# Add to crontab
-0 12 * * * cd /path/to/nobots-eventhub && npm run subscribe
+python create-test-meeting.py --minutes 30
 ```
 
-### Option 2: Azure Function (Timer)
+### 6. Monitor Data Flow
+Open 3 terminals:
 
-```javascript
-module.exports = async function (context, myTimer) {
-  const { exec } = require('child_process');
-  exec('cd /path/to/nobots-eventhub && npm run subscribe');
-};
+**Terminal 1**: Process logs
+```bash
+aws logs tail /aws/lambda/tmf-eventhub-processor-dev --follow
 ```
 
-### Option 3: GitHub Actions
-
-```yaml
-name: Renew Graph Subscription
-on:
-  schedule:
-    - cron: '0 12 * * *' # Daily at noon
-jobs:
-  renew:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - run: npm install
-      - run: npm run subscribe
+**Terminal 2**: Writer logs
+```bash
+aws logs tail /aws/lambda/tmf-webhook-writer-dev --follow
 ```
 
-## Cost Estimate
+**Terminal 3**: Checkpoints
+```bash
+watch -n 5 'aws dynamodb scan --table-name eventhub-checkpoints'
+```
 
-**Azure Event Hub Standard tier**:
+## 📖 Detailed Guides
 
-- Base: $0.028/hour (~$20/month)
-- Ingress: Free
-- Example: ~1000 meetings/month = < $25/month
+### For First-Time Setup
+1. Start with **[SETUP.md](SETUP.md)** for prerequisites
+2. Follow **[DEPLOYMENT.md](DEPLOYMENT.md)** to deploy infrastructure
+3. Run scripts in `scripts/` to create subscriptions and test
 
-**vs. nobots polling** (Lambda @ 1 min interval):
+### For Monitoring & Troubleshooting
+- See **[MONITORING.md](MONITORING.md)** for health checks, log analysis, and troubleshooting
 
-- ~44,000 invocations/month = $0-$1/month
-- Lower cost but higher latency
+### For Understanding the Code
+- Check `src/handler.js` for Lambda implementation
+- See `scripts/` for automation examples
+- Review `tests/` for usage patterns
 
-## Advanced: Event Grid Validation
+## 🔑 Key Resources
 
-Graph API webhooks require endpoint validation. With Event Grid:
+| Resource | Value |
+|----------|-------|
+| **Event Hub Namespace** | `tmf-ehns-eus-6an5wk` |
+| **Event Hub Name** | `tmf-eh-eus-6an5wk` |
+| **Lambda Processor** | `tmf-eventhub-processor-dev` |
+| **Lambda Writer** | `tmf-webhook-writer-dev` |
+| **S3 Bucket** | `tmf-webhooks-eus-dev` |
+| **DynamoDB Tables** | `eventhub-checkpoints`, `graph_subscriptions` |
+| **Region** | US East 1 (AWS) / East US (Azure) |
 
-1. Event Grid handles validation automatically
-2. Forwards validated events to Event Hub
-3. No manual webhook server needed
+## 📋 Development Workflow
 
-## Migration from nobots
+### Add New Feature
+1. Create test in `tests/unit/` or `tests/integration/`
+2. Implement in `src/`
+3. Test locally: `npm test`
+4. Deploy: See [DEPLOYMENT.md](DEPLOYMENT.md)
 
-To switch from polling to events:
+### Debug Issue
+1. Check logs: See [MONITORING.md](MONITORING.md)
+2. Verify subscription: `python scripts/list-subscriptions.py`
+3. Check checkpoints: `aws dynamodb scan --table-name eventhub-checkpoints`
+4. Review payloads: See "Monitoring S3 Payloads" in [MONITORING.md](MONITORING.md)
 
-1. Set up Event Hub + Event Grid
-2. Create subscription: `npm run subscribe`
-3. Start consumer: `npm run process`
-4. Stop nobots polling (Ctrl+C)
+### Monitor in Production
+1. Set up CloudWatch dashboards
+2. Enable SNS alerts for Lambda errors
+3. Monitor checkpoint offset growth
+4. Track subscription expiration
 
-Both can run simultaneously for transition.
+## 🚀 Deployment
 
-## Next Steps
+### First Deployment
+```bash
+cd ../../iac
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+```
 
-- [Set up Terraform for infrastructure](../iac/azure/)
-- [Configure GitHub Actions for automation](../.github/workflows/)
-- [Deploy to Azure Functions](../docs/azure-functions-deployment.md)
+### Updates
+```bash
+cd ../../iac
+terraform plan
+terraform apply
+```
 
-## License
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 
-MIT
+## ✅ Verification Checklist
+
+After setup, verify:
+- [ ] Event Hub namespace accessible
+- [ ] Lambda functions deployed
+- [ ] DynamoDB tables created
+- [ ] S3 bucket exists
+- [ ] Graph subscription created
+- [ ] Test meeting created
+- [ ] Lambda logs show processing
+- [ ] Checkpoints updating
+- [ ] Payloads in S3
+
+## 🐛 Common Issues
+
+### No Lambda Activity
+→ Check Graph subscription created: `python scripts/list-subscriptions.py`
+
+### Event Hub Not Receiving Messages
+→ Verify subscription notification URL includes `?tenantId=...` parameter
+
+### S3 Upload Fails
+→ Check Lambda IAM role has S3 permissions
+
+See [MONITORING.md](MONITORING.md#troubleshooting) for detailed troubleshooting.
+
+## 📚 Additional Resources
+
+- Azure Event Hub: https://learn.microsoft.com/en-us/azure/event-hubs/
+- Microsoft Graph Subscriptions: https://learn.microsoft.com/en-us/graph/api/subscription-post-subscriptions
+- AWS Lambda: https://docs.aws.amazon.com/lambda/
+- DynamoDB: https://docs.aws.amazon.com/dynamodb/
+
+## 🤝 Contributing
+
+To improve this scenario:
+1. Make changes in appropriate folder (src/, tests/, scripts/)
+2. Update documentation if needed
+3. Test changes thoroughly
+4. Commit with clear message
+5. Reference this scenario in commit: `nobots-eventhub: ...`
+
+## 📞 Support
+
+For issues specific to this scenario:
+1. Check [MONITORING.md](MONITORING.md#troubleshooting)
+2. Review logs in all 3 terminal windows
+3. Verify configuration in [SETUP.md](SETUP.md)
+4. Check Graph subscription status
+
+## Related Scenarios
+
+- **nobots** — Polling-based approach (compare for simpler alternative)
+- **apps/aws-lambda** — Bot service implementation
+- **iac/** — Full infrastructure deployment (unified Terraform)
+
+---
+
+**Last Updated**: February 2026  
+**Status**: Production Ready  
+**Folder Structure**: Self-contained scenario package
