@@ -43,12 +43,6 @@ variable "authorizer_package_path" {
   default     = "../../apps/aws-lambda-authorizer/authorizer.zip"
 }
 
-variable "eventhub_lambda_package_path" {
-  description = "Path to Event Hub processor Lambda zip package"
-  type        = string
-  default     = "../../apps/aws-lambda-eventhub/lambda.zip"
-}
-
 variable "meeting_bot_package_path" {
   description = "Path to meeting bot Lambda zip package"
   type        = string
@@ -65,47 +59,6 @@ variable "notification_email" {
   description = "Email address to send notifications to (requires confirmation)"
   type        = string
   default     = null
-}
-
-//=============================================================================
-// EVENT HUB PROCESSOR VARIABLES
-//=============================================================================
-
-variable "eventhub_connection_string" {
-  description = "Azure Event Hub connection string"
-  type        = string
-  sensitive   = true
-  default     = "" // Optional - can deploy without Event Hub initially
-}
-
-variable "eventhub_name" {
-  description = "Azure Event Hub name"
-  type        = string
-  default     = "tmf-events" // Default value for when Event Hub isn't created yet
-}
-
-variable "eventhub_consumer_group" {
-  description = "Event Hub consumer group"
-  type        = string
-  default     = "$Default"
-}
-
-variable "eventhub_poll_schedule_expression" {
-  description = "EventBridge schedule for Event Hub polling"
-  type        = string
-  default     = "rate(1 minute)"
-}
-
-variable "eventhub_poll_window_minutes" {
-  description = "Minutes to look back when polling Event Hub"
-  type        = number
-  default     = 10
-}
-
-variable "eventhub_max_events" {
-  description = "Max events to read per partition per poll"
-  type        = number
-  default     = 50
 }
 
 variable "aws_profile" {
@@ -166,6 +119,12 @@ variable "eventhub_poll_window_minutes" {
   description = "Lookback window (minutes) for polling"
   type        = number
   default     = 10
+}
+
+variable "eventhub_poll_schedule_expression" {
+  description = "EventBridge schedule for Event Hub polling"
+  type        = string
+  default     = "rate(1 minute)"
 }
 
 variable "renewal_schedule_expression" {

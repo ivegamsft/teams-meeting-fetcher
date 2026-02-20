@@ -126,9 +126,9 @@ module "aws" {
   azure_allowed_group_id = module.azure.admin_group_id
 
   # Event Hub from Azure module outputs
-  eventhub_connection_string = module.azure.eventhub_connection_string
-  eventhub_name              = module.azure.eventhub_name
-  eventhub_consumer_group    = var.eventhub_consumer_group
+  eventhub_namespace       = module.azure.eventhub_namespace_name
+  eventhub_name            = module.azure.eventhub_name
+  eventhub_consumer_group  = var.eventhub_consumer_group
 
   # Bot configuration
   group_cache_ttl_seconds = var.group_cache_ttl_seconds
