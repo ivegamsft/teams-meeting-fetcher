@@ -20,9 +20,13 @@
 
 ### 🚀 Getting Started
 1. **[README.md](README.md)** ← You are here
-2. **[SETUP.md](SETUP.md)** — Prerequisites & initial configuration
-3. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
-4. **[MONITORING.md](MONITORING.md)** — Operational monitoring
+2. **[PRE-TEST-CHECKLIST.md](PRE-TEST-CHECKLIST.md)** — Verify all prerequisites (2 min)
+3. **[SETUP.md](SETUP.md)** — Prerequisites & initial configuration
+4. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
+
+### 🧪 Testing & Operations
+5. **[TESTING.md](TESTING.md)** — Complete E2E testing guide (15-20 min)
+6. **[MONITORING.md](MONITORING.md)** — Operational monitoring & troubleshooting
 
 ### 💻 Implementation
 - **[src/](src/)** — Lambda handlers and utilities
