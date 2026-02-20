@@ -4,6 +4,16 @@
 
 > **This is a complete, self-contained scenario package.** Everything you need is in this folder: documentation, scripts, code, and configuration.
 
+## 🚀 START HERE - Complete Testing in 30-45 Minutes
+
+**👉 [GUIDED-TESTING.md](GUIDED-TESTING.md)** - Step-by-step walkthrough including:
+- Pre-flight verification
+- Monitor setup (3 terminals)
+- Create test meeting
+- Join meeting to capture transcript
+- Verify data flow: Meeting → Event Hub → Lambda → S3 → DynamoDB
+- Troubleshooting
+
 ## 🎯 When to Use EventHub Approach
 
 | Feature | nobots (Polling) | nobots-eventhub (EventHub) |
@@ -18,14 +28,21 @@
 
 ## 📂 Quick Navigation
 
-### 🚀 Getting Started
-1. **[README.md](README.md)** ← You are here
-2. **[PRE-TEST-CHECKLIST.md](PRE-TEST-CHECKLIST.md)** — Verify all prerequisites (2 min)
-3. **[SETUP.md](SETUP.md)** — Prerequisites & initial configuration
-4. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
+### 🚀 Getting Started (New Users)
+**Start here if you haven't tested yet:**
+1. **[GUIDED-TESTING.md](GUIDED-TESTING.md)** ← **START HERE** (30-45 min, step-by-step)
+   - Pre-flight checks
+   - Setup monitoring
+   - Create & join test meeting
+   - Verify transcript data flow
+   - Troubleshooting
 
-### 🧪 Testing & Operations
-5. **[TESTING.md](TESTING.md)** — Complete E2E testing guide (15-20 min)
+2. **[PRE-TEST-CHECKLIST.md](PRE-TEST-CHECKLIST.md)** — Quick verification (2 min)
+
+### 📊 Reference Documents
+3. **[SETUP.md](SETUP.md)** — Prerequisites & configuration
+4. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
+5. **[TESTING.md](TESTING.md)** — Alternative testing guide (manual approach)
 6. **[MONITORING.md](MONITORING.md)** — Operational monitoring & troubleshooting
 
 ### 💻 Implementation
