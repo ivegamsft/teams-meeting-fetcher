@@ -60,6 +60,16 @@ resource "azurerm_eventhub" "main" {
   partition_count     = 2
 }
 
+// Consumer Group for Lambda Event Hub Processor
+// Dedicated consumer group prevents Lambda from interfering with testing/debugging scripts
+resource "azurerm_eventhub_consumer_group" "lambda" {
+  name                = "lambda-processor"
+  namespace_name      = azurerm_eventhub_namespace.main.name
+  eventhub_name       = azurerm_eventhub.main.name
+  resource_group_name = var.resource_group_name
+  user_metadata       = "Consumer group dedicated to AWS Lambda Event Hub processor"
+}
+
 // Authorization rule for app consumption
 // NOTE: This uses SharedAccessKey authentication, which is legacy.
 // For improved security, use Azure RBAC (role assignments below) instead.

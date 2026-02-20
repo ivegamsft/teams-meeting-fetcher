@@ -46,6 +46,11 @@ output "azure_eventhub_connection_string" {
   sensitive   = true
 }
 
+output "azure_eventhub_lambda_consumer_group" {
+  description = "Azure Event Hub consumer group for Lambda"
+  value       = module.azure.eventhub_lambda_consumer_group
+}
+
 output "azure_key_vault_name" {
   description = "Azure Key Vault name"
   value       = module.azure.key_vault_name

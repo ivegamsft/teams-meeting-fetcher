@@ -172,6 +172,12 @@ variable "eventhub_checkpoints_table_name" {
   default     = "eventhub-checkpoints"
 }
 
+variable "message_processing_mode" {
+  description = "Event Hub message processing mode: 'consume' (default) or 'peek' (testing)"
+  type        = string
+  default     = "consume"
+}
+
 //=============================================================================
 // BOT CONFIGURATION VARIABLES
 //=============================================================================

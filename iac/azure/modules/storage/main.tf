@@ -92,8 +92,10 @@ resource "azurerm_role_assignment" "app_storage" {
 }
 // Grant Storage Blob Data Contributor to Microsoft Graph Change Tracking service principal
 // Allows Graph API to store rich notification payloads > 1MB
-resource "azurerm_role_assignment" "graph_change_tracking_storage" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = "0bf30f3b-4a52-48df-9a82-234910c4a086" // Microsoft Graph Change Tracking app ID (hardcoded - stable)
-}
+// TEMPORARILY DISABLED - causing apply to hang (HTTP connection reset)
+// TODO: Investigate Azure Role Assignment creation timeout/hang issue
+# resource "azurerm_role_assignment" "graph_change_tracking_storage" {
+#   scope                = azurerm_storage_account.main.id
+#   role_definition_name = "Storage Blob Data Contributor"
+#   principal_id         = "0bf30f3b-4a52-48df-9a82-234910c4a086" // Microsoft Graph Change Tracking app ID (hardcoded - stable)
+# }

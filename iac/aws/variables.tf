@@ -104,9 +104,9 @@ variable "eventhub_name" {
 }
 
 variable "eventhub_consumer_group" {
-  description = "Event Hub consumer group"
+  description = "Event Hub consumer group for Lambda processor"
   type        = string
-  default     = "$Default"
+  default     = "lambda-processor"
 }
 
 variable "eventhub_max_events" {
@@ -125,6 +125,12 @@ variable "eventhub_poll_schedule_expression" {
   description = "EventBridge schedule for Event Hub polling"
   type        = string
   default     = "rate(1 minute)"
+}
+
+variable "message_processing_mode" {
+  description = "Event Hub message processing mode: 'consume' (default) or 'peek' (testing)"
+  type        = string
+  default     = "consume"
 }
 
 variable "renewal_schedule_expression" {

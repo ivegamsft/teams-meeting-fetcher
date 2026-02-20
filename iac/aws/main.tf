@@ -177,6 +177,7 @@ module "eventhub_processor" {
   eventhub_consumer_group      = var.eventhub_consumer_group
   eventhub_max_events          = var.eventhub_max_events
   eventhub_poll_window_minutes = var.eventhub_poll_window_minutes
+  message_processing_mode      = var.message_processing_mode
   azure_tenant_id              = var.azure_graph_tenant_id
   azure_client_id              = var.azure_graph_client_id
   azure_client_secret          = var.azure_graph_client_secret

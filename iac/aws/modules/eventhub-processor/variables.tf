@@ -80,6 +80,16 @@ variable "eventhub_poll_window_minutes" {
   default     = 10
 }
 
+variable "message_processing_mode" {
+  description = "Message processing mode: 'consume' (advance offset) or 'peek' (read-only)"
+  type        = string
+  default     = "consume"
+  validation {
+    condition     = contains(["consume", "peek"], var.message_processing_mode)
+    error_message = "message_processing_mode must be either 'consume' or 'peek'"
+  }
+}
+
 variable "azure_tenant_id" {
   description = "Azure tenant ID for AAD auth"
   type        = string

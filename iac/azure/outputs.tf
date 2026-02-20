@@ -172,6 +172,11 @@ output "eventhub_connection_string" {
   sensitive   = true
 }
 
+output "eventhub_lambda_consumer_group" {
+  description = "Event Hub consumer group for Lambda processor"
+  value       = module.monitoring.eventhub_lambda_consumer_group
+}
+
 output "appinsights_instrumentation_key" {
   description = "Application Insights instrumentation key"
   value       = module.monitoring.app_insights_instrumentation_key

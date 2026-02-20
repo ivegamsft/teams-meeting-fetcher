@@ -92,6 +92,7 @@ resource "aws_lambda_function" "eventhub" {
         EVENT_HUB_CONSUMER_GROUP      = var.eventhub_consumer_group
         EVENT_HUB_MAX_EVENTS          = tostring(var.eventhub_max_events)
         EVENT_HUB_POLL_WINDOW_MINUTES = tostring(var.eventhub_poll_window_minutes)
+        MESSAGE_PROCESSING_MODE       = var.message_processing_mode
         EVENTHUB_CHECKPOINT_TABLE     = var.checkpoint_table_name
         BUCKET_NAME                   = var.bucket_name
         AZURE_TENANT_ID               = var.azure_tenant_id

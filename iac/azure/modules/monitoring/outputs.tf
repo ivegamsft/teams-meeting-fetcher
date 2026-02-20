@@ -51,6 +51,11 @@ output "eventhub_name" {
   value       = azurerm_eventhub.main.name
 }
 
+output "eventhub_lambda_consumer_group" {
+  description = "Event Hub consumer group for Lambda processor"
+  value       = azurerm_eventhub_consumer_group.lambda.name
+}
+
 output "eventhub_connection_string" {
   description = "Event Hub connection string"
   value       = azurerm_eventhub_authorization_rule.main.primary_connection_string

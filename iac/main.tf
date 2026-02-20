@@ -129,6 +129,7 @@ module "aws" {
   eventhub_namespace      = module.azure.eventhub_namespace_name
   eventhub_name           = module.azure.eventhub_name
   eventhub_consumer_group = var.eventhub_consumer_group
+  message_processing_mode = var.message_processing_mode
 
   # Bot configuration
   group_cache_ttl_seconds = var.group_cache_ttl_seconds
