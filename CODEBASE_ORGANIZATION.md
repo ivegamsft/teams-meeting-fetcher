@@ -1,6 +1,7 @@
 # Codebase Organization Guide
 
 ## Current State
+
 - `scripts/` - Scattered automation scripts (graph/, aws/, setup/, config/, deployment/, teams/, verify/)
 - `test/` - Tests organized by level (unit, integration, e2e) separate from functional code
 - `nobots/` - Polling-based implementation
@@ -52,7 +53,7 @@ scripts/
 │   └── secret_manager.ps1
 ├── graph/                               (Graph API shared utilities)
 │   ├── auth_helper.py
-│   └── graph_client.py  
+│   └── graph_client.py
 └── DEPRECATION_NOTICE.md                (Point to scenario-specific scripts)
 ```
 
@@ -76,11 +77,13 @@ test/
 ### Phase 1: EventHub Scenario (nobots-eventhub)
 
 1. **Create structure**:
+
    ```bash
    mkdir -p nobots-eventhub/{tests,scripts,config,data}
    ```
 
 2. **Move tests**:
+
    ```bash
    # EventHub-specific tests from test/ → nobots-eventhub/tests/
    cp -r test/integration/*eventhub* nobots-eventhub/tests/integration/
@@ -88,6 +91,7 @@ test/
    ```
 
 3. **Move scripts**:
+
    ```bash
    # EventHub setup scripts from scripts/graph → nobots-eventhub/scripts/
    mv scripts/graph/02-create-webhook-subscription.py nobots-eventhub/scripts/
@@ -101,6 +105,7 @@ test/
 ### Phase 2: Polling Scenario (nobots)
 
 1. **Create structure**:
+
    ```bash
    mkdir -p nobots/{tests,scripts,config,data}
    ```
@@ -120,12 +125,14 @@ test/
 ### EventHub Subscription Creation
 
 **BEFORE**:
+
 - Script: `scripts/graph/02-create-webhook-subscription.py`
 - Tests: `test/integration/webhooks.test.js` (mixed with other tests)
 - Config: `scripts/config/.env.example`
 - Docs: `nobots-eventhub/README.md`, `docs/GRAPH_SUBSCRIPTIONS_SETUP.md`
 
 **AFTER**:
+
 - Script: `nobots-eventhub/scripts/create-subscription.py`
 - Tests: `nobots-eventhub/tests/integration/subscription.test.js`
 - Config: `nobots-eventhub/config/.env.example`
@@ -134,12 +141,14 @@ test/
 ### Event Hub Polling & Processing
 
 **BEFORE**:
+
 - Implementation: `nobots-eventhub/dump-events.js`
 - Tests: `test/e2e/eventhub-flow.test.js`
 - Monitoring script: `scripts/aws/subscription-tracker.py` (AWS-specific)
 - Docs: `nobots-eventhub/README.md`
 
 **AFTER**:
+
 - Implementation: `nobots-eventhub/src/dump-events.js`
 - Tests: `nobots-eventhub/tests/e2e/flow.test.js`
 - Monitoring script: `nobots-eventhub/scripts/monitor.sh`
@@ -191,21 +200,25 @@ scenario-name/
 ## Crosscutting Concerns (Remain in root-level folders)
 
 ✅ Keep in `scripts/shared/`:
+
 - Graph API helpers (auth, client setup)
 - Configuration loaders
 - Secret management utilities
 - Logging/monitoring utilities
 
 ✅ Keep in `iac/`:
+
 - Terraform for all scenarios
 - Infrastructure as Code (unified)
 
 ✅ Keep in `docs/`:
+
 - Architecture overviews
 - Decision records
 - Integration guides across scenarios
 
 ✅ Keep in `test/`:
+
 - Infrastructure tests (e2e, integration spanning scenarios)
 - Shared test utilities
 - Test fixtures used by multiple scenarios
@@ -223,8 +236,8 @@ To reorganize, we need to:
 5. **Update root README** with new structure links
 
 Would you like me to:
+
 - [ ] Start with EventHub scenario organization (high priority)
 - [ ] Create folders and move files
 - [ ] Update documentation and import paths
 - [ ] Create template READMEs with migration status
-

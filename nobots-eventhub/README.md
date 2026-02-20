@@ -7,6 +7,7 @@
 ## 🚀 START HERE - Complete Testing in 30-45 Minutes
 
 **👉 [GUIDED-TESTING.md](GUIDED-TESTING.md)** - Step-by-step walkthrough including:
+
 - Pre-flight verification
 - Monitor setup (3 terminals)
 - Create test meeting
@@ -16,20 +17,22 @@
 
 ## 🎯 When to Use EventHub Approach
 
-| Feature | nobots (Polling) | nobots-eventhub (EventHub) |
-|---------|------------------|---------------------------|
-| **Latency** | 30-60 seconds | Real-time (<5 sec) |
-| **API Calls** | Continuous polling | On-demand only |
-| **Complexity** | Simple | Requires EventHub |
-| **Cost** | Higher (polling) | Lower (event-driven) |
-| **Use Case** | Development, demos | Production workloads |
+| Feature        | nobots (Polling)   | nobots-eventhub (EventHub) |
+| -------------- | ------------------ | -------------------------- |
+| **Latency**    | 30-60 seconds      | Real-time (<5 sec)         |
+| **API Calls**  | Continuous polling | On-demand only             |
+| **Complexity** | Simple             | Requires EventHub          |
+| **Cost**       | Higher (polling)   | Lower (event-driven)       |
+| **Use Case**   | Development, demos | Production workloads       |
 
 **Choose EventHub if you need**: Real-time updates, low API quota usage, scalability
 
 ## 📂 Quick Navigation
 
 ### 🚀 Getting Started (New Users)
+
 **Start here if you haven't tested yet:**
+
 1. **[GUIDED-TESTING.md](GUIDED-TESTING.md)** ← **START HERE** (30-45 min, step-by-step)
    - Pre-flight checks
    - Setup monitoring
@@ -40,30 +43,32 @@
 2. **[PRE-TEST-CHECKLIST.md](PRE-TEST-CHECKLIST.md)** — Quick verification (2 min)
 
 ### 📊 Reference Documents
+
 3. **[SETUP.md](SETUP.md)** — Prerequisites & configuration
 4. **[DEPLOYMENT.md](DEPLOYMENT.md)** — Infrastructure deployment (Terraform)
 5. **[TESTING.md](TESTING.md)** — Alternative testing guide (manual approach)
 6. **[MONITORING.md](MONITORING.md)** — Operational monitoring & troubleshooting
 
 ### 💻 Implementation
+
 - **[src/](src/)** — Lambda handlers and utilities
   - `handler.js` — Event Hub consumer
   - `package.json` — Dependencies
-  
 - **[scripts/](scripts/)** — Management and testing scripts
   - `create-group-eventhub-subscription.py` — Create Graph subscription
   - `create-test-meeting.py` — Create test meeting
   - `list-subscriptions.py` — View active subscriptions
 
 ### 🧪 Testing
+
 - **[tests/](tests/)** — Automated tests
   - `unit/` — Handler logic tests
   - `integration/` — Lambda + EventHub integration
   - `e2e/` — Full flow end-to-end
-  
 - **[data/fixtures/](data/fixtures/)** — Sample event payloads
 
 ### ⚙️ Configuration
+
 - **[config/](config/)** — Configuration templates
   - `.env.example` — Environment variables
   - `terraform.tfvars.example` — Infrastructure variables
@@ -87,11 +92,13 @@ AWS Lambda: tmf-webhook-writer-dev
 ## ⚡ Quick Start (5 minutes)
 
 ### Prerequisites
+
 - Azure AD app with `Calendars.Read` permission
 - AWS account (or use existing deployment)
 - Python 3.8+ and Node.js 18+
 
 ### 1. Configure Environment
+
 ```bash
 # Copy and edit
 cp config/.env.example ../.env.local.azure
@@ -105,40 +112,48 @@ AZURE_EVENTHUB_CONNECTION_STRING=your-connection-string
 ```
 
 ### 2. Install Dependencies
+
 ```bash
 cd scripts
 pip install -r requirements.txt
 ```
 
 ### 3. Verify Setup
+
 ```bash
 python 01-verify-setup.py
 ```
 
 ### 4. Create Graph Subscription
+
 ```bash
 python create-group-eventhub-subscription.py
 ```
 
 ### 5. Create Test Meeting
+
 ```bash
 python create-test-meeting.py --minutes 30
 ```
 
 ### 6. Monitor Data Flow
+
 Open 3 terminals:
 
 **Terminal 1**: Process logs
+
 ```bash
 aws logs tail /aws/lambda/tmf-eventhub-processor-dev --follow
 ```
 
 **Terminal 2**: Writer logs
+
 ```bash
 aws logs tail /aws/lambda/tmf-webhook-writer-dev --follow
 ```
 
 **Terminal 3**: Checkpoints
+
 ```bash
 watch -n 5 'aws dynamodb scan --table-name eventhub-checkpoints'
 ```
@@ -146,45 +161,51 @@ watch -n 5 'aws dynamodb scan --table-name eventhub-checkpoints'
 ## 📖 Detailed Guides
 
 ### For First-Time Setup
+
 1. Start with **[SETUP.md](SETUP.md)** for prerequisites
 2. Follow **[DEPLOYMENT.md](DEPLOYMENT.md)** to deploy infrastructure
 3. Run scripts in `scripts/` to create subscriptions and test
 
 ### For Monitoring & Troubleshooting
+
 - See **[MONITORING.md](MONITORING.md)** for health checks, log analysis, and troubleshooting
 
 ### For Understanding the Code
+
 - Check `src/handler.js` for Lambda implementation
 - See `scripts/` for automation examples
 - Review `tests/` for usage patterns
 
 ## 🔑 Key Resources
 
-| Resource | Value |
-|----------|-------|
-| **Event Hub Namespace** | `tmf-ehns-eus-6an5wk` |
-| **Event Hub Name** | `tmf-eh-eus-6an5wk` |
-| **Lambda Processor** | `tmf-eventhub-processor-dev` |
-| **Lambda Writer** | `tmf-webhook-writer-dev` |
-| **S3 Bucket** | `tmf-webhooks-eus-dev` |
-| **DynamoDB Tables** | `eventhub-checkpoints`, `graph_subscriptions` |
-| **Region** | US East 1 (AWS) / East US (Azure) |
+| Resource                | Value                                         |
+| ----------------------- | --------------------------------------------- |
+| **Event Hub Namespace** | `tmf-ehns-eus-6an5wk`                         |
+| **Event Hub Name**      | `tmf-eh-eus-6an5wk`                           |
+| **Lambda Processor**    | `tmf-eventhub-processor-dev`                  |
+| **Lambda Writer**       | `tmf-webhook-writer-dev`                      |
+| **S3 Bucket**           | `tmf-webhooks-eus-dev`                        |
+| **DynamoDB Tables**     | `eventhub-checkpoints`, `graph_subscriptions` |
+| **Region**              | US East 1 (AWS) / East US (Azure)             |
 
 ## 📋 Development Workflow
 
 ### Add New Feature
+
 1. Create test in `tests/unit/` or `tests/integration/`
 2. Implement in `src/`
 3. Test locally: `npm test`
 4. Deploy: See [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ### Debug Issue
+
 1. Check logs: See [MONITORING.md](MONITORING.md)
 2. Verify subscription: `python scripts/list-subscriptions.py`
 3. Check checkpoints: `aws dynamodb scan --table-name eventhub-checkpoints`
 4. Review payloads: See "Monitoring S3 Payloads" in [MONITORING.md](MONITORING.md)
 
 ### Monitor in Production
+
 1. Set up CloudWatch dashboards
 2. Enable SNS alerts for Lambda errors
 3. Monitor checkpoint offset growth
@@ -193,6 +214,7 @@ watch -n 5 'aws dynamodb scan --table-name eventhub-checkpoints'
 ## 🚀 Deployment
 
 ### First Deployment
+
 ```bash
 cd ../../iac
 terraform init
@@ -201,6 +223,7 @@ terraform apply tfplan
 ```
 
 ### Updates
+
 ```bash
 cd ../../iac
 terraform plan
@@ -212,6 +235,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
 ## ✅ Verification Checklist
 
 After setup, verify:
+
 - [ ] Event Hub namespace accessible
 - [ ] Lambda functions deployed
 - [ ] DynamoDB tables created
@@ -225,12 +249,15 @@ After setup, verify:
 ## 🐛 Common Issues
 
 ### No Lambda Activity
+
 → Check Graph subscription created: `python scripts/list-subscriptions.py`
 
 ### Event Hub Not Receiving Messages
+
 → Verify subscription notification URL includes `?tenantId=...` parameter
 
 ### S3 Upload Fails
+
 → Check Lambda IAM role has S3 permissions
 
 See [MONITORING.md](MONITORING.md#troubleshooting) for detailed troubleshooting.
@@ -245,6 +272,7 @@ See [MONITORING.md](MONITORING.md#troubleshooting) for detailed troubleshooting.
 ## 🤝 Contributing
 
 To improve this scenario:
+
 1. Make changes in appropriate folder (src/, tests/, scripts/)
 2. Update documentation if needed
 3. Test changes thoroughly
@@ -254,6 +282,7 @@ To improve this scenario:
 ## 📞 Support
 
 For issues specific to this scenario:
+
 1. Check [MONITORING.md](MONITORING.md#troubleshooting)
 2. Review logs in all 3 terminal windows
 3. Verify configuration in [SETUP.md](SETUP.md)

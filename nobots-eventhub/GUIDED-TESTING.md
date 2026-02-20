@@ -9,6 +9,7 @@ Follow this guide step-by-step to test the complete EventHub workflow including 
 ## 🟢 READY? Let's Begin
 
 ### What You'll Do
+
 1. ✅ Verify everything is working (pre-flight)
 2. 🚀 Start monitoring in 3 terminals
 3. 📅 Create a test meeting in Teams
@@ -22,6 +23,7 @@ Follow this guide step-by-step to test the complete EventHub workflow including 
 ## STEP 1: Pre-Flight Verification (5 minutes)
 
 ### 1.1 - Check Terraform Deployment
+
 ```bash
 cd iac
 terraform state list | wc -l
@@ -32,6 +34,7 @@ terraform state list | wc -l
 **If not 101**: Run `terraform apply` first
 
 ### 1.2 - Verify Event Hub
+
 ```bash
 az eventhub namespace show --name tmf-ehns-eus-6an5wk \
   --resource-group tmf-rg-eus-6an5wk \
@@ -41,12 +44,14 @@ az eventhub namespace show --name tmf-ehns-eus-6an5wk \
 **Expected**: `Succeeded`
 
 ### 1.3 - Check Graph Subscription
+
 ```bash
 cd nobots-eventhub/scripts
 python list-subscriptions.py
 ```
 
 **Expected output**:
+
 ```
 ✓ Found subscriptions
 Subscription ID: sub_...
@@ -55,11 +60,13 @@ Expires: [Today or future date]
 ```
 
 ❌ **If no subscription**: Create one:
+
 ```bash
 python create-group-eventhub-subscription.py
 ```
 
 ### 1.4 - Verify AWS Access
+
 ```bash
 aws sts get-caller-identity --profile tmf-dev --region us-east-1
 ```
@@ -73,32 +80,40 @@ aws sts get-caller-identity --profile tmf-dev --region us-east-1
 **You need 3 terminals open at the same time.**
 
 ### Terminal 1: Event Hub Processor Logs
+
 Open new terminal, run:
+
 ```bash
 aws logs tail /aws/lambda/tmf-eventhub-processor-dev \
   --follow --profile tmf-dev --region us-east-1
 ```
 
 **What to watch for**:
+
 - `Polling Event Hub...`
 - `Received X messages from partition Y`
 - `Processing message at offset Z`
 
 ### Terminal 2: Webhook Writer Logs
+
 Open new terminal, run:
+
 ```bash
 aws logs tail /aws/lambda/tmf-webhook-writer-dev \
   --follow --profile tmf-dev --region us-east-1
 ```
 
 **What to watch for**:
+
 - `Processing X message(s)`
 - `Uploading payload to S3...`
 - `Updating DynamoDB checkpoint`
 - `Processing complete`
 
 ### Terminal 3: DynamoDB Checkpoints Monitor
+
 Open new terminal, run:
+
 ```bash
 # Watch for updates (refreshes every 5 seconds)
 while ($true) {
@@ -111,6 +126,7 @@ while ($true) {
 ```
 
 **What to watch for**:
+
 - Offset numbers appearing
 - Offset numbers increasing over time
 - Latest checkpoint_timestamp
@@ -122,13 +138,16 @@ while ($true) {
 ## STEP 3: Create Test Meeting in Teams (5 minutes)
 
 ### 3.1 - Create Meeting from Script
+
 Back in your main terminal:
+
 ```bash
 cd nobots-eventhub/scripts
 python create-test-meeting.py --title "EventHub Transcript Test" --minutes 60
 ```
 
 **You'll see output like**:
+
 ```
 ✓ Meeting created successfully
 Event ID: event_abc123def456
@@ -140,27 +159,32 @@ Join URL: https://teams.microsoft.com/l/meetup-join/...
 **Save this information** (copy the Join URL)
 
 ### 3.2 - Verify Meeting in Teams
+
 - Open Microsoft Teams
 - Look in Calendar
 - Should see "EventHub Transcript Test" meeting
 - Meeting should be starting soon (in a few seconds)
 
 ### 3.3 - Watch Monitoring Terminals!
+
 **At this moment, check your 3 monitoring terminals:**
 
 **Terminal 1 (Processor)** should show:
+
 ```
 [EventHubProcessor] Polling Event Hub for new messages
 [EventHubProcessor] Received 1 message from partition 0
 ```
 
 **Terminal 2 (Writer)** should show:
+
 ```
 [WebhookWriter] Processing 1 message(s)
 [WebhookWriter] Processing complete
 ```
 
 **Terminal 3 (DynamoDB)** should show:
+
 ```
 partition_id    offset    sequence_number    checkpoint_timestamp
 0               1234      5678               2026-02-19T14:30:XX
@@ -175,17 +199,21 @@ partition_id    offset    sequence_number    checkpoint_timestamp
 ## STEP 4: Join the Meeting (2 minutes)
 
 ### 4.1 - Click Join URL
+
 Paste the Join URL from Step 3.1 into your browser (or click from Teams)
 
 ### 4.2 - Join the Meeting
+
 - Click "Join now"
 - Allow camera/microphone (optional)
 - Join the meeting
 
 ### 4.3 - Keep Meeting Open
+
 **Important**: Keep the meeting open for **at least 2 minutes** so Teams can prepare the transcript
 
 **While in meeting**:
+
 - The meeting should show as active
 - Recording/transcript capture should be enabled
 
@@ -194,14 +222,18 @@ Paste the Join URL from Step 3.1 into your browser (or click from Teams)
 ## STEP 5: End Meeting & Capture (10 minutes)
 
 ### 5.1 - Leave Meeting
+
 After 2+ minutes in the meeting:
+
 - Click "Leave" to exit the meeting
 - Meeting should end automatically after you leave
 
 ### 5.2 - Monitor Event Flow
+
 **Check your 3 terminals again:**
 
 **Terminal 1 (Processor)**: Should show another "Received messages"
+
 ```
 [EventHubProcessor] Polling Event Hub...
 [EventHubProcessor] Received 1 message from partition 2
@@ -209,6 +241,7 @@ After 2+ minutes in the meeting:
 ```
 
 **Terminal 2 (Writer)**: Should process the "meeting updated" event
+
 ```
 [WebhookWriter] Processing 1 message(s)
 [WebhookWriter] Calendar event: meeting_updated
@@ -216,6 +249,7 @@ After 2+ minutes in the meeting:
 ```
 
 **Terminal 3 (DynamoDB)**: Offset should increase
+
 ```
 partition_id    offset    sequence_number    checkpoint_timestamp
 2               512       2890               2026-02-19T14:31:XX
@@ -228,7 +262,9 @@ partition_id    offset    sequence_number    checkpoint_timestamp
 ## STEP 6: Verify Data Storage (10 minutes)
 
 ### 6.1 - Check S3 Webhook Payloads
+
 In a new terminal:
+
 ```bash
 # List all payloads
 aws s3api list-objects-v2 --bucket tmf-webhooks-eus-dev \
@@ -254,6 +290,7 @@ $payload.value[0] | Select-Object changeType, @{Name='Subject';Expression={$_.re
 ```
 
 **Expected output**:
+
 ```
 changeType    Subject
 ----------    -------
@@ -261,6 +298,7 @@ created       EventHub Transcript Test
 ```
 
 And later:
+
 ```
 changeType    Subject
 ----------    -------
@@ -268,6 +306,7 @@ updated       EventHub Transcript Test
 ```
 
 ### 6.2 - Check DynamoDB Checkpoints
+
 ```bash
 # View checkpoints
 aws dynamodb scan --table-name eventhub-checkpoints \
@@ -285,6 +324,7 @@ partition_id    offset    sequence_number
 ✅ **Multiple partitions with offsets?** → Good!
 
 ### 6.3 - Check Graph Subscriptions Table
+
 ```bash
 aws dynamodb scan --table-name graph_subscriptions \
   --profile tmf-dev --region us-east-1 \
@@ -294,6 +334,7 @@ aws dynamodb scan --table-name graph_subscriptions \
 **Should show your subscription** with expiration date and resource path
 
 ### 6.4 - Check Meetings Table
+
 ```bash
 aws dynamodb scan --table-name meetings \
   --profile tmf-dev --region us-east-1 \
@@ -301,6 +342,7 @@ aws dynamodb scan --table-name meetings \
 ```
 
 **Should show your test meeting** with details:
+
 - meeting_id
 - event_timestamp
 - title: "EventHub Transcript Test"
@@ -329,17 +371,17 @@ aws dynamodb scan --table-name meetings \
 
 ### Success Score
 
-| Component | Status | Points |
-|-----------|--------|--------|
-| Infrastructure deployed | ✓ | 1 |
-| Graph subscription active | ✓ | 1 |
-| Meeting created in Teams | ✓ | 1 |
-| Logs show processor activity | ✓ | 1 |
-| Logs show writer activity | ✓ | 1 |
-| S3 has payloads | ✓ | 1 |
-| DynamoDB checkpoints updated | ✓ | 1 |
-| Graph subscriptions tracked | ✓ | 1 |
-| Meetings table populated | ✓ | 1 |
+| Component                    | Status | Points |
+| ---------------------------- | ------ | ------ |
+| Infrastructure deployed      | ✓      | 1      |
+| Graph subscription active    | ✓      | 1      |
+| Meeting created in Teams     | ✓      | 1      |
+| Logs show processor activity | ✓      | 1      |
+| Logs show writer activity    | ✓      | 1      |
+| S3 has payloads              | ✓      | 1      |
+| DynamoDB checkpoints updated | ✓      | 1      |
+| Graph subscriptions tracked  | ✓      | 1      |
+| Meetings table populated     | ✓      | 1      |
 
 **Score 9/9?** 🎉 **COMPLETE SUCCESS!**
 
@@ -401,11 +443,13 @@ Transcript stored in S3: transcripts/{meeting-id}.vtt
 ### "No logs appearing in terminals?"
 
 **Check 1**: Is subscription active?
+
 ```bash
 python nobots-eventhub/scripts/list-subscriptions.py
 ```
 
 **Check 2**: Did Event Hub receive the notification?
+
 ```bash
 az eventhub eventhub show --name tmf-eh-eus-6an5wk \
   --namespace-name tmf-ehns-eus-6an5wk \
@@ -413,6 +457,7 @@ az eventhub eventhub show --name tmf-eh-eus-6an5wk \
 ```
 
 **Check 3**: Do Lambda functions exist?
+
 ```bash
 aws lambda get-function --function-name tmf-eventhub-processor-dev \
   --profile tmf-dev --region us-east-1 --query 'Configuration.State'
@@ -421,6 +466,7 @@ aws lambda get-function --function-name tmf-eventhub-processor-dev \
 ### "Lambda timeout error?"
 
 Increase timeout:
+
 ```bash
 aws lambda update-function-configuration \
   --function-name tmf-eventhub-processor-dev \
@@ -434,6 +480,7 @@ aws lambda update-function-configuration \
 ### "S3 upload fails?"
 
 Check IAM role permissions:
+
 ```bash
 aws iam get-role-policy --role-name tmf-lambda-webhook-writer-role \
   --policy-name s3-write-policy --profile tmf-dev
@@ -442,6 +489,7 @@ aws iam get-role-policy --role-name tmf-lambda-webhook-writer-role \
 ### "DynamoDB shows no data?"
 
 Check table exists and has on-demand billing:
+
 ```bash
 aws dynamodb describe-table --table-name eventhub-checkpoints \
   --profile tmf-dev --region us-east-1 \
@@ -453,36 +501,42 @@ aws dynamodb describe-table --table-name eventhub-checkpoints \
 ## 📝 NOTES FOR LATER
 
 **Meeting Details** (save for reference):
-- Event ID: _________________
-- Online Meeting ID: _________________
-- Join URL: _________________
-- Meeting time: _________________
+
+- Event ID: ********\_********
+- Online Meeting ID: ********\_********
+- Join URL: ********\_********
+- Meeting time: ********\_********
 
 **Observations**:
-- Logs appeared after ___ seconds
-- S3 payload received after ___ seconds
-- DynamoDB updated after ___ seconds
 
-**Issues encountered**: 
-- ________________
-- ________________
+- Logs appeared after \_\_\_ seconds
+- S3 payload received after \_\_\_ seconds
+- DynamoDB updated after \_\_\_ seconds
+
+**Issues encountered**:
+
+- ***
+- ***
 
 ---
 
 ## 🎯 Next Steps
 
 ✅ **All tests passed?**
+
 1. Review [MONITORING.md](../MONITORING.md) for production monitoring
 2. Set up CloudWatch alarms
 3. Configure SNS notifications
 4. Deploy to production
 
 ❌ **Issues remaining?**
+
 1. Check [MONITORING.md#troubleshooting](../MONITORING.md#troubleshooting)
 2. Review Lambda logs in detail
 3. Check Azure Event Hub metrics in Portal
 
 📚 **Learn more**:
+
 - [SETUP.md](../SETUP.md) - Configuration details
 - [DEPLOYMENT.md](../DEPLOYMENT.md) - Infrastructure code
 - [MONITORING.md](../MONITORING.md) - Production operations
@@ -492,4 +546,3 @@ aws dynamodb describe-table --table-name eventhub-checkpoints \
 **Congratulations on testing EventHub!** 🎉
 
 You've successfully verified the complete data flow from Teams meetings through Event Hub to AWS Lambda, S3, and DynamoDB.
-

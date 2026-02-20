@@ -28,6 +28,7 @@ az eventhub namespace show --name tmf-ehns-eus-6an5wk --resource-group tmf-rg-eu
 Open **3 separate terminals** to monitor the data flow in real time.
 
 ### Terminal 1: Track Event Hub Processing Logs
+
 ```bash
 aws logs tail /aws/lambda/tmf-eventhub-processor-dev \
   --follow --profile tmf-dev --region us-east-1 \
@@ -35,6 +36,7 @@ aws logs tail /aws/lambda/tmf-eventhub-processor-dev \
 ```
 
 **What to watch for**:
+
 ```
 [EventHubProcessor] Polling Event Hub...
 [EventHubProcessor] Received X messages from partition Y
@@ -42,6 +44,7 @@ aws logs tail /aws/lambda/tmf-eventhub-processor-dev \
 ```
 
 ### Terminal 2: Track Webhook Writer Logs
+
 ```bash
 aws logs tail /aws/lambda/tmf-webhook-writer-dev \
   --follow --profile tmf-dev --region us-east-1 \
@@ -49,6 +52,7 @@ aws logs tail /aws/lambda/tmf-webhook-writer-dev \
 ```
 
 **What to watch for**:
+
 ```
 [WebhookWriter] Processing 1 message(s)
 [WebhookWriter] Uploading to S3...
@@ -57,6 +61,7 @@ aws logs tail /aws/lambda/tmf-webhook-writer-dev \
 ```
 
 ### Terminal 3: Monitor DynamoDB Checkpoints
+
 ```bash
 # One-time check, then repeat every 5-10 seconds after meeting creation
 aws dynamodb scan --table-name eventhub-checkpoints \
@@ -65,6 +70,7 @@ aws dynamodb scan --table-name eventhub-checkpoints \
 ```
 
 **Watch for offset increases**:
+
 ```
 partition_id    offset    sequence_number
 0               1234      5678
@@ -84,6 +90,7 @@ python create-group-eventhub-subscription.py
 ```
 
 **Expected output**:
+
 ```
 ✓ Subscription created successfully
 Subscription ID: sub_12345678
@@ -106,6 +113,7 @@ python create-test-meeting.py --title "EventHub Test $(Get-Date -Format 'HH:mm:s
 ```
 
 **Expected output**:
+
 ```
 ✓ Meeting created successfully
 Event ID: event_abc123def456
@@ -124,18 +132,21 @@ Watch the three terminals as data flows through the system:
 
 ### Timeline of What Should Happen
 
-**Seconds 0-30**: 
+**Seconds 0-30**:
+
 - Meeting created in Teams group
 - Teams notifies Graph API
 - Graph API sends notification to Event Hub
 
-**Seconds 30-60**: 
+**Seconds 30-60**:
+
 - EventBridge schedule triggers (every 1 minute)
 - `tmf-eventhub-processor-dev` Lambda invoked
 - Reads messages from Event Hub
 - Invokes `tmf-webhook-writer-dev`
 
 **Seconds 60-90**:
+
 - `tmf-webhook-writer-dev` processes payload
 - Uploads to S3
 - Updates DynamoDB checkpoint
@@ -144,12 +155,14 @@ Watch the three terminals as data flows through the system:
 ### Terminal Monitoring Checklist
 
 **Terminal 1 (Processor Logs)** — Should show:
+
 - ✓ "Polling Event Hub for new messages"
 - ✓ "Received 1 message from partition 0"
 - ✓ "Offset: XXXX, Sequence: YYYY"
 - ✓ "Invoking webhook writer"
 
 **Terminal 2 (Writer Logs)** — Should show:
+
 - ✓ "Processing X message(s)"
 - ✓ "Calendar event detected: meeting_created"
 - ✓ "Uploading payload to S3"
@@ -158,6 +171,7 @@ Watch the three terminals as data flows through the system:
 - ✓ "Processing complete"
 
 **Terminal 3 (DynamoDB)** — Should show:
+
 - ✓ Checkpoint table with entries
 - ✓ Offset numbers increasing with each poll
 - ✓ sequence_number field updated
@@ -197,6 +211,7 @@ cat latest-payload.json | ConvertFrom-Json | ConvertTo-Json -Depth 5 | more
 ```
 
 **Should contain**:
+
 ```json
 {
   "value": [
@@ -234,6 +249,7 @@ aws dynamodb scan --table-name meetings \
 ```
 
 **Should show**:
+
 - ✓ `eventhub-checkpoints`: 4 entries (one per partition), offsets increasing
 - ✓ `graph_subscriptions`: Subscription record with expiration date
 - ✓ `meetings`: Meeting record with event details
@@ -243,6 +259,7 @@ aws dynamodb scan --table-name meetings \
 ## Success Criteria
 
 ### ✅ Full Success
+
 - [ ] All 3 terminals show activity
 - [ ] Processor logs show messages received
 - [ ] Writer logs show S3 upload
@@ -251,13 +268,14 @@ aws dynamodb scan --table-name meetings \
 - [ ] Payload contains meeting data
 
 ### ⚠️ Partial Success (Issue to Fix)
-| Symptom | Check |
-|---------|-------|
-| No processor logs | Event Hub subscription inactive? |
-| No writer logs | Lambda permission issue? |
-| No S3 files | S3 IAM role missing |
-| No checkpoint update | DynamoDB permission issue |
-| Offsets not increasing | Event Hub has no messages |
+
+| Symptom                | Check                            |
+| ---------------------- | -------------------------------- |
+| No processor logs      | Event Hub subscription inactive? |
+| No writer logs         | Lambda permission issue?         |
+| No S3 files            | S3 IAM role missing              |
+| No checkpoint update   | DynamoDB permission issue        |
+| Offsets not increasing | Event Hub has no messages        |
 
 ---
 
@@ -266,13 +284,16 @@ aws dynamodb scan --table-name meetings \
 ### "No messages appearing in logs?"
 
 **Check 1: Graph subscription active**
+
 ```bash
 cd nobots-eventhub/scripts
 python list-subscriptions.py
 ```
+
 Should show subscription with status `active`
 
 **Check 2: Event Hub has messages**
+
 ```bash
 az eventhub eventhub show --name tmf-eh-eus-6an5wk \
   --namespace-name tmf-ehns-eus-6an5wk \
@@ -281,6 +302,7 @@ az eventhub eventhub show --name tmf-eh-eus-6an5wk \
 ```
 
 **Check 3: Lambda functions exist**
+
 ```bash
 aws lambda get-function --function-name tmf-eventhub-processor-dev \
   --profile tmf-dev --region us-east-1 \
@@ -290,6 +312,7 @@ aws lambda get-function --function-name tmf-eventhub-processor-dev \
 ### "Lambda timeout error?"
 
 Increase timeout:
+
 ```bash
 aws lambda update-function-configuration \
   --function-name tmf-eventhub-processor-dev \
@@ -300,6 +323,7 @@ aws lambda update-function-configuration \
 ### "Access denied on S3?"
 
 Verify Lambda IAM role has S3 permissions:
+
 ```bash
 aws iam get-role-policy --role-name tmf-lambda-webhook-writer-role \
   --policy-name s3-write-policy --profile tmf-dev
@@ -308,6 +332,7 @@ aws iam get-role-policy --role-name tmf-lambda-webhook-writer-role \
 ### "DynamoDB throttling?"
 
 Check if using on-demand billing:
+
 ```bash
 aws dynamodb describe-table --table-name eventhub-checkpoints \
   --profile tmf-dev --region us-east-1 \
@@ -361,4 +386,3 @@ After testing:
 **Estimated Total Test Time**: 15-20 minutes  
 **Success Rate**: >95% if all prerequisites met  
 **Next**: Proceed to production deployment or fine-tuning
-

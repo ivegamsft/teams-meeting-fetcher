@@ -17,6 +17,7 @@ terraform output -json | ConvertFrom-Json | Get-Member -MemberType NoteProperty
 ```
 
 **Status**:
+
 - [ ] 101 resources in state
 - [ ] All Terraform outputs present
 
@@ -48,6 +49,7 @@ az eventhub eventhub consumer-group list \
 ```
 
 **Status**:
+
 - [ ] Event Hub namespace: Succeeded
 - [ ] Event Hub hub exists
 - [ ] Consumer groups configured
@@ -75,6 +77,7 @@ aws s3api head-bucket --bucket tmf-webhooks-eus-dev --region us-east-1 && echo "
 ```
 
 **Status**:
+
 - [ ] Lambda functions deployed (3 functions)
 - [ ] DynamoDB tables created (3 tables)
 - [ ] S3 bucket accessible
@@ -97,6 +100,7 @@ cat ../../.env.local.azure | grep -E 'GRAPH_|ENTRA_|AZURE_'
 ```
 
 **Status**:
+
 - [ ] Python requirements installed
 - [ ] .env.local.azure configured
 - [ ] All Graph API variables set
@@ -114,6 +118,7 @@ python list-subscriptions.py
 ```
 
 **Expected output**:
+
 ```
 ✓ Found subscriptions
 Subscription ID: sub_12345678
@@ -124,6 +129,7 @@ Expires: 2026-03-21 14:30:00 UTC
 ```
 
 **Status**:
+
 - [ ] Graph subscription active
 - [ ] Notification URL points to Event Hub
 - [ ] Subscription not expired
@@ -140,6 +146,7 @@ aws sts get-caller-identity --profile tmf-dev --region us-east-1 \
 ```
 
 **Status**:
+
 - [ ] AWS profile tmf-dev valid
 - [ ] Access to correct AWS account
 
@@ -150,6 +157,7 @@ aws sts get-caller-identity --profile tmf-dev --region us-east-1 \
 ✅ **All checksums passed?** → Proceed to [TESTING.md](TESTING.md)
 
 ❌ **Something failed?** → Check:
+
 - [SETUP.md](SETUP.md) for configuration
 - [DEPLOYMENT.md](DEPLOYMENT.md) for infrastructure
 - [MONITORING.md](MONITORING.md#troubleshooting) for troubleshooting
@@ -158,16 +166,15 @@ aws sts get-caller-identity --profile tmf-dev --region us-east-1 \
 
 ## Summary
 
-| Component | Status | Command |
-|-----------|--------|---------|
-| Terraform | ✓ | `terraform state list \| wc -l` |
-| Event Hub | ✓ | `az eventhub namespace show ...` |
-| Lambda | ✓ | `aws lambda list-functions ...` |
-| DynamoDB | ✓ | `aws dynamodb list-tables ...` |
-| S3 | ✓ | `aws s3api head-bucket ...` |
-| Python | ✓ | `pip list \| grep azure` |
-| Graph Subscription | ✓ | `python list-subscriptions.py` |
-| AWS Credentials | ✓ | `aws sts get-caller-identity ...` |
+| Component          | Status | Command                           |
+| ------------------ | ------ | --------------------------------- |
+| Terraform          | ✓      | `terraform state list \| wc -l`   |
+| Event Hub          | ✓      | `az eventhub namespace show ...`  |
+| Lambda             | ✓      | `aws lambda list-functions ...`   |
+| DynamoDB           | ✓      | `aws dynamodb list-tables ...`    |
+| S3                 | ✓      | `aws s3api head-bucket ...`       |
+| Python             | ✓      | `pip list \| grep azure`          |
+| Graph Subscription | ✓      | `python list-subscriptions.py`    |
+| AWS Credentials    | ✓      | `aws sts get-caller-identity ...` |
 
 **Pre-Flight Score**: 8/8 ✅ Ready to test!
-
