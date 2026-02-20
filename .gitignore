@@ -58,6 +58,10 @@ tfplan
 tfplan.json
 *.out
 
+# Terraform outputs and temporary files
+iac/*.txt
+iac/tfplan-*
+
 # Terraform module build artifacts
 **/.build/
 
@@ -247,3 +251,4 @@ HTML/
 
 # Avoid committing lock files for libraries (only for apps)
 package-lock.json
+iac/plan-output.txt
