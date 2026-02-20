@@ -1,5 +1,9 @@
 # Copilot Instructions for Teams Meeting Fetcher
 
+# DO NOT
+
+- Add emojis to commit messages or PR titles or documentation or scripts unless specified explicitly in the instructions.
+
 ## ⚠️ CRITICAL: Unified Deployment Only
 
 **ALWAYS use `iac/` folder for Terraform deployments.** This is the ONLY source of truth for infrastructure.
@@ -108,3 +112,138 @@ terraform apply
 ❌ **Never**: Deploy Azure or AWS separately
 
 See [../DEPLOYMENT_RULES.md](../DEPLOYMENT_RULES.md) for complete rules.
+
+## Security and Commit Best Practices
+
+**CRITICAL: Always scan for secrets before committing code.**
+
+### Pre-Commit Security Checklist
+
+Before running `git commit`, ALWAYS perform these checks:
+
+1. **Check what files will be committed**:
+
+   ```bash
+   git status
+   ```
+
+2. **Scan for exposed secrets** (client secrets, passwords, tokens):
+
+   ```bash
+   # PowerShell
+   Get-ChildItem -Path . -Include *.py,*.js,*.ts,*.md -Recurse |
+     Where-Object { $_.FullName -notmatch "\.git|\.venv|node_modules|backup-before" } |
+     Select-String "client_secret.*:|CLIENT_SECRET.*=" |
+     Select-Object -First 20
+   ```
+
+3. **Verify no hardcoded credentials** in files being added:
+   - Client secrets (Azure/AWS)
+   - API keys
+   - Connection strings
+   - Tenant IDs used as defaults
+   - Resource names used as defaults
+
+### Python Security Pattern (REQUIRED)
+
+All Python scripts MUST use environment variables for configuration:
+
+```python
+# ✅ CORRECT - Secure pattern
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Loads from .env file
+
+CONFIG = {
+    'tenant_id': os.getenv('GRAPH_TENANT_ID'),
+    'client_id': os.getenv('GRAPH_CLIENT_ID'),
+    'client_secret': os.getenv('GRAPH_CLIENT_SECRET'),
+}
+
+# Validate required variables
+if not all(CONFIG.values()):
+    raise ValueError("Missing required environment variables")
+```
+
+```python
+# ❌ WRONG - Never hardcode credentials or defaults
+CONFIG = {
+    'tenant_id': '62837751-4e48-4d06-8bcb-57be1a669b78',
+    'client_id': '1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8',
+    'client_secret': 'Cql8Q~...',  # NEVER DO THIS
+}
+
+# ❌ WRONG - Don't use defaults that expose infrastructure
+EVENTHUB_NAMESPACE = os.getenv('EVENTHUB_NAMESPACE', 'tmf-ehns-eus-6an5wk')
+```
+
+### Files Protected by .gitignore
+
+These directories are gitignored and won't be committed (verify with `git status`):
+
+- `nobots-eventhub/` - Local testing directory with credentials
+- `nobots/` - Local development files
+- `temp-lambda/` - Temporary Lambda builds
+- `.env`, `.env.*` - Environment variable files
+- `*.tfvars` - Terraform variable files (except .example files)
+
+### Common Secret Patterns to Avoid
+
+Never commit files containing:
+
+- `client_secret = '...'` or `'client_secret': '...'`
+- Hard-coded tenant IDs: `62837751-4e48-4d06-8bcb-57be1a669b78`
+- Hard-coded client IDs: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
+- Event Hub connection strings
+- Azure Storage connection strings
+- AWS access keys or secret keys
+- Hard-coded Event Hub names/namespaces used as defaults
+
+### Documentation Security
+
+When creating documentation with code examples:
+
+```python
+# ✅ CORRECT - Show environment variable pattern
+GRAPH_CONFIG = {
+    'tenant_id': os.getenv('GRAPH_TENANT_ID'),
+    'client_id': os.getenv('GRAPH_CLIENT_ID'),
+    'client_secret': os.getenv('GRAPH_CLIENT_SECRET'),
+}
+
+# ❌ WRONG - Never include actual secrets in comments
+GRAPH_CONFIG = {
+    'client_secret': '<from-terraform-output>',  # Cql8Q~... (NEVER DO THIS)
+}
+```
+
+### If Secrets Were Committed
+
+If secrets were previously committed to git history:
+
+1. **Rotate credentials immediately**:
+   - Azure: Regenerate service principal client secret
+   - AWS: Rotate access keys
+   - Update `.env` files with new credentials
+
+2. **Update infrastructure**:
+
+   ```bash
+   cd iac
+   terraform apply  # Update with new credentials
+   ```
+
+3. **Consider cleaning git history** (optional, complex):
+   - Use `git-filter-repo` to remove secrets from history
+   - Force push to remote (requires team coordination)
+
+### Commit Message Format
+
+- No emojis in commit messages
+- Use conventional commit format: `type(scope): description`
+- Examples:
+  - `feat(graph): add subscription monitoring`
+  - `fix(lambda): handle missing event properties`
+  - `docs(setup): add Graph subscription guide`
+  - `security(scripts): remove hardcoded credentials`
