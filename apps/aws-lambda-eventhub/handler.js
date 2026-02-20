@@ -7,9 +7,7 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
-if (!globalThis.crypto) {
-  globalThis.crypto = webcrypto;
-}
+// globalThis.crypto is already available in Node 18+, no need to set it
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 

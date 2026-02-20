@@ -1,12 +1,38 @@
-# EventHub Testing - Complete Guided Walkthrough
+# EventHub Testing - Guided Walkthrough
 
-**Estimated time: 30-45 minutes**
+**Two Ways to Test:**
 
-Follow this guide step-by-step to test the complete EventHub workflow including joining meetings and verifying transcripts.
+## ⚡ QUICK PATH (5 minutes) - Automated Script
+
+Use the completely automated test that handles everything:
+
+```powershell
+cd <repo-root>
+.\test-complete-flow.ps1
+```
+
+This script:
+1. ✅ Creates a test meeting
+2. ✅ Checks EventHub metrics  
+3. ✅ Verifies Lambda processing
+4. ✅ Checks DynamoDB storage
+5. ✅ Provides detailed report
+
+**Then open in separate terminal for live monitoring:**
+
+```powersh
+.\monitor-e2e-flow.ps1
+```
+
+This refreshes every 10 seconds showing real-time data flow.
 
 ---
 
-## 🟢 READY? Let's Begin
+## 🎯 DETAILED PATH (30-45 minutes) - Step-by-Step Walkthrough
+
+**Estimated time: 30-45 minutes**
+
+Follow this guide step-by-step to understand each part of the EventHub workflow including joining meetings and verifying transcripts.
 
 ### What You'll Do
 

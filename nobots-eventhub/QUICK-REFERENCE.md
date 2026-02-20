@@ -1,10 +1,19 @@
 # Quick Reference - Copy & Paste Commands
 
-Use this while following [GUIDED-TESTING.md](GUIDED-TESTING.md)
+**🚀 NEW: Use automated test scripts for fastest results:**
+
+```powershell
+# Complete test automation (creates meeting + verifies flow)
+cd <repo-root>
+.\test-complete-flow.ps1
+
+# Real-time monitoring dashboard (10-second refresh)
+.\monitor-e2e-flow.ps1
+```
 
 ---
 
-## PRE-FLIGHT CHECKS
+For manual commands, see below:
 
 ### Check Terraform (should show 101)
 
