@@ -28,25 +28,25 @@ variable "eventhub_checkpoints_table_name" {
 variable "lambda_package_path" {
   description = "Path to Lambda zip package"
   type        = string
-  default     = "../../apps/aws-lambda/lambda.zip"
+  default     = "../apps/aws-lambda/lambda.zip"
 }
 
 variable "eventhub_lambda_package_path" {
   description = "Path to Event Hub processor Lambda zip package"
   type        = string
-  default     = "../../apps/aws-lambda-eventhub/lambda.zip"
+  default     = "../apps/aws-lambda-eventhub/lambda.zip"
 }
 
 variable "authorizer_package_path" {
   description = "Path to authorizer Lambda zip package"
   type        = string
-  default     = "../../apps/aws-lambda-authorizer/authorizer.zip"
+  default     = "../apps/aws-lambda-authorizer/authorizer.zip"
 }
 
 variable "meeting_bot_package_path" {
   description = "Path to meeting bot Lambda zip package"
   type        = string
-  default     = "../../lambda/meeting-bot/meeting-bot.zip"
+  default     = "../lambda/meeting-bot/meeting-bot.zip"
 }
 
 variable "client_state" {

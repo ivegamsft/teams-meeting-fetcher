@@ -217,3 +217,24 @@ variable "renewal_schedule_expression" {
   type        = string
   default     = "cron(0 2 * * ? *)"
 }
+//=============================================================================
+// ROOT-LEVEL VARIABLES (passed to submodules)
+//=============================================================================
+
+variable "region_short" {
+  description = "Short form of region for naming"
+  type        = string
+  default     = "eus"
+}
+
+variable "meeting_bot_package_path" {
+  description = "Path to meeting bot Lambda zip package"
+  type        = string
+  default     = "../../lambda/meeting-bot/meeting-bot.zip"
+}
+
+variable "eventhub_namespace" {
+  description = "Event Hub namespace FQDN"
+  type        = string
+  default     = ""
+}
