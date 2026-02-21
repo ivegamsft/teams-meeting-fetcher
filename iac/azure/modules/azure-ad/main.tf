@@ -121,6 +121,24 @@ resource "azuread_service_principal" "tmf_bot_app" {
   client_id = azuread_application.tmf_bot_app.client_id
 }
 
+//=============================================================================
+// LAMBDA SERVICE PRINCIPAL (READ-ONLY EVENTHUB ACCESS)
+//=============================================================================
+
+resource "azuread_application" "tmf_lambda_app" {
+  display_name = "${var.app_display_name} Lambda EventHub Consumer"
+
+  description = "Service Principal for AWS Lambda to read from Azure EventHub (read-only)"
+}
+
+resource "azuread_service_principal" "tmf_lambda_app" {
+  client_id = azuread_application.tmf_lambda_app.client_id
+}
+
+resource "azuread_application_password" "tmf_lambda_app" {
+  application_id = azuread_application.tmf_lambda_app.id
+}
+
 // NOTE: App role assignments commented out - requires Directory.Read.All to get Graph SPN object ID
 // These will be granted via admin consent URL or Azure Portal instead
 // resource "azuread_app_role_assignment" "graph_app_roles" {

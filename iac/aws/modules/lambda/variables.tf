@@ -20,7 +20,7 @@ variable "package_path" {
   type        = string
 }
 
-variable "s3_bucket_arn" {
+variable "bucket_arn" {
   description = "ARN of the S3 bucket for Lambda to write to"
   type        = string
 }

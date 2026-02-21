@@ -35,6 +35,31 @@ output "bot_service_principal_object_id" {
   value       = azuread_service_principal.tmf_bot_app.object_id
 }
 
+//=============================================================================
+// LAMBDA SERVICE PRINCIPAL OUTPUTS
+//=============================================================================
+
+output "lambda_app_client_id" {
+  description = "Lambda application (client) ID for EventHub read access"
+  value       = azuread_application.tmf_lambda_app.client_id
+}
+
+output "lambda_app_object_id" {
+  description = "Lambda application object ID"
+  value       = azuread_application.tmf_lambda_app.object_id
+}
+
+output "lambda_app_client_secret" {
+  description = "Lambda application client secret (for AWS Lambda environment)"
+  value       = azuread_application_password.tmf_lambda_app.value
+  sensitive   = true
+}
+
+output "lambda_service_principal_object_id" {
+  description = "Lambda service principal object ID"
+  value       = azuread_service_principal.tmf_lambda_app.object_id
+}
+
 output "admin_group_id" {
   description = "Admin group object ID"
   value       = azuread_group.admins.object_id

@@ -218,3 +218,14 @@ module "bot_service" {
 
   tags = local.common_tags
 }
+//=============================================================================
+// RBAC: Lambda Service Principal - EventHub Data Receiver
+//=============================================================================
+
+resource "azurerm_role_assignment" "lambda_eventhub_reader" {
+  scope                = module.monitoring.eventhub_namespace_id
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.azure_ad.lambda_service_principal_object_id
+
+  description = "Allow Lambda to read messages from EventHub (change tracking)"
+}

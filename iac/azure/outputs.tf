@@ -61,6 +61,26 @@ output "bot_service_principal_object_id" {
   value       = module.azure_ad.bot_service_principal_object_id
 }
 
+//=============================================================================
+// LAMBDA SERVICE PRINCIPAL OUTPUTS (AWS Lambda EventHub Reader)
+//=============================================================================
+
+output "lambda_client_id" {
+  description = "Lambda client ID (AZURE_CLIENT_ID for Lambda environment)"
+  value       = module.azure_ad.lambda_app_client_id
+}
+
+output "lambda_client_secret" {
+  description = "Lambda client secret (AZURE_CLIENT_SECRET for Lambda environment)"
+  value       = module.azure_ad.lambda_app_client_secret
+  sensitive   = true
+}
+
+output "lambda_tenant_id" {
+  description = "Lambda tenant ID (AZURE_TENANT_ID for Lambda environment)"
+  value       = data.azurerm_client_config.current.tenant_id
+}
+
 output "admin_group_id" {
   description = "Object ID of the admin group"
   value       = module.azure_ad.admin_group_id

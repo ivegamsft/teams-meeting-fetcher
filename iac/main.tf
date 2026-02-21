@@ -106,7 +106,7 @@ module "aws" {
   aws_profile    = var.aws_profile
 
   # S3 and Lambda
-  s3_bucket_name               = var.s3_bucket_name
+  bucket_name                  = var.bucket_name
   lambda_package_path          = var.lambda_package_path
   authorizer_package_path      = var.authorizer_package_path
   eventhub_lambda_package_path = var.eventhub_lambda_package_path
@@ -119,6 +119,11 @@ module "aws" {
   azure_graph_tenant_id     = module.azure.app_tenant_id
   azure_graph_client_id     = module.azure.app_client_id
   azure_graph_client_secret = module.azure.app_client_secret
+
+  # Azure EventHub reader credentials (Lambda SPN)
+  azure_eventhub_tenant_id     = module.azure.lambda_tenant_id
+  azure_eventhub_client_id     = module.azure.lambda_client_id
+  azure_eventhub_client_secret = module.azure.lambda_client_secret
 
   # Bot credentials from Azure module outputs
   azure_bot_app_id       = module.azure.bot_app_client_id

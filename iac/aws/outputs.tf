@@ -56,12 +56,12 @@ output "authorizer_function_arn" {
 // STORAGE OUTPUTS
 //=============================================================================
 
-output "s3_bucket_name" {
+output "bucket_name" {
   description = "S3 bucket for webhook payloads"
   value       = module.storage.bucket_name
 }
 
-output "s3_bucket_arn" {
+output "bucket_arn" {
   description = "S3 bucket ARN"
   value       = module.storage.bucket_arn
 }

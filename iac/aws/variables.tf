@@ -14,7 +14,7 @@ variable "aws_account_id" {
   sensitive   = true
 }
 
-variable "s3_bucket_name" {
+variable "bucket_name" {
   description = "S3 bucket name for webhook payload storage"
   type        = string
 }
@@ -85,6 +85,24 @@ variable "azure_graph_client_id" {
 
 variable "azure_graph_client_secret" {
   description = "Microsoft Graph app client secret for subscription renewal"
+  type        = string
+  sensitive   = true
+}
+
+variable "azure_eventhub_tenant_id" {
+  description = "Azure tenant ID for EventHub reader (Lambda SPN)"
+  type        = string
+  sensitive   = true
+}
+
+variable "azure_eventhub_client_id" {
+  description = "Azure client ID for EventHub reader (Lambda SPN)"
+  type        = string
+  sensitive   = true
+}
+
+variable "azure_eventhub_client_secret" {
+  description = "Azure client secret for EventHub reader (Lambda SPN)"
   type        = string
   sensitive   = true
 }

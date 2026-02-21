@@ -103,7 +103,7 @@ variable "aws_profile" {
   default     = "default"
 }
 
-variable "s3_bucket_name" {
+variable "bucket_name" {
   description = "S3 bucket name for webhook payloads"
   type        = string
 }

@@ -16,7 +16,7 @@ locals {
 module "storage" {
   source = "./modules/storage"
 
-  bucket_name                     = var.s3_bucket_name
+  bucket_name                     = var.bucket_name
   enable_versioning               = false
   eventhub_checkpoints_table_name = var.eventhub_checkpoints_table_name
 
@@ -70,7 +70,7 @@ module "lambda" {
   handler       = "handler.handler"
   runtime       = "nodejs20.x"
   package_path  = var.lambda_package_path
-  s3_bucket_arn = module.storage.bucket_arn
+  bucket_arn    = module.storage.bucket_arn
   sns_topic_arn = module.notifications.topic_arn
   # No DynamoDB for this Lambda
   timeout     = 30
@@ -163,7 +163,7 @@ module "eventhub_processor" {
   source = "./modules/eventhub-processor"
 
   function_name                = "tmf-eventhub-processor-${var.environment}"
-  handler                      = "eventhub-handler.handler"
+  handler                      = "handler.handler"
   runtime                      = "nodejs20.x"
   timeout                      = 60
   memory_size                  = 256
@@ -178,9 +178,9 @@ module "eventhub_processor" {
   eventhub_max_events          = var.eventhub_max_events
   eventhub_poll_window_minutes = var.eventhub_poll_window_minutes
   message_processing_mode      = var.message_processing_mode
-  azure_tenant_id              = var.azure_graph_tenant_id
-  azure_client_id              = var.azure_graph_client_id
-  azure_client_secret          = var.azure_graph_client_secret
+  azure_tenant_id              = var.azure_eventhub_tenant_id
+  azure_client_id              = var.azure_eventhub_client_id
+  azure_client_secret          = var.azure_eventhub_client_secret
   sns_topic_arn                = module.notifications.topic_arn
 
   tags = local.common_tags

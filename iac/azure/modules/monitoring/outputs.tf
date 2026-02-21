@@ -46,6 +46,11 @@ output "eventhub_namespace_name" {
   value       = azurerm_eventhub_namespace.main.name
 }
 
+output "eventhub_namespace_id" {
+  description = "Event Hub namespace resource ID"
+  value       = azurerm_eventhub_namespace.main.id
+}
+
 output "eventhub_name" {
   description = "Event Hub name"
   value       = azurerm_eventhub.main.name

@@ -65,9 +65,9 @@ output "azure_storage_account_name" {
 // AWS OUTPUTS
 //=============================================================================
 
-output "aws_s3_bucket_name" {
+output "aws_bucket_name" {
   description = "AWS S3 bucket name"
-  value       = module.aws.s3_bucket_name
+  value       = module.aws.bucket_name
 }
 
 output "aws_api_gateway_url" {
@@ -105,7 +105,7 @@ output "deployment_summary" {
     environment          = var.environment
     azure_resource_group = module.azure.resource_group_name
     azure_event_hub      = "${module.azure.eventhub_namespace_name}/${module.azure.eventhub_name}"
-    aws_s3_bucket        = module.aws.s3_bucket_name
+    aws_bucket           = module.aws.bucket_name
     aws_api_gateway      = module.aws.api_webhook_url
     bot_webhook          = module.aws.meeting_bot_webhook_url
     eventhub_processor   = module.aws.eventhub_processor_function_name

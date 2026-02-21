@@ -33,6 +33,11 @@ resource "aws_iam_role_policy" "eventhub_s3" {
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
         Resource = "${var.bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = var.bucket_arn
       }
     ]
   })
@@ -49,7 +54,8 @@ resource "aws_iam_role_policy" "eventhub_checkpoints" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:PutItem"
+          "dynamodb:PutItem",
+          "dynamodb:DescribeTable"
         ]
         Resource = var.checkpoint_table_arn
       }
@@ -89,7 +95,7 @@ resource "aws_lambda_function" "eventhub" {
       {
         EVENT_HUB_NAMESPACE           = var.eventhub_namespace
         EVENT_HUB_NAME                = var.eventhub_name
-        EVENT_HUB_CONSUMER_GROUP      = var.eventhub_consumer_group
+        CONSUMER_GROUP                = var.eventhub_consumer_group
         EVENT_HUB_MAX_EVENTS          = tostring(var.eventhub_max_events)
         EVENT_HUB_POLL_WINDOW_MINUTES = tostring(var.eventhub_poll_window_minutes)
         MESSAGE_PROCESSING_MODE       = var.message_processing_mode
