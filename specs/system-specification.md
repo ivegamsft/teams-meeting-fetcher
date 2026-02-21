@@ -752,7 +752,7 @@ export const handler = async (event) => {
         
         // 2. Store in S3
         await s3.putObject({
-          Bucket: process.env.S3_BUCKET,
+          Bucket: process.env.BUCKET_NAME,
           Key: `transcriptions/${meetingId}/transcript.vtt`,
           Body: transcriptContent,
           ContentType: "text/plain"
@@ -764,7 +764,7 @@ export const handler = async (event) => {
           Item: {
             meetingId,
             organizerEmail,
-            transcriptS3Path: `s3://${process.env.S3_BUCKET}/transcriptions/${meetingId}/transcript.vtt`,
+            transcriptS3Path: `s3://${process.env.BUCKET_NAME}/transcriptions/${meetingId}/transcript.vtt`,
             processedAt: new Date().toISOString()
           }
         }).promise();

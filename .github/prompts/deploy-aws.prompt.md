@@ -68,7 +68,7 @@ Capture and display the outputs:
 
 - `api_webhook_url`
 - `lambda_function_name`
-- `s3_bucket_name`
+- `bucket_name`
 - `authorizer_function_name`
 
 ### Step 4: Package & Deploy Lambda Code

@@ -13,8 +13,10 @@
 - Lambda **IS attempting to connect** to Event Hub
 - Creates `EventHubConsumerClient` with correct AAD credentials
 - Environment variables properly configured:
-  - `EVENT_HUB_NAMESPACE` = `tmf-ehns-eus-6an5wk`
-  - `EVENT_HUB_NAME` = `tmf-eh-eus-6an5wk`
+  - `EVENT_HUB_NAMESPACE` = `<from-terraform-eventhub_namespace_name>`
+  - `EVENT_HUB_NAME` = `<from-terraform-eventhub_name>`
+  - `CONSUMER_GROUP` = `<from-terraform-eventhub_lambda_consumer_group>`
+  - `BUCKET_NAME` = `<your-bucket-name>`
   - Azure credentials loaded from environment
 
 **Status**: CONNECTION LOGIC EXISTS ✅

@@ -52,7 +52,7 @@ Show the plan summary and ask: "Do you want to apply this plan? (yes/no)"
 2. Capture all outputs:
    - `api_webhook_url`
    - `lambda_function_name`
-   - `s3_bucket_name`
+   - `bucket_name`
    - `authorizer_function_name`
    - [Any others]
 3. Display outputs clearly

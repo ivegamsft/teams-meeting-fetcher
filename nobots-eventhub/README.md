@@ -9,7 +9,7 @@
 **👉 [GUIDED-TESTING.md](GUIDED-TESTING.md)** - Step-by-step walkthrough including:
 
 - Pre-flight verification
-- Monitor setup (3 terminals)  
+- Monitor setup (3 terminals)
 - Create test meeting via Graph API
 - Watch data flow through Event Hub → Lambda → S3 → DynamoDB in real-time
 - Troubleshooting
@@ -20,11 +20,12 @@
 # Terminal 1: Run complete test (creates meeting & verifies flow)
 .\test-complete-flow.ps1
 
-# Terminal 2: Real-time monitoring dashboard (10-second refresh)  
+# Terminal 2: Real-time monitoring dashboard (10-second refresh)
 .\monitor-e2e-flow.ps1
 ```
 
 Both scripts include:
+
 - ✅ Graph API meeting creation
 - ✅ EventHub metrics checking
 - ✅ Lambda invocation & logs

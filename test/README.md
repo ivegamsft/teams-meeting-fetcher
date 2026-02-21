@@ -127,7 +127,7 @@ Create `.env.test` for test configuration:
 AWS_PROFILE=tmf-dev
 AWS_REGION=us-east-1
 AWS_WEBHOOK_URL=https://your-api-gateway-url.com/dev/graph
-AWS_S3_BUCKET=tmf-webhook-payloads-dev
+BUCKET_NAME=tmf-webhook-payloads-dev
 AWS_LAMBDA_FUNCTION=tmf-webhook-writer-dev
 
 # Azure Test Configuration
@@ -159,13 +159,15 @@ TEST_USER_EMAIL=test.user@yourdomain.com
 Pre-built, sanitized sample calendar events for testing without real meetings:
 
 **Files:**
+
 - `event-1-eventhub-meeting.json` - Simple online meeting (2 attendees)
-- `event-2-team-standup.json` - Recurring daily standup 
+- `event-2-team-standup.json` - Recurring daily standup
 - `event-3-project-review.json` - Multi-hour review (3 attendees, attachments)
 - `manifest.json` - Event registry and sanitization documentation
 - `all-events.json` - Combined bundle for batch tests
 
 **Data Sanitization:**
+
 - Real user IDs replaced with `attendee1@company.com` pattern
 - Event IDs replaced with `SAMPLE-EVENT-ID-XXX`
 - Tenant identifiers removed

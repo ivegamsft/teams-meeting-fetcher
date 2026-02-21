@@ -12,8 +12,9 @@ cd <repo-root>
 ```
 
 This script:
+
 1. ✅ Creates a test meeting
-2. ✅ Checks EventHub metrics  
+2. ✅ Checks EventHub metrics
 3. ✅ Verifies Lambda processing
 4. ✅ Checks DynamoDB storage
 5. ✅ Provides detailed report
@@ -528,10 +529,10 @@ aws dynamodb describe-table --table-name eventhub-checkpoints \
 
 **Meeting Details** (save for reference):
 
-- Event ID: ********\_********
-- Online Meeting ID: ********\_********
-- Join URL: ********\_********
-- Meeting time: ********\_********
+- Event ID: **\*\*\*\***\_**\*\*\*\***
+- Online Meeting ID: **\*\*\*\***\_**\*\*\*\***
+- Join URL: **\*\*\*\***\_**\*\*\*\***
+- Meeting time: **\*\*\*\***\_**\*\*\*\***
 
 **Observations**:
 

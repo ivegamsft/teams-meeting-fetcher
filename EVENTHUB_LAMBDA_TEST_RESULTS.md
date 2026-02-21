@@ -19,17 +19,19 @@
 
 - [x] Lambda function created: `tmf-eventhub-processor-dev`
 - [x] Runtime: Node.js 20.x
-- [x] Handler: `eventhub-handler.handler`
+- [x] Handler: `handler.handler`
 - [x] Role: `tmf-eventhub-processor-dev` with permissions to:
   - Access Event Hub (Azure credentials via environment variables)
-  - Write to S3 bucket (`tmf-webhooks-eus-dev`)
-  - Update DynamoDB table (`eventhub-checkpoints`)
+  - Write to S3 bucket (`<bucket-name>`)
+  - Update DynamoDB table (`<checkpoint-table>`)
   - Send SNS notifications
 - [x] Environment variables configured:
-  - `EVENT_HUB_NAMESPACE` = `tmf-ehns-eus-6an5wk`
-  - `EVENT_HUB_NAME` = `tmf-eh-eus-6an5wk`
-  - `AZURE_TENANT_ID` = `62837751-4e48-4d06-8bcb-57be1a669b78`
-  - `AZURE_CLIENT_ID` = `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
+  - `EVENT_HUB_NAMESPACE` = `<from-terraform-eventhub_namespace_name>`
+  - `EVENT_HUB_NAME` = `<from-terraform-eventhub_name>`
+  - `CONSUMER_GROUP` = `<from-terraform-eventhub_lambda_consumer_group>`
+  - `BUCKET_NAME` = `<your-bucket-name>`
+  - `AZURE_TENANT_ID` = `<from-terraform-lambda_tenant_id>`
+  - `AZURE_CLIENT_ID` = `<from-terraform-lambda_client_id>`
   - `AZURE_CLIENT_SECRET` = ✓ (encrypted in environment)
 
 ### ✅ Trigger Verification
@@ -84,7 +86,7 @@ Expected response:
 
 ```bash
 aws dynamodb scan \
-  --table-name eventhub-checkpoints \
+  --table-name <checkpoint-table> \
   --profile tmf-dev \
   --region us-east-1 \
   --query 'Items | sort_by(@, &updated_at)[-2:] | [].[partition_id, sequence_number, updated_at]'
@@ -95,7 +97,7 @@ Expected: Entries showing Lambda has updated checkpoints with sequence numbers f
 ### Option 4: List S3 Payloads
 
 ```bash
-aws s3 ls s3://tmf-webhooks-eus-dev/eventhub/ \
+aws s3 ls s3://<bucket-name>/eventhub/ \
   --profile tmf-dev \
   --region us-east-1 \
   --recursive

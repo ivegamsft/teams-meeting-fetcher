@@ -3,6 +3,7 @@
 ## Current Status
 
 ✅ **TESTED & WORKING** (2/20/2026)
+
 - Meeting creation via Graph API
 - EventHub receiving notifications
 - Lambda processing with Event data
@@ -10,6 +11,7 @@
 - Event Hub consumer group configuration
 
 **Recent Fix**: Lambda Node.js 18+ crypto module issue resolved
+
 - Node 18+ provides built-in `globalThis.crypto` (read-only)
 - Removed conflicting reassignment attempt
 - Lambda deployed and verified
@@ -77,15 +79,15 @@
 
 ## Authentication Methods
 
-| Component                        | Authentication                         | Status                                     |
-| -------------------------------- | -------------------------------------- | ------------------------------------------ |
-| **Webhook → Webhook Validation** | Graph API self-validation              | ✅ Built-in                                |
-| **Webhook → Event Grid**         | Event Grid SAS Key                     | ✅ Configured (could use managed identity) |
-| **Event Grid Topic**             | Azure AD (Entra) only                  | ✅ Public network access disabled          |
-| **Event Grid → Event Hub**       | Managed Identity / RBAC                | ✅ Configured                              |
-| **Event Hub**                    | RBAC (Azure AD)                        | ✅ Local auth disabled                     |
-| **Processor → Event Hub**        | DefaultAzureCredential (RBAC)          | ✅ Using your user's Data Owner role       |
-| **Processor → Graph API**        | Service Principal (client credentials) | ✅ Configured                              |
+| Component                        | Authentication                          | Status                                     |
+| -------------------------------- | --------------------------------------- | ------------------------------------------ |
+| **Webhook → Webhook Validation** | Graph API self-validation               | ✅ Built-in                                |
+| **Webhook → Event Grid**         | Event Grid SAS Key                      | ✅ Configured (could use managed identity) |
+| **Event Grid Topic**             | Azure AD (Entra) only                   | ✅ Public network access disabled          |
+| **Event Grid → Event Hub**       | Managed Identity / RBAC                 | ✅ Configured                              |
+| **Event Hub**                    | RBAC (Azure AD)                         | ✅ Local auth disabled                     |
+| **Processor → Event Hub**        | DefaultAzureCredential (RBAC)           | ✅ Using your user's Data Owner role       |
+| **Processor → Graph API**        | Service Principal (client credentials)  | ✅ Configured                              |
 | **Lambda → Node.js Crypto**      | Built-in `globalThis.crypto` (Node 18+) | ✅ Fixed (no reassignment)                 |
 
 ### Lambda Node.js 18+ Compatibility
@@ -93,13 +95,15 @@
 **IMPORTANT**: Node.js 18+ provides a read-only `globalThis.crypto` for @azure/identity and @azure/event-hubs.
 
 ❌ **DO NOT** try to reassign it:
+
 ```javascript
 if (!globalThis.crypto) {
-  globalThis.crypto = webcrypto;  // ❌ FAILS - read-only
+  globalThis.crypto = webcrypto; // ❌ FAILS - read-only
 }
 ```
 
 ✅ **CORRECT** - Trust Node.js built-in:
+
 ```javascript
 const { EventHubConsumerClient } = require('@azure/event-hubs');
 // globalThis.crypto is already available and used automatically

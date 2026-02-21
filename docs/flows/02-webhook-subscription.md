@@ -185,7 +185,7 @@ All resources defined in [../../iac/aws/main.tf](../../iac/aws/main.tf):
 - Resource: `aws_s3_bucket.webhook_storage`
 - Purpose: Stores webhook notification payloads
 - Configuration:
-  - Name: `{s3_bucket_name}` (from variables)
+  - Name: `{bucket_name}` (from variables)
   - Versioning: Disabled
   - Encryption: Server-side encryption enabled
 
@@ -206,7 +206,7 @@ Required variables in [iac/aws/terraform.tfvars.example](iac/aws/terraform.tfvar
 client_state = "550e8400-e29b-41d4-a716-446655440000"  # Must match WEBHOOK_AUTH_SECRET
 
 # S3 Storage
-s3_bucket_name = "teams-meeting-fetcher-webhooks-dev"
+bucket_name = "teams-meeting-fetcher-webhooks-dev"
 
 # Lambda Package Paths
 lambda_package_path      = "../../apps/aws-lambda/package.zip"
