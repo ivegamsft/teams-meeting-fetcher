@@ -262,16 +262,37 @@ config = get_config()
 
 ## API Permissions Required
 
-The app registration requires these Microsoft Graph API permissions:
+### Teams Meeting Fetcher Bot (`tmf_bot_app`)
 
-- `Calendars.Read` - Read user calendars
-- `OnlineMeetings.Read.All` - Read online meetings
-- `OnlineMeetings.ReadWrite` - Modify meeting settings (for transcripts)
-- `Group.Read.All` - Read group memberships
-- `Application.ReadWrite.All` - Manage app registrations (for setup)
-- `User.Read.All` - Read user profiles
+The Bot app registration requires these Microsoft Graph API permissions:
+
+- ✅ `OnlineMeetings.ReadWrite.All` - Create meetings and enable recording
+- ✅ `OnlineMeetingTranscript.Read.All` - Download meeting transcripts
+- ✅ `OnlineMeetingRecording.Read.All` - Download meeting recordings
+- ✅ `Group.Read.All` - Validate group membership for allow-list
+- ✅ `User.Read.All` - Read user profiles for webhook validation
 
 All must be **Application permissions** with **admin consent granted**.
+
+**Security Note**: As of Feb 2026, the Bot app uses only 5 permissions (reduced from 7). See [AZURE_SPN_SECURITY.md](../docs/AZURE_SPN_SECURITY.md) for security hardening details.
+
+### Terraform Deployment SPN (`tmf-terraform-deploy-spn`)
+
+The Terraform deployment Service Principal **does NOT need Graph API permissions**:
+
+- ✅ Azure RBAC: Contributor (manage Azure resources)
+- ✅ Azure RBAC: User Access Administrator (assign RBAC roles)
+- ✅ Azure AD role: Application Administrator (create App Registrations)
+- ✅ Azure AD role: Groups Administrator (create Security Groups)
+- ❌ Graph API permissions: **NONE** (uses hard-coded app role IDs)
+
+**Important**: If your Terraform SPN has Graph API permissions (Calendars.Read, Directory.Read.All, etc.), run:
+
+```powershell
+.\scripts\setup\remove-terraform-spn-graph-permissions.ps1
+```
+
+See [AZURE_SPN_SECURITY.md](../docs/AZURE_SPN_SECURITY.md) for details on why Graph API permissions are not needed.
 
 ---
 

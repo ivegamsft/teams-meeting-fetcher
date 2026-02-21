@@ -4,6 +4,8 @@
 
 **When to use**: Initial Azure infrastructure setup, local development environment, or service principal rotation.
 
+**⚠️ IMPORTANT - Security Update (Feb 2026)**: The Terraform deployment SPN **does NOT need Graph API permissions**. The azure-ad module uses hard-coded app role IDs to eliminate this requirement. See [AZURE_SPN_SECURITY.md](../../docs/AZURE_SPN_SECURITY.md) for details.
+
 **Prerequisites**:
 
 - Azure CLI installed (`az --version`)

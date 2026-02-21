@@ -142,58 +142,14 @@ Write-Host ""
 Write-Host "Waiting for SPN to propagate..." -ForegroundColor Cyan
 Start-Sleep -Seconds 15
 
-# Microsoft Graph API ID
-$graphApiId = "00000003-0000-0000-c000-000000000000"
-
-# Required Graph API permissions
-$permissions = @{
-    "Application.ReadWrite.All" = "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9"
-    "AppCatalog.ReadWrite.All" = "dc149144-f292-421e-b185-5953f2e98d7f"
-    "Calendars.Read" = "798ee544-9d2d-430c-a058-570e29e34338"
-    "OnlineMeetings.Read.All" = "6931bccd-447a-43d1-b442-00a195474933"
-    "OnlineMeetings.ReadWrite" = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
-    "Group.Read.All" = "5b567255-7703-4780-807c-7be8301ae99b"
-    "User.Read.All" = "df021288-bdef-4463-88db-98f22de89214"
-    "Domain.Read.All" = "dbb9058a-0e50-45e7-ae91-66909b422a6c"
-    "Directory.Read.All" = "7ab1d382-f21e-4acd-a863-ba3e13f7da61"
-}
+# SECURITY NOTE: Terraform deployment SPN does NOT need Graph API permissions
+# The azure-ad module uses hard-coded role IDs to avoid requiring Directory.Read.All
+# Only Azure RBAC and Azure AD directory roles are needed (assigned below)
 
 Write-Host ""
-Write-Host "Adding Microsoft Graph API permissions to SPN..." -ForegroundColor Cyan
-
-foreach ($permName in $permissions.Keys) {
-    $permId = $permissions[$permName]
-    Write-Host "  Adding: $permName" -ForegroundColor Gray
-    
-    try {
-        az ad app permission add `
-            --id $appId `
-            --api $graphApiId `
-            --api-permissions "$permId=Role" 2>$null
-    } catch {
-        Write-Host "    (may already exist)" -ForegroundColor DarkGray
-    }
-}
-
-Write-Host "✅ API permissions added" -ForegroundColor Green
-
-# Grant admin consent
-Write-Host ""
-Write-Host "Granting admin consent for API permissions..." -ForegroundColor Cyan
-Write-Host "⚠️  This requires Global Administrator or Privileged Role Administrator role" -ForegroundColor Yellow
-
-try {
-    az ad app permission admin-consent --id $appId 2>&1 | Out-Null
-    Write-Host "✅ Admin consent granted" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Failed to grant admin consent automatically" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Please grant admin consent manually:" -ForegroundColor Yellow
-    Write-Host "1. Go to: https://portal.azure.com/#view/Microsoft_AAD_IAM/ManagedAppMenuBlade/~/Permissions/objectId/$objectId/appId/$appId"
-    Write-Host "2. Click 'Grant admin consent for [Your Tenant]'"
-    Write-Host ""
-    Read-Host "Press Enter after granting consent"
-}
+Write-Host "⚠️  Skipping Graph API permissions (not needed for Terraform)" -ForegroundColor Yellow
+Write-Host "   Terraform will use hard-coded app role IDs in the azure-ad module" -ForegroundColor Gray
+Write-Host "   See: iac/azure/modules/azure-ad/main.tf (lines 11-37)" -ForegroundColor Gray
 
 # Assign Azure RBAC roles
 Write-Host ""
@@ -346,7 +302,8 @@ if ($spnCredentialsJson) {
     Write-Host "  • User Access Administrator (assign RBAC roles)" -ForegroundColor Gray
     Write-Host "  • Application Administrator (create App Registrations)" -ForegroundColor Gray
     Write-Host "  • Groups Administrator (create Security Groups)" -ForegroundColor Gray
-    Write-Host "  • Graph API permissions (Calendar, Meetings, etc.)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  ⚠️  NO Graph API permissions (using hard-coded role IDs in Terraform)" -ForegroundColor Yellow
     Write-Host ""
     
     # Optionally write to terraform.tfvars
