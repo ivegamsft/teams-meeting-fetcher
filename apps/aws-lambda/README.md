@@ -1,48 +1,33 @@
-# AWS Lambda Functions
+# AWS Lambda - Webhook Receiver
 
-This package contains Lambda handlers for processing Teams meeting notifications from Azure Event Hub and storing in S3.
+Lambda handler for receiving Graph API change notifications via HTTP webhooks.
 
-## Handlers
+## Handler
 
-- **handler.js** - Webhook receiver (Graph API webhooks via HTTP)
-- **eventhub-handler.js** - Event Hub consumer ⭐ NEW (cross-cloud integration)
+- **handler.js** - Webhook receiver (Graph API notifications via HTTP)
 
 ## Files
 
-- `eventhub-handler.js` - NEW: Event Hub consumer handler
-- `eventhub-client.js` - NEW: Azure Event Hub client
-- `test-eventhub.js` - NEW: Local test script
-- `EVENTHUB_INTEGRATION.md` - NEW: Complete setup guide
+- `handler.js` - Webhook handler for processing Graph API notifications
+- `package.json` - Dependencies and scripts
 - `package.sh` / `package.ps1` - Deployment packaging scripts
+- `sample-webhook.json` - Example webhook payload
+- `test-event.json` - Test event for local testing
 
 ## Quick Start
 
 ```bash
-# Install + test
+# Install dependencies
 npm install
-npm run test:eventhub
 
 # Deploy
 ./package.sh
 ```
 
-## Event Hub Integration ⭐
-
-See **[EVENTHUB_INTEGRATION.md](./EVENTHUB_INTEGRATION.md)** for:
-- Setup instructions
-- Deployment guide  
-- Environment configuration
-- Troubleshooting
-- Cost estimates
-
 ## Architecture
 
-**New Event Hub Path** (AWS ↔ Azure cross-cloud):
-```
-Graph API → Event Hub → Lambda → S3
-```
+**Webhook Path** (Graph API → API Gateway → Lambda → S3):
 
-**Existing Webhook Path**:
 ```
 Graph API → API Gateway → Lambda → S3
 ```
@@ -50,9 +35,8 @@ Graph API → API Gateway → Lambda → S3
 ## Environment Variables
 
 ```bash
-EVENT_HUB_CONNECTION_STRING=Endpoint=sb://...
-EVENT_HUB_NAME=tmf-eh-eus-6an5wk
 BUCKET_NAME=tmf-webhook-payloads-dev
+CLIENT_STATE=your-client-state
 ```
 
 ## Dependencies

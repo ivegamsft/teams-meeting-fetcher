@@ -1,5 +1,5 @@
 {
-  "name": "teams-meeting-fetcher-aws-eventhub",
+  "name": "teams-meeting-fetcher-aws-lambda-eventhub",
   "version": "0.1.0",
   "private": true,
   "main": "handler.js",
@@ -11,6 +11,7 @@
     "@aws-sdk/client-dynamodb": "^3.994.0",
     "@aws-sdk/client-s3": "^3.994.0",
     "@aws-sdk/lib-dynamodb": "^3.994.0",
-    "@azure/event-hubs": "^5.12.2"
+    "@azure/event-hubs": "^5.12.2",
+    "@azure/identity": "^4.1.0"
   }
 }

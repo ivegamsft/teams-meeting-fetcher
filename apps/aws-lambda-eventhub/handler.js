@@ -3,8 +3,8 @@
 const https = require('https');
 const { webcrypto } = require('crypto');
 const { EventHubConsumerClient, earliestEventPosition } = require('@azure/event-hubs');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { S3Client, PutObjectCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
+const { DynamoDBClient, DescribeTableCommand } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
 
 // globalThis.crypto is already available in Node 18+, no need to set it
@@ -26,6 +26,41 @@ function requireEnv(name) {
 function parseNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeEventHubNamespace(namespace) {
+  if (!namespace) return namespace;
+  if (namespace.includes('.')) {
+    return namespace;
+  }
+  return `${namespace}.servicebus.windows.net`;
+}
+
+async function validateEventHubAccess(consumer) {
+  try {
+    return await consumer.getPartitionIds();
+  } catch (err) {
+    throw new Error(`EventHub RBAC check failed: ${err.message || err}`);
+  }
+}
+
+async function validateS3Access(bucketName) {
+  try {
+    await s3.send(new HeadBucketCommand({ Bucket: bucketName }));
+  } catch (err) {
+    throw new Error(`S3 access check failed for BUCKET_NAME=${bucketName}: ${err.message || err}`);
+  }
+}
+
+async function validateDynamoAccess(tableName) {
+  if (!tableName) return;
+  try {
+    await ddb.send(new DescribeTableCommand({ TableName: tableName }));
+  } catch (err) {
+    throw new Error(
+      `DynamoDB access check failed for EVENTHUB_CHECKPOINT_TABLE=${tableName}: ${err.message || err}`
+    );
+  }
 }
 
 function createAadCredential(tenantId, clientId, clientSecret) {
@@ -179,10 +214,18 @@ async function receivePartitionEvents(
 
 exports.handler = async (event, context) => {
   const eventHubName = requireEnv('EVENT_HUB_NAME');
-  const eventHubNamespace = requireEnv('EVENT_HUB_NAMESPACE');
-  const consumerGroup = getEnv('EVENT_HUB_CONSUMER_GROUP', '$Default');
+  const eventHubNamespaceRaw = requireEnv('EVENT_HUB_NAMESPACE');
+  const eventHubNamespace = normalizeEventHubNamespace(eventHubNamespaceRaw);
+  const consumerGroup = requireEnv('CONSUMER_GROUP');
   const bucketName = requireEnv('BUCKET_NAME');
   const checkpointTable = getEnv('EVENTHUB_CHECKPOINT_TABLE');
+  const partitionIdsEnv = getEnv('PARTITION_IDS');
+  const partitionIds = partitionIdsEnv
+    ? partitionIdsEnv
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : null;
   const maxEvents = parseNumber(getEnv('EVENT_HUB_MAX_EVENTS', '50'), 50);
   const pollWindowMinutes = parseNumber(getEnv('EVENT_HUB_POLL_WINDOW_MINUTES', '10'), 10);
 
@@ -207,10 +250,17 @@ exports.handler = async (event, context) => {
   );
 
   try {
-    const partitionIds = await consumer.getPartitionIds();
+    const detectedPartitionIds = await validateEventHubAccess(consumer);
+    await validateS3Access(bucketName);
+    await validateDynamoAccess(checkpointTable);
+
+    const targetPartitionIds = partitionIds || detectedPartitionIds;
+    if (!partitionIds) {
+      console.log(`Auto-detected partitions: ${targetPartitionIds.join(',')}`);
+    }
     const allEvents = [];
 
-    for (const partitionId of partitionIds) {
+    for (const partitionId of targetPartitionIds) {
       const checkpoint = await getCheckpoint(checkpointTable, partitionId, consumerGroup);
       const events = await receivePartitionEvents(
         consumer,
