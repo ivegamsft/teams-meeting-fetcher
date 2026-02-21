@@ -20,6 +20,7 @@
 
 const AWS = require('aws-sdk');
 const graph = require('./graph-client');
+const { SubscriptionManager } = require('./subscription-manager');
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
@@ -46,6 +47,29 @@ function log(level, msg, data) {
   if (level === 'ERROR') console.error(JSON.stringify(entry));
   else if (level === 'WARN') console.warn(JSON.stringify(entry));
   else console.log(JSON.stringify(entry));
+}
+
+// ─── Initialize Subscription Manager ─────────────────────────────────────────
+
+let subscriptionManager = null;
+
+function getSubscriptionManager() {
+  if (!subscriptionManager && GRAPH_NOTIFICATION_URL) {
+    const lifecycleUrl = GRAPH_NOTIFICATION_URL.replace(/\/notifications\/?$/, '/lifecycle');
+    subscriptionManager = new SubscriptionManager({
+      notificationUrl: GRAPH_NOTIFICATION_URL,
+      lifecycleUrl: lifecycleUrl,
+      clientState: GRAPH_NOTIFICATION_CLIENT_STATE || `tmf-${Date.now()}`,
+      saveSession: async (data) => {
+        await saveSession(data);
+      },
+      getSession: async (key) => {
+        return await getSession(key);
+      },
+      logger: log,
+    });
+  }
+  return subscriptionManager;
 }
 
 // Placeholder AAD IDs that Teams sends for system/anonymous users
@@ -128,6 +152,11 @@ exports.handler = async (event) => {
     // ── Graph change notification webhook (before Bot Framework parsing) ──
     if (path.includes('/bot/notifications') || path.includes('/bot/lifecycle')) {
       return handleGraphNotification(event);
+    }
+
+    // ── Subscription management API endpoints ──
+    if (path.includes('/bot/subscriptions')) {
+      return handleSubscriptionAPI(event);
     }
 
     let body = event.body;
@@ -1743,89 +1772,247 @@ async function handleLifecycleNotifications(body) {
   return respond(202, { ok: true });
 }
 
+// ─── Subscription Management API ─────────────────────────────────────────────
+
+/**
+ * Handle subscription management API requests
+ * Routes:
+ *   GET /bot/subscriptions - List all subscriptions
+ *   GET /bot/subscriptions/:key - Get subscription details
+ *   POST /bot/subscriptions/tenant-transcripts - Create/manage tenant transcript subscription
+ *   POST /bot/subscriptions/user-transcripts - Create/manage user transcript subscription
+ *   POST /bot/subscriptions/user-calendar - Create/manage user calendar subscription
+ *   POST /bot/subscriptions/group-calendar - Create/manage group calendar subscription
+ *   DELETE /bot/subscriptions/:id - Delete a subscription
+ */
+async function handleSubscriptionAPI(event) {
+  const path = event.rawPath || event.path || '';
+  const method = event.requestContext?.http?.method || event.httpMethod || 'GET';
+  
+  log('INFO', 'Subscription API request', { method, path });
+
+  try {
+    // GET /bot/subscriptions/:key - Get subscription details
+    if (method === 'GET' && path.match(/\/bot\/subscriptions\/[^/]+$/)) {
+      const storageKey = path.split('/').pop();
+      const subscription = await getSubscriptionDetails(storageKey);
+      
+      if (!subscription) {
+        return respond(404, { error: 'Subscription not found', storageKey });
+      }
+      
+      return respond(200, { subscription });
+    }
+
+    // POST /bot/subscriptions/tenant-transcripts
+    if (method === 'POST' && path.includes('/subscriptions/tenant-transcripts')) {
+      await manageTranscriptSubscription();
+      const subscription = await getSubscriptionDetails('subscription:tenant-transcripts');
+      return respond(200, { 
+        message: 'Tenant transcript subscription managed',
+        subscription 
+      });
+    }
+
+    // POST /bot/subscriptions/user-transcripts
+    if (method === 'POST' && path.includes('/subscriptions/user-transcripts')) {
+      let body = event.body;
+      if (typeof body === 'string') body = JSON.parse(body);
+      
+      const userId = body?.userId;
+      if (!userId) {
+        return respond(400, { error: 'userId required in request body' });
+      }
+
+      const subscription = await manageUserTranscriptSubscription(userId);
+      return respond(200, { 
+        message: 'User transcript subscription managed',
+        subscription 
+      });
+    }
+
+    // POST /bot/subscriptions/user-calendar
+    if (method === 'POST' && path.includes('/subscriptions/user-calendar')) {
+      let body = event.body;
+      if (typeof body === 'string') body = JSON.parse(body);
+      
+      const userId = body?.userId;
+      if (!userId) {
+        return respond(400, { error: 'userId required in request body' });
+      }
+
+      const subscription = await manageUserCalendarSubscription(userId);
+      return respond(200, { 
+        message: 'User calendar subscription managed',
+        subscription 
+      });
+    }
+
+    // POST /bot/subscriptions/group-calendar
+    if (method === 'POST' && path.includes('/subscriptions/group-calendar')) {
+      let body = event.body;
+      if (typeof body === 'string') body = JSON.parse(body);
+      
+      const groupId = body?.groupId;
+      if (!groupId) {
+        return respond(400, { error: 'groupId required in request body' });
+      }
+
+      const subscription = await manageGroupCalendarSubscription(groupId);
+      return respond(200, { 
+        message: 'Group calendar subscription managed',
+        subscription 
+      });
+    }
+
+    // DELETE /bot/subscriptions/:id
+    if (method === 'DELETE' && path.match(/\/bot\/subscriptions\/[^/]+$/)) {
+      let body = event.body;
+      if (typeof body === 'string') body = JSON.parse(body);
+      
+      const subscriptionId = path.split('/').pop();
+      const storageKey = body?.storageKey;
+      
+      if (!storageKey) {
+        return respond(400, { error: 'storageKey required in request body' });
+      }
+
+      await deleteSubscription(subscriptionId, storageKey);
+      return respond(200, { 
+        message: 'Subscription deleted',
+        subscriptionId,
+        storageKey
+      });
+    }
+
+    // Unsupported route
+    return respond(404, { error: 'Unknown subscription API route', path, method });
+  } catch (err) {
+    log('ERROR', 'Subscription API error', {
+      path,
+      method,
+      error: err.message,
+      statusCode: err.statusCode,
+    });
+    return respond(err.statusCode || 500, { 
+      error: err.message || 'Internal server error' 
+    });
+  }
+}
+
 // ─── Graph Subscription Management ──────────────────────────────────────────
 
 async function manageTranscriptSubscription() {
-  if (!GRAPH_NOTIFICATION_URL) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    log('WARN', 'Subscription manager not initialized – skipping subscription management');
     return;
   }
 
-  const SUBSCRIPTION_KEY = 'subscription:transcripts';
   try {
-    const cached = await getSession(SUBSCRIPTION_KEY);
-
-    if (cached && cached.subscription_id && cached.status === 'active') {
-      // Check if still valid (renew if expires within 60 min)
-      const expiresAt = new Date(cached.expiration).getTime();
-      const oneHourFromNow = Date.now() + 60 * 60 * 1000;
-
-      if (expiresAt > oneHourFromNow) {
-        log('INFO', 'Transcript subscription valid', {
-          subscriptionId: cached.subscription_id,
-          expiresIn: Math.round((expiresAt - Date.now()) / 60000) + ' min',
-        });
-        return;
-      }
-
-      // Renew
-      log('INFO', 'Renewing transcript subscription', { subscriptionId: cached.subscription_id });
-      try {
-        const result = await graph.renewGraphSubscription(cached.subscription_id, 4230);
-        await saveSession({
-          meeting_id: SUBSCRIPTION_KEY,
-          subscription_id: cached.subscription_id,
-          expiration: result.expirationDateTime,
-          resource: cached.resource,
-          status: 'active',
-        });
-        log('INFO', 'Transcript subscription renewed', {
-          subscriptionId: cached.subscription_id,
-          newExpiration: result.expirationDateTime,
-        });
-        return;
-      } catch (renewErr) {
-        log('WARN', 'Renewal failed – will recreate', { error: renewErr.message });
-      }
-    }
-
-    // Create new subscription
-    const notifUrl = GRAPH_NOTIFICATION_URL;
-    const lifecycleUrl = GRAPH_NOTIFICATION_URL.replace(/\/notifications\/?$/, '/lifecycle');
-    const resource = 'communications/onlineMeetings/getAllTranscripts';
-    const clientState = GRAPH_NOTIFICATION_CLIENT_STATE || `tmf-${Date.now()}`;
-
-    log('INFO', 'Creating transcript subscription', { notifUrl, resource });
-
-    const result = await graph.createGraphSubscription(
-      notifUrl,
-      resource,
-      'created',
-      4230, // ~3 days max for online meeting transcripts
-      clientState,
-      lifecycleUrl
-    );
-
-    await saveSession({
-      meeting_id: SUBSCRIPTION_KEY,
-      subscription_id: result.id,
-      expiration: result.expirationDateTime,
-      resource,
-      client_state: clientState,
-      notification_url: notifUrl,
-      status: 'active',
-    });
-
-    log('INFO', 'Transcript subscription created', {
-      subscriptionId: result.id,
-      expiresAt: result.expirationDateTime,
+    // Manage tenant-wide transcript subscription
+    const subscription = await manager.manageTenantTranscriptSubscription();
+    log('INFO', 'Transcript subscription managed', {
+      subscriptionId: subscription.subscription_id,
+      type: subscription.type,
+      expiresAt: subscription.expiration,
     });
   } catch (err) {
-    log('ERROR', 'Subscription management failed', {
+    log('ERROR', 'Failed to manage transcript subscription', {
       error: err.message,
       statusCode: err.statusCode,
-      body: (err.body || '').substring(0, 200),
     });
   }
+}
+
+/**
+ * Manage a user-specific transcript subscription
+ * @param {string} userId - User ID to create subscription for
+ * @returns {Promise<Object>} Subscription data
+ */
+async function manageUserTranscriptSubscription(userId) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    throw new Error('Subscription manager not initialized');
+  }
+
+  return await manager.manageUserTranscriptSubscription(userId);
+}
+
+/**
+ * Manage a user calendar subscription
+ * @param {string} userId - User ID or email to create subscription for
+ * @returns {Promise<Object>} Subscription data
+ */
+async function manageUserCalendarSubscription(userId) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    throw new Error('Subscription manager not initialized');
+  }
+
+  return await manager.manageUserCalendarSubscription(userId);
+}
+
+/**
+ * Manage a group calendar subscription
+ * @param {string} groupId - Group ID to create subscription for
+ * @returns {Promise<Object>} Subscription data
+ */
+async function manageGroupCalendarSubscription(groupId) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    throw new Error('Subscription manager not initialized');
+  }
+
+  return await manager.manageGroupCalendarSubscription(groupId);
+}
+
+/**
+ * Delete a subscription by ID
+ * @param {string} subscriptionId - Graph subscription ID to delete
+ * @param {string} storageKey - Storage key for the subscription
+ */
+async function deleteSubscription(subscriptionId, storageKey) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    throw new Error('Subscription manager not initialized');
+  }
+
+  await manager.deleteSubscription(subscriptionId);
+  
+  // Mark as deleted in storage
+  if (storageKey) {
+    try {
+      const cached = await getSession(storageKey);
+      if (cached) {
+        await saveSession({
+          meeting_id: storageKey,
+          ...cached,
+          status: 'deleted',
+          deleted_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      log('WARN', 'Failed to update storage after deletion', {
+        storageKey,
+        error: err.message,
+      });
+    }
+  }
+}
+
+/**
+ * Get subscription details from storage
+ * @param {string} storageKey - Storage key for the subscription
+ * @returns {Promise<Object|null>} Subscription data or null
+ */
+async function getSubscriptionDetails(storageKey) {
+  const manager = getSubscriptionManager();
+  if (!manager) {
+    throw new Error('Subscription manager not initialized');
+  }
+
+  return await manager.getSubscriptionDetails(storageKey);
 }
 
 // ─── Meeting tab config page ─────────────────────────────────────────────────
