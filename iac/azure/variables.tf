@@ -43,6 +43,12 @@ variable "app_display_name" {
   default     = "Teams Meeting Fetcher"
 }
 
+variable "base_name" {
+  description = "Base name for resource naming (e.g., 'tmf')"
+  type        = string
+  default     = "tmf"
+}
+
 variable "bot_app_display_name" {
   description = "Display name for the Teams Meeting Bot app registration"
   type        = string
@@ -87,4 +93,10 @@ variable "eventhub_local_auth_enabled" {
   description = "Enable local authentication (SharedAccessKey) for Event Hub. Set to false to enforce RBAC only."
   type        = bool
   default     = false
+}
+
+variable "domain_name_suffix" {
+  description = "Override for default domain name suffix (e.g., 'contoso.com'). If empty, the default verified domain from Azure AD will be used. Useful for sovereign clouds."
+  type        = string
+  default     = ""
 }

@@ -49,24 +49,21 @@ data "azurerm_client_config" "current" {}
 data "azuread_client_config" "current" {}
 
 // Get Azure AD domains to use default verified domain for test user
-// NOTE: Commented out - requires Directory.Read.All permission on SPN
-// data "azuread_domains" "aad_domains" {
-//   only_default = true
-// }
-
-locals {
-  // Hard-code domain since data source requires extra permissions
-  default_domain = "ibuyspy.net"
+// NOTE: Requires Directory.Read.All permission on SPN
+data "azuread_domains" "aad_domains" {
+  only_default = true
 }
-
 
 //=============================================================================
 // LOCAL VALUES
 //=============================================================================
 
 locals {
-  base_name = "tmf"
+  base_name = var.base_name
   suffix    = random_string.suffix.result
+  // Default domain for test user UPN (requires Directory.Read.All to query domains)
+  // Get the verified default domain name from Azure AD or use override if provided (useful for sovereign clouds)
+  default_domain = var.domain_name_suffix == "" ? data.azuread_domains.aad_domains.domains[0].domain_name : var.domain_name_suffix
 
   // Common tags
   common_tags = {
@@ -88,7 +85,7 @@ locals {
 
   // Test user configuration
   test_user_upn           = "${random_pet.test_user.id}@${local.default_domain}"
-  test_user_display_name  = "TMF ${title(random_pet.test_user.id)}"
+  test_user_display_name  = "${upper(local.base_name)} ${title(random_pet.test_user.id)}"
   test_user_mail_nickname = random_pet.test_user.id
 }
 
@@ -143,8 +140,8 @@ module "key_vault" {
 
   // Store application secrets
   secrets = {
-    "app-client-secret"               = module.azure_ad.app_client_secret
-    "eventgrid-access-key"            = module.monitoring.eventgrid_topic_primary_access_key
+    "app-client-secret" = module.azure_ad.app_client_secret
+    // Removed eventgrid-access-key: using RBAC-only authentication (eventhub_local_auth_enabled = false)
     "appinsights-instrumentation-key" = module.monitoring.app_insights_instrumentation_key
   }
 
@@ -163,7 +160,6 @@ module "storage" {
   location                = azurerm_resource_group.main.location
   allowed_ip_addresses    = var.allowed_ip_addresses
   deployment_principal_id = data.azurerm_client_config.current.object_id
-  app_principal_id        = module.azure_ad.service_principal_object_id
 
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 
@@ -218,14 +214,16 @@ module "bot_service" {
 
   tags = local.common_tags
 }
+
 //=============================================================================
-// RBAC: Lambda Service Principal - EventHub Data Receiver
+// Security Module - Consolidated RBAC
 //=============================================================================
 
-resource "azurerm_role_assignment" "lambda_eventhub_reader" {
-  scope                = module.monitoring.eventhub_namespace_id
-  role_definition_name = "Azure Event Hubs Data Receiver"
-  principal_id         = module.azure_ad.lambda_service_principal_object_id
+module "security" {
+  source = "./modules/security"
 
-  description = "Allow Lambda to read messages from EventHub (change tracking)"
+  storage_account_id    = module.storage.storage_account_id
+  eventhub_namespace_id = module.monitoring.eventhub_namespace_id
+  app_principal_id      = module.azure_ad.service_principal_object_id
+  lambda_principal_id   = module.azure_ad.lambda_service_principal_object_id
 }

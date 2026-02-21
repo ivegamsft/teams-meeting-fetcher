@@ -56,34 +56,45 @@ output "authorizer_function_arn" {
 // STORAGE OUTPUTS
 //=============================================================================
 
+output "bucket_names" {
+  description = "Map of all S3 bucket names (webhooks, transcripts, checkpoints)"
+  value       = module.storage.bucket_names
+}
+
+output "bucket_arns" {
+  description = "Map of all S3 bucket ARNs"
+  value       = module.storage.bucket_arns
+}
+
+// Backward compatibility: primary webhook bucket
 output "bucket_name" {
-  description = "S3 bucket for webhook payloads"
+  description = "Primary webhook bucket name (for backward compatibility)"
   value       = module.storage.bucket_name
 }
 
 output "bucket_arn" {
-  description = "S3 bucket ARN"
+  description = "Primary webhook bucket ARN (for backward compatibility)"
   value       = module.storage.bucket_arn
 }
 
 output "subscriptions_table_name" {
   description = "DynamoDB table for subscription tracking"
-  value       = module.storage.subscriptions_table_name
+  value       = module.dynamodb.subscriptions_table_name
 }
 
 output "subscriptions_table_arn" {
   description = "DynamoDB subscriptions table ARN"
-  value       = module.storage.subscriptions_table_arn
+  value       = module.dynamodb.subscriptions_table_arn
 }
 
 output "eventhub_checkpoints_table_name" {
   description = "Event Hub checkpoints table name"
-  value       = module.storage.eventhub_checkpoints_table_name
+  value       = module.dynamodb.eventhub_checkpoints_table_name
 }
 
 output "eventhub_checkpoints_table_arn" {
   description = "Event Hub checkpoints table ARN"
-  value       = module.storage.eventhub_checkpoints_table_arn
+  value       = module.dynamodb.eventhub_checkpoints_table_arn
 }
 
 //=============================================================================

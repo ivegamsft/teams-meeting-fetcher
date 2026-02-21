@@ -65,8 +65,13 @@ output "azure_storage_account_name" {
 // AWS OUTPUTS
 //=============================================================================
 
+output "aws_buckets" {
+  description = "AWS S3 bucket names (webhooks, transcripts, checkpoints)"
+  value       = module.aws.bucket_names
+}
+
 output "aws_bucket_name" {
-  description = "AWS S3 bucket name"
+  description = "AWS S3 primary webhook bucket name (for backward compatibility)"
   value       = module.aws.bucket_name
 }
 
@@ -102,13 +107,15 @@ output "aws_checkpoint_table_name" {
 output "deployment_summary" {
   description = "Summary of deployed resources"
   value = {
-    environment          = var.environment
-    azure_resource_group = module.azure.resource_group_name
-    azure_event_hub      = "${module.azure.eventhub_namespace_name}/${module.azure.eventhub_name}"
-    aws_bucket           = module.aws.bucket_name
-    aws_api_gateway      = module.aws.api_webhook_url
-    bot_webhook          = module.aws.meeting_bot_webhook_url
-    eventhub_processor   = module.aws.eventhub_processor_function_name
-    checkpoint_table     = module.aws.eventhub_checkpoints_table_name
+    environment            = var.environment
+    azure_resource_group   = module.azure.resource_group_name
+    azure_event_hub        = "${module.azure.eventhub_namespace_name}/${module.azure.eventhub_name}"
+    aws_webhooks_bucket    = module.aws.bucket_names["webhooks"]
+    aws_transcripts_bucket = module.aws.bucket_names["transcripts"]
+    aws_checkpoints_bucket = module.aws.bucket_names["checkpoints"]
+    aws_api_gateway        = module.aws.api_webhook_url
+    bot_webhook            = module.aws.meeting_bot_webhook_url
+    eventhub_processor     = module.aws.eventhub_processor_function_name
+    checkpoint_table       = module.aws.eventhub_checkpoints_table_name
   }
 }

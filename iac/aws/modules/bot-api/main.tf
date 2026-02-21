@@ -45,7 +45,7 @@ resource "aws_api_gateway_authorizer" "lambda_authorizer" {
 
 // Permission for API Gateway to invoke authorizer Lambda
 resource "aws_lambda_permission" "authorizer_invoke" {
-  statement_id  = "AllowAPIGatewayInvokeAuthorizer"
+  statement_id  = "AllowBotAPIGatewayInvokeAuthorizer"
   action        = "lambda:InvokeFunction"
   function_name = var.authorizer_function_name
   principal     = "apigateway.amazonaws.com"

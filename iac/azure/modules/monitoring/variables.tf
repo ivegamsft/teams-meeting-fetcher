@@ -78,7 +78,7 @@ variable "tags" {
 variable "eventhub_local_auth_enabled" {
   description = "Enable local authentication (SharedAccessKey) for Event Hub. Set to false to enforce RBAC only."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "current_user_object_id" {

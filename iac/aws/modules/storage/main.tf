@@ -1,23 +1,28 @@
-// Storage module - S3 bucket for webhook payload storage
+// Storage module - S3 buckets for webhook payloads and transcripts
 
-resource "aws_s3_bucket" "webhook_payloads" {
-  bucket = var.bucket_name
+resource "aws_s3_bucket" "buckets" {
+  for_each = var.buckets
 
-  tags = var.tags
+  bucket = each.value.name
+  tags   = merge(var.tags, { Purpose = each.key })
 }
 
 // Optional: Enable versioning for data protection
-resource "aws_s3_bucket_versioning" "webhook_payloads" {
-  bucket = aws_s3_bucket.webhook_payloads.id
+resource "aws_s3_bucket_versioning" "bucket_versioning" {
+  for_each = var.buckets
+
+  bucket = aws_s3_bucket.buckets[each.key].id
 
   versioning_configuration {
-    status = var.enable_versioning ? "Enabled" : "Disabled"
+    status = each.value.enable_versioning ? "Enabled" : "Disabled"
   }
 }
 
 // Optional: Server-side encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "webhook_payloads" {
-  bucket = aws_s3_bucket.webhook_payloads.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption" {
+  for_each = var.buckets
+
+  bucket = aws_s3_bucket.buckets[each.key].id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -27,8 +32,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "webhook_payloads"
 }
 
 // Block public access
-resource "aws_s3_bucket_public_access_block" "webhook_payloads" {
-  bucket = aws_s3_bucket.webhook_payloads.id
+resource "aws_s3_bucket_public_access_block" "bucket_public_access" {
+  for_each = var.buckets
+
+  bucket = aws_s3_bucket.buckets[each.key].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -36,82 +43,3 @@ resource "aws_s3_bucket_public_access_block" "webhook_payloads" {
   restrict_public_buckets = true
 }
 
-//=============================================================================
-// DYNAMODB TABLE - Graph API Subscription Metadata
-//=============================================================================
-// Stores subscription tracking for auto-renewal and monitoring
-// Enables querying subscriptions by expiry date for renewal operations
-
-resource "aws_dynamodb_table" "graph_subscriptions" {
-  name             = var.subscriptions_table_name
-  billing_mode     = "PAY_PER_REQUEST"
-  hash_key         = "subscription_id"
-  range_key        = "created_at"
-  stream_enabled   = true
-  stream_view_type = "NEW_AND_OLD_IMAGES"
-
-  attribute {
-    name = "subscription_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "created_at"
-    type = "S"
-  }
-
-  attribute {
-    name = "expiry_date"
-    type = "S"
-  }
-
-  attribute {
-    name = "status"
-    type = "S"
-  }
-
-  global_secondary_index {
-    name            = "expiry-date-index"
-    hash_key        = "status"
-    range_key       = "expiry_date"
-    projection_type = "ALL"
-  }
-
-  ttl {
-    attribute_name = "expires_at"
-    enabled        = false
-  }
-
-  point_in_time_recovery {
-    enabled = true
-  }
-
-  tags = var.tags
-
-  depends_on = [aws_s3_bucket.webhook_payloads]
-}
-
-//=============================================================================
-// DYNAMODB TABLE - Event Hub checkpoints
-//=============================================================================
-
-resource "aws_dynamodb_table" "eventhub_checkpoints" {
-  name         = var.eventhub_checkpoints_table_name
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "partition_id"
-  range_key    = "consumer_group"
-
-  attribute {
-    name = "partition_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "consumer_group"
-    type = "S"
-  }
-
-  tags = var.tags
-
-  depends_on = [aws_s3_bucket.webhook_payloads]
-}

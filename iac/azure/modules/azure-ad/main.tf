@@ -41,6 +41,8 @@ resource "azuread_application" "tmf_app" {
   required_resource_access {
     resource_app_id = local.graph_client_id
 
+    // Note: Terraform azuread_application doesn't support dynamic blocks for resource_access
+    // Each permission must be explicitly declared
     resource_access {
       id   = local.graph_app_role_ids.calendars_readwrite
       type = "Role"
@@ -78,6 +80,7 @@ resource "azuread_application" "tmf_bot_app" {
   display_name     = var.bot_app_display_name
   sign_in_audience = "AzureADMultipleOrgs"
 
+  // Note: Terraform azuread_application doesn't support dynamic blocks for resource_access
   required_resource_access {
     resource_app_id = local.graph_client_id
 
@@ -112,7 +115,10 @@ resource "azuread_application" "tmf_bot_app" {
   }
 }
 
-// Service Principal for the application
+//=============================================================================
+// SERVICE PRINCIPALS - Keep in azure-ad module (Azure AD resources)
+//=============================================================================
+
 resource "azuread_service_principal" "tmf_app" {
   client_id = azuread_application.tmf_app.client_id
 }

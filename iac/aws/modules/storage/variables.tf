@@ -1,24 +1,9 @@
-variable "bucket_name" {
-  description = "Name of the S3 bucket for webhook payloads"
-  type        = string
-}
-
-variable "enable_versioning" {
-  description = "Enable S3 bucket versioning"
-  type        = bool
-  default     = false
-}
-
-variable "subscriptions_table_name" {
-  description = "Name of the DynamoDB table for subscription tracking"
-  type        = string
-  default     = "graph-subscriptions"
-}
-
-variable "eventhub_checkpoints_table_name" {
-  description = "Name of the DynamoDB table for Event Hub checkpoints"
-  type        = string
-  default     = "eventhub-checkpoints"
+variable "buckets" {
+  description = "Map of S3 buckets to create (key = bucket purpose, value = bucket configuration)"
+  type = map(object({
+    name              = string
+    enable_versioning = optional(bool, false)
+  }))
 }
 
 variable "tags" {

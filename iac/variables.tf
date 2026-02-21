@@ -103,8 +103,18 @@ variable "aws_profile" {
   default     = "default"
 }
 
-variable "bucket_name" {
+variable "webhook_bucket_name" {
   description = "S3 bucket name for webhook payloads"
+  type        = string
+}
+
+variable "transcript_bucket_name" {
+  description = "S3 bucket name for meeting transcripts"
+  type        = string
+}
+
+variable "checkpoint_bucket_name" {
+  description = "S3 bucket name for Event Hub checkpoints"
   type        = string
 }
 

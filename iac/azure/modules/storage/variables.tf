@@ -42,11 +42,6 @@ variable "deployment_principal_id" {
   type        = string
 }
 
-variable "app_principal_id" {
-  description = "Object ID of the application service principal (for Storage Blob Data Contributor)"
-  type        = string
-}
-
 variable "log_analytics_workspace_id" {
   description = "Log Analytics workspace ID for diagnostic settings (empty to skip)"
   type        = string

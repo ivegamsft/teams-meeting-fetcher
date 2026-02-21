@@ -9,15 +9,49 @@ locals {
   }
 }
 
+moved {
+  from = module.storage.aws_dynamodb_table.graph_subscriptions
+  to   = module.dynamodb.aws_dynamodb_table.graph_subscriptions
+}
+
+moved {
+  from = module.storage.aws_dynamodb_table.eventhub_checkpoints
+  to   = module.dynamodb.aws_dynamodb_table.eventhub_checkpoints
+}
+
 //=============================================================================
-// STORAGE MODULE - S3 bucket for webhook payloads
+// STORAGE MODULE - S3 buckets for webhooks, transcripts, and checkpoints
 //=============================================================================
 
 module "storage" {
   source = "./modules/storage"
 
-  bucket_name                     = var.bucket_name
-  enable_versioning               = false
+  buckets = {
+    webhooks = {
+      name              = var.webhook_bucket_name
+      enable_versioning = false
+    }
+    transcripts = {
+      name              = var.transcript_bucket_name
+      enable_versioning = true
+    }
+    checkpoints = {
+      name              = var.checkpoint_bucket_name
+      enable_versioning = false
+    }
+  }
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// DYNAMODB MODULE - Subscription metadata + Event Hub checkpoints
+//=============================================================================
+
+module "dynamodb" {
+  source = "./modules/dynamodb"
+
+  subscriptions_table_name        = var.subscriptions_table_name
   eventhub_checkpoints_table_name = var.eventhub_checkpoints_table_name
 
   tags = local.common_tags
@@ -39,6 +73,27 @@ module "notifications" {
 }
 
 //=============================================================================
+// SECURITY MODULE - Azure RBAC credentials (Event Hub, Graph API, Teams Bot)
+//=============================================================================
+
+module "security" {
+  source = "./modules/security"
+
+  environment                   = var.environment
+  eventhub_reader_tenant_id     = var.azure_eventhub_tenant_id
+  eventhub_reader_client_id     = var.azure_eventhub_client_id
+  eventhub_reader_client_secret = var.azure_eventhub_client_secret
+  graph_api_tenant_id           = var.azure_graph_tenant_id
+  graph_api_client_id           = var.azure_graph_client_id
+  graph_api_client_secret       = var.azure_graph_client_secret
+  bot_app_id                    = var.azure_bot_app_id
+  bot_app_secret                = var.azure_bot_app_secret
+  bot_allowed_group_id          = var.azure_allowed_group_id
+
+  tags = local.common_tags
+}
+
+//=============================================================================
 // SUBSCRIPTION RENEWAL MODULE - Auto-renewal of Graph API subscriptions
 //=============================================================================
 
@@ -48,11 +103,11 @@ module "subscription_renewal" {
   environment                 = var.environment
   aws_region                  = var.aws_region
   aws_account_id              = var.aws_account_id
-  subscriptions_table_name    = module.storage.subscriptions_table_name
-  subscriptions_table_arn     = module.storage.subscriptions_table_arn
-  azure_graph_tenant_id       = var.azure_graph_tenant_id
-  azure_graph_client_id       = var.azure_graph_client_id
-  azure_graph_client_secret   = var.azure_graph_client_secret
+  subscriptions_table_name    = module.dynamodb.subscriptions_table_name
+  subscriptions_table_arn     = module.dynamodb.subscriptions_table_arn
+  azure_graph_tenant_id       = module.security.graph_api_tenant_id
+  azure_graph_client_id       = module.security.graph_api_client_id
+  azure_graph_client_secret   = module.security.graph_api_client_secret
   renewal_schedule_expression = var.renewal_schedule_expression
   alarm_actions               = [module.notifications.topic_arn]
 
@@ -70,7 +125,7 @@ module "lambda" {
   handler       = "handler.handler"
   runtime       = "nodejs20.x"
   package_path  = var.lambda_package_path
-  bucket_arn    = module.storage.bucket_arn
+  bucket_arn    = module.storage.bucket_arns["webhooks"]
   sns_topic_arn = module.notifications.topic_arn
   # No DynamoDB for this Lambda
   timeout     = 30
@@ -137,15 +192,15 @@ module "meeting_bot" {
   timeout                         = 300
   memory_size                     = 512
   meetings_table_name             = "meeting-bot-sessions-${var.environment}"
-  azure_graph_tenant_id           = var.azure_graph_tenant_id
-  azure_graph_client_id           = var.azure_graph_client_id
-  azure_graph_client_secret       = var.azure_graph_client_secret
-  azure_bot_app_id                = var.azure_bot_app_id
-  azure_bot_app_secret            = var.azure_bot_app_secret
+  azure_graph_tenant_id           = module.security.graph_api_tenant_id
+  azure_graph_client_id           = module.security.graph_api_client_id
+  azure_graph_client_secret       = module.security.graph_api_client_secret
+  azure_bot_app_id                = module.security.bot_app_id
+  azure_bot_app_secret            = module.security.bot_app_secret
   azure_allowed_group_id          = var.azure_allowed_group_id
   group_cache_ttl_seconds         = var.group_cache_ttl_seconds
-  transcript_bucket_name          = module.storage.bucket_name
-  transcript_bucket_arn           = module.storage.bucket_arn
+  transcript_bucket_name          = module.storage.bucket_names["transcripts"]
+  transcript_bucket_arn           = module.storage.bucket_arns["transcripts"]
   teams_catalog_app_id            = var.teams_catalog_app_id
   watched_user_ids                = var.watched_user_ids
   poll_lookahead_minutes          = var.poll_lookahead_minutes
@@ -168,19 +223,19 @@ module "eventhub_processor" {
   timeout                      = 60
   memory_size                  = 256
   package_path                 = var.eventhub_lambda_package_path
-  bucket_name                  = module.storage.bucket_name
-  bucket_arn                   = module.storage.bucket_arn
-  checkpoint_table_name        = module.storage.eventhub_checkpoints_table_name
-  checkpoint_table_arn         = module.storage.eventhub_checkpoints_table_arn
+  bucket_name                  = module.storage.bucket_names["webhooks"]
+  bucket_arn                   = module.storage.bucket_arns["webhooks"]
+  checkpoint_table_name        = module.dynamodb.eventhub_checkpoints_table_name
+  checkpoint_table_arn         = module.dynamodb.eventhub_checkpoints_table_arn
   eventhub_namespace           = var.eventhub_namespace
   eventhub_name                = var.eventhub_name
   eventhub_consumer_group      = var.eventhub_consumer_group
   eventhub_max_events          = var.eventhub_max_events
   eventhub_poll_window_minutes = var.eventhub_poll_window_minutes
   message_processing_mode      = var.message_processing_mode
-  azure_tenant_id              = var.azure_eventhub_tenant_id
-  azure_client_id              = var.azure_eventhub_client_id
-  azure_client_secret          = var.azure_eventhub_client_secret
+  azure_tenant_id              = module.security.eventhub_reader_tenant_id
+  azure_client_id              = module.security.eventhub_reader_client_id
+  azure_client_secret          = module.security.eventhub_reader_client_secret
   sns_topic_arn                = module.notifications.topic_arn
 
   tags = local.common_tags

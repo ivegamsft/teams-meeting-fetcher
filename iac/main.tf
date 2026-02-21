@@ -105,8 +105,12 @@ module "aws" {
   aws_account_id = var.aws_account_id
   aws_profile    = var.aws_profile
 
-  # S3 and Lambda
-  bucket_name                  = var.bucket_name
+  # S3 buckets
+  webhook_bucket_name    = var.webhook_bucket_name
+  transcript_bucket_name = var.transcript_bucket_name
+  checkpoint_bucket_name = var.checkpoint_bucket_name
+
+  # Lambda packages
   lambda_package_path          = var.lambda_package_path
   authorizer_package_path      = var.authorizer_package_path
   eventhub_lambda_package_path = var.eventhub_lambda_package_path

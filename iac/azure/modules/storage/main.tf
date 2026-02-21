@@ -84,18 +84,14 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
   }
 }
 
-// Grant Storage Blob Data Contributor to application service principal
-resource "azurerm_role_assignment" "app_storage" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = var.app_principal_id
-}
-// Grant Storage Blob Data Contributor to Microsoft Graph Change Tracking service principal
-// Allows Graph API to store rich notification payloads > 1MB
-// TEMPORARILY DISABLED - causing apply to hang (HTTP connection reset)
-// TODO: Investigate Azure Role Assignment creation timeout/hang issue
-# resource "azurerm_role_assignment" "graph_change_tracking_storage" {
-#   scope                = azurerm_storage_account.main.id
-#   role_definition_name = "Storage Blob Data Contributor"
-#   principal_id         = "0bf30f3b-4a52-48df-9a82-234910c4a086" // Microsoft Graph Change Tracking app ID (hardcoded - stable)
-# }
+//=============================================================================
+// NOTE: RBAC Role Assignments
+//=============================================================================
+// All role assignments for storage have been moved to the security module
+// for centralized RBAC management. See: ../security/main.tf
+//
+// Role assignments moved:
+//   - Storage Blob Data Contributor → App Service Principal
+//   - Storage Blob Data Contributor → Graph Change Tracking (disabled due to timeout)
+//=============================================================================
+

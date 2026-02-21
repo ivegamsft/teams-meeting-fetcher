@@ -14,8 +14,18 @@ variable "aws_account_id" {
   sensitive   = true
 }
 
-variable "bucket_name" {
+variable "webhook_bucket_name" {
   description = "S3 bucket name for webhook payload storage"
+  type        = string
+}
+
+variable "transcript_bucket_name" {
+  description = "S3 bucket name for meeting transcript storage"
+  type        = string
+}
+
+variable "checkpoint_bucket_name" {
+  description = "S3 bucket name for Event Hub checkpoint storage"
   type        = string
 }
 
@@ -23,6 +33,12 @@ variable "eventhub_checkpoints_table_name" {
   description = "DynamoDB table name for Event Hub checkpoints"
   type        = string
   default     = "eventhub-checkpoints"
+}
+
+variable "subscriptions_table_name" {
+  description = "DynamoDB table name for Graph subscription tracking"
+  type        = string
+  default     = "graph-subscriptions"
 }
 
 variable "lambda_package_path" {
