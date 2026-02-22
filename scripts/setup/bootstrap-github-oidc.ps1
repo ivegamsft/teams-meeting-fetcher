@@ -18,6 +18,24 @@
     
 .PARAMETER Repository
     GitHub repository in format 'owner/repo' (default: current git remote)
+
+.PARAMETER SetupTerraformState
+    Create S3/DynamoDB Terraform state backend and apply bucket policy
+
+.PARAMETER StateBucketName
+    S3 bucket name for Terraform state
+
+.PARAMETER StateLockTableName
+    DynamoDB table name for Terraform state locking
+
+.PARAMETER StateKey
+    State file key/path within the bucket
+
+.PARAMETER StateRegion
+    AWS region for the state bucket and lock table
+
+.PARAMETER StateIpCidr
+    CIDR to allowlist for state bucket access
     
 .EXAMPLE
     .\bootstrap-github-oidc.ps1
@@ -32,7 +50,13 @@
 param(
     [switch]$AzureOnly,
     [switch]$AwsOnly,
-    [string]$Repository
+    [string]$Repository,
+    [switch]$SetupTerraformState,
+    [string]$StateBucketName,
+    [string]$StateLockTableName,
+    [string]$StateKey,
+    [string]$StateRegion,
+    [string]$StateIpCidr
 )
 
 $ErrorActionPreference = "Stop"
@@ -107,7 +131,7 @@ if (-not $AwsOnly) {
     $credentialName = "github-actions-oidc"
     $issuer = "https://token.actions.githubusercontent.com"
     $audience = "api://AzureADTokenExchange"
-    $subject = "repo:$Repository:ref:refs/heads/main"
+    $subject = "repo:$($Repository):ref:refs/heads/main"
     
     try {
         # Check if credential already exists
@@ -121,15 +145,17 @@ if (-not $AwsOnly) {
         # Ignore if not found
     }
     
+    $credentialParams = @{
+        name = $credentialName
+        issuer = $issuer
+        subject = $subject
+        audiences = @($audience)
+        description = "GitHub Actions OIDC for $Repository (main branch)"
+    } | ConvertTo-Json -Depth 5
+
     az ad app federated-credential create `
         --id $spAppId `
-        --parameters @{
-            name = $credentialName
-            issuer = $issuer
-            subject = $subject
-            audiences = @($audience)
-            description = "GitHub Actions OIDC for $Repository (main branch)"
-        } 2>&1 | Out-Null
+        --parameters $credentialParams 2>&1 | Out-Null
     
     Write-Host "✅ Created federated credential" -ForegroundColor Green
     Write-Host "  Subject: $subject" -ForegroundColor Gray
@@ -183,7 +209,11 @@ if (-not $AzureOnly) {
     
     # Get AWS account ID
     $accountId = aws sts get-caller-identity --query Account --output text
-    $region = $env:AWS_REGION -or "us-east-1"
+    if ([string]::IsNullOrWhiteSpace($env:AWS_REGION)) {
+        $region = "us-east-1"
+    } else {
+        $region = $env:AWS_REGION
+    }
     
     Write-Host "  Account ID: $accountId" -ForegroundColor Gray
     Write-Host "  Region: $region" -ForegroundColor Gray
@@ -239,24 +269,22 @@ if (-not $AzureOnly) {
         )
     } | ConvertTo-Json -Depth 10
     
-    try {
-        # Check if role exists
-        $existingRole = aws iam get-role --role-name $roleName 2>&1
+    $existingRole = aws iam get-role --role-name $roleName --output json 2>$null
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Role already exists" -ForegroundColor Green
-        
+
         # Update trust policy
         aws iam update-assume-role-policy `
             --role-name $roleName `
             --policy-document $assumeRolePolicyDocument | Out-Null
         Write-Host "  Updated trust policy" -ForegroundColor Gray
-    }
-    catch {
+    } else {
         # Create new role
         aws iam create-role `
             --role-name $roleName `
             --assume-role-policy-document $assumeRolePolicyDocument `
             --description "GitHub Actions OIDC role for $Repository" | Out-Null
-        
+
         Write-Host "✅ Created role: $roleName" -ForegroundColor Green
     }
     
@@ -291,6 +319,119 @@ if (-not $AzureOnly) {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
+# TERRAFORM STATE BACKEND SETUP (AWS)
+# ═══════════════════════════════════════════════════════════════════════════
+
+if ($SetupTerraformState) {
+        if ($AzureOnly) {
+                Write-Host "❌ Terraform state setup requires AWS access" -ForegroundColor Red
+                exit 1
+        }
+
+        if ([string]::IsNullOrWhiteSpace($StateBucketName) -or
+                [string]::IsNullOrWhiteSpace($StateLockTableName) -or
+                [string]::IsNullOrWhiteSpace($StateKey) -or
+                [string]::IsNullOrWhiteSpace($StateRegion) -or
+                [string]::IsNullOrWhiteSpace($StateIpCidr)) {
+                Write-Host "❌ Missing state backend parameters. Provide -StateBucketName, -StateLockTableName, -StateKey, -StateRegion, -StateIpCidr" -ForegroundColor Red
+                exit 1
+        }
+
+        Write-Host "🧱 Setting up Terraform state backend..." -ForegroundColor Cyan
+        Write-Host "  Bucket: $StateBucketName" -ForegroundColor Gray
+        Write-Host "  Table:  $StateLockTableName" -ForegroundColor Gray
+        Write-Host "  Key:    $StateKey" -ForegroundColor Gray
+        Write-Host "  Region: $StateRegion" -ForegroundColor Gray
+        Write-Host "  IP:     $StateIpCidr" -ForegroundColor Gray
+        Write-Host ""
+
+        try {
+                $null = aws sts get-caller-identity 2>&1
+        }
+        catch {
+                Write-Host "❌ AWS CLI not configured" -ForegroundColor Red
+                exit 1
+        }
+
+        $accountId = aws sts get-caller-identity --query Account --output text
+        $roleName = "github-actions-oidc-role"
+        $roleArn = "arn:aws:iam::$accountId`:role/$roleName"
+
+        # Create bucket if needed
+        $null = aws s3api head-bucket --bucket $StateBucketName 2>&1
+        if ($LASTEXITCODE -ne 0) {
+                if ($StateRegion -eq "us-east-1") {
+                        aws s3api create-bucket --bucket $StateBucketName | Out-Null
+                } else {
+                        aws s3api create-bucket --bucket $StateBucketName --region $StateRegion --create-bucket-configuration "LocationConstraint=$StateRegion" | Out-Null
+                }
+        }
+
+        aws s3api put-public-access-block --bucket $StateBucketName --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" | Out-Null
+        aws s3api put-bucket-versioning --bucket $StateBucketName --versioning-configuration "Status=Enabled" | Out-Null
+        aws s3api put-bucket-encryption --bucket $StateBucketName --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}' | Out-Null
+
+        # Create lock table if needed
+        $null = aws dynamodb describe-table --table-name $StateLockTableName --region $StateRegion 2>&1
+        if ($LASTEXITCODE -ne 0) {
+                aws dynamodb create-table --table-name $StateLockTableName --billing-mode PAY_PER_REQUEST --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --region $StateRegion | Out-Null
+                aws dynamodb wait table-exists --table-name $StateLockTableName --region $StateRegion
+        }
+
+        # Apply bucket policy (GitHub role + IP allowlist)
+        $policy = @"
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowGitHubRoleStateAccess",
+            "Effect": "Allow",
+            "Principal": {"AWS": "${roleArn}"},
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:GetBucketVersioning"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$StateBucketName",
+                "arn:aws:s3:::$StateBucketName/*"
+            ]
+        },
+        {
+            "Sid": "AllowAccountFromOfficeIP",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:GetBucketVersioning"
+            ],
+            "Resource": [
+                "arn:aws:s3:::$StateBucketName",
+                "arn:aws:s3:::$StateBucketName/*"
+            ],
+            "Condition": {
+                "IpAddress": {"aws:SourceIp": "${StateIpCidr}"},
+                "StringEquals": {"aws:PrincipalAccount": "${accountId}"}
+            }
+        }
+    ]
+}
+"@
+        $policyPath = Join-Path $env:TEMP "terraform-state-policy.json"
+        Set-Content -Path $policyPath -Value $policy -NoNewline
+        aws s3api put-bucket-policy --bucket $StateBucketName --policy file://$policyPath | Out-Null
+        Remove-Item $policyPath -Force
+
+        Write-Host "✅ Terraform state backend ready" -ForegroundColor Green
+        Write-Host ""
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # GITHUB SECRETS
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -315,6 +456,22 @@ if (-not $AzureOnly) {
     Write-Host "  GitHub CLI:"
     Write-Host "    gh secret set AWS_ROLE_ARN --body 'arn:aws:iam::$accountId`:role/$roleName'"
     Write-Host "    gh secret set AWS_REGION --body '$region'"
+    Write-Host ""
+    Write-Host "  GitHub UI: Settings > Secrets and variables > Actions"
+    Write-Host ""
+}
+
+if ($SetupTerraformState) {
+    Write-Host "Terraform State Variables:" -ForegroundColor Yellow
+    Write-Host "  GitHub CLI:"
+    Write-Host "    gh variable set TF_STATE_BUCKET --body '$StateBucketName'"
+    Write-Host "    gh variable set TF_STATE_KEY --body '$StateKey'"
+    Write-Host "    gh variable set TF_STATE_REGION --body '$StateRegion'"
+    Write-Host "    gh variable set TF_STATE_LOCK_TABLE --body '$StateLockTableName'"
+    Write-Host ""
+    Write-Host "Terraform State Secrets:" -ForegroundColor Yellow
+    Write-Host "  GitHub CLI:"
+    Write-Host "    gh secret set TF_STATE_IP_CIDR --body '$StateIpCidr'"
     Write-Host ""
     Write-Host "  GitHub UI: Settings > Secrets and variables > Actions"
     Write-Host ""

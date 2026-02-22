@@ -176,18 +176,21 @@ bash scripts/setup/bootstrap-github-oidc.sh --repository myorg/myrepo
 **What it does**:
 
 **Azure OIDC**:
+
 - Creates Service Principal: `tmf-github-actions-oidc`
 - Creates federated credential for GitHub (main branch)
 - Assigns Azure RBAC roles: Contributor, User Access Administrator
 - Outputs secrets to configure in GitHub
 
 **AWS OIDC**:
+
 - Creates OpenID Connect provider from GitHub
 - Creates IAM role: `github-actions-oidc-role`
 - Sets up trust policy for your GitHub repository
 - Attaches policies for Lambda and infrastructure deployment
 
 **Security Benefits** ✅:
+
 - No long-lived credentials stored in GitHub
 - Short-lived tokens (expire after workflow completes)
 - Each workflow run gets a unique token
@@ -195,12 +198,14 @@ bash scripts/setup/bootstrap-github-oidc.sh --repository myorg/myrepo
 - Easier credential rotation (no manual secret updates)
 
 **Prerequisites**:
+
 - GitHub CLI (`gh --version`)
 - Azure CLI (for Azure: `az login`)
 - AWS CLI (for AWS: `aws configure`)
 - GitHub repo admin rights
 
 **After running**:
+
 ```bash
 # Add secrets to GitHub (commands printed by script)
 gh secret set AZURE_CLIENT_ID --body '<value>'
@@ -221,6 +226,7 @@ gh secret set AWS_ROLE_ARN --body '<value>'
 | Compliance ready | ✅ Yes | ⚠️ For dev | ⚠️ For dev |
 
 **Documentation**:
+
 - Azure Workload Identity: https://learn.microsoft.com/entra/workload-id/
 - AWS OIDC: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html
 - GitHub OIDC: https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
