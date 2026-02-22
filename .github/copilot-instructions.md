@@ -4,6 +4,54 @@
 
 - Add emojis to commit messages or PR titles or documentation or scripts unless specified explicitly in the instructions.
 
+## PowerShell Best Practices (Windows)
+
+**When using PowerShell on Windows, follow these critical rules:**
+
+### Command Execution in Terminal
+
+❌ **NEVER** pipe PowerShell output in `run_in_terminal` commands:
+- Don't use: `| Out-Null`, `2>&1 | Out-Null`, `| Out-String`, `| Select-Object`
+- Piping causes parsing issues and unexpected failures
+- Exception: Piping is OK in multi-line scripts or `.ps1` files, just not in single terminal commands
+
+✅ **DO** use proper Windows PowerShell syntax:
+- Use backticks (`` ` ``) for line continuation, not backslashes
+- Quote variables properly: `"$variable"` not `$variable`
+- Escape special characters: `` `< ``, `` `> ``, `` `& ``
+- Test angle brackets don't trigger operators: `<app-id>` in quotes → `"<app-id>"`
+
+❌ **NEVER** use emojis in PowerShell scripts:
+- PowerShell console on Windows has encoding issues with emojis
+- Use text markers instead: `[INFO]`, `[ERROR]`, `[SUCCESS]`
+
+✅ **DO** handle errors properly:
+- Use `-ErrorAction Stop` for git commands
+- Wrap in try/catch blocks when needed
+- Don't suppress errors unless intentional
+
+### Examples
+
+```powershell
+# ❌ WRONG - Piping in terminal
+run_in_terminal: git commit -m "message" 2>&1 | Out-Null
+
+# ✅ CORRECT - No piping in terminal
+run_in_terminal: git commit -m "message"
+
+# ❌ WRONG - Emoji in PowerShell
+Write-Host "✅ Success!" -ForegroundColor Green
+
+# ✅ CORRECT - Text marker
+Write-Host "[SUCCESS] Operation complete" -ForegroundColor Green
+
+# ❌ WRONG - Angle brackets not escaped
+git commit -m "Use -BotAppId <app-id> parameter"
+
+# ✅ CORRECT - Proper escaping
+git commit -m "Use -BotAppId parameter"
+```
+
 ## ⚠️ CRITICAL: Unified Deployment Only
 
 **ALWAYS use `iac/` folder for Terraform deployments.** This is the ONLY source of truth for infrastructure.
@@ -188,6 +236,108 @@ These directories are gitignored and won't be committed (verify with `git status
 - `.env`, `.env.*` - Environment variable files
 - `*.tfvars` - Terraform variable files (except .example files)
 
+### Security Coding Standards (MANDATORY)
+
+**CRITICAL: Never hardcode secrets, credentials, or infrastructure identifiers in source code or comments.**
+
+#### What NEVER to Include in Code
+
+❌ **Secrets and Credentials**:
+- Client secrets: `'client_secret': 'Cql8Q~...'`
+- API keys: `'api_key': 'sk-...'`
+- Passwords: `'password': '...'`
+- Connection strings: `'DefaultEndpointsProtocol=https;AccountName=...'`
+- Access tokens: `'access_token': 'eyJ...'`
+- AWS access keys: `'AWS_ACCESS_KEY_ID': 'AKIA...'`
+- Private keys or certificates
+
+❌ **Infrastructure Identifiers**:
+- Tenant IDs: `'62837751-4e48-4d06-8bcb-57be1a669b78'`
+- Application/Client IDs: `'1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8'`
+- Subscription IDs: `'12345678-1234-1234-1234-123456789abc'`
+- Resource group names: `'tmf-resources-prod'`
+- Storage account names: `'tmfstorageeus6an5wk'`
+- Database names and endpoints
+- Event Hub namespaces: `'tmf-ehns-eus-6an5wk'`
+
+❌ **NEVER in Comments or Documentation Examples**:
+```python
+# ❌ WRONG - Real secrets in comments
+client_secret = os.getenv('CLIENT_SECRET')  # Cql8Q~abc123...
+
+# ❌ WRONG - Real IDs in comments
+app_id = os.getenv('APP_ID')  # 1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8
+```
+
+#### What TO DO Instead
+
+✅ **Use Configuration Priority Pattern**:
+```python
+# 1. Explicit parameters (command-line arguments)
+# 2. Environment variables
+# 3. Configuration files (gitignored)
+# 4. Secure vaults (Azure Key Vault, AWS Secrets Manager)
+# 5. Error with clear instructions if not found
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Load from .env (gitignored)
+
+def get_config(key, required=True):
+    value = os.getenv(key)
+    if required and not value:
+        raise ValueError(f"Missing required config: {key}. Set via environment variable.")
+    return value
+
+tenant_id = get_config('GRAPH_TENANT_ID')
+client_id = get_config('GRAPH_CLIENT_ID')
+client_secret = get_config('GRAPH_CLIENT_SECRET')
+```
+
+✅ **Use Placeholders in Documentation**:
+```python
+# ✅ CORRECT - Placeholders in comments
+client_secret = os.getenv('CLIENT_SECRET')  # From .env file
+
+# ✅ CORRECT - Generic examples
+app_id = os.getenv('APP_ID')  # e.g., '<your-app-id>'
+
+# ✅ CORRECT - Descriptive placeholders
+connection_string = os.getenv('STORAGE_CONNECTION_STRING')  # Format: DefaultEndpointsProtocol=https;...
+```
+
+✅ **PowerShell Configuration Pattern**:
+```powershell
+# ✅ CORRECT - Parameters with fallback
+param(
+    [string]$AppId,
+    [string]$TenantId
+)
+
+# Try parameter, then env var, then config file
+if (-not $AppId) { $AppId = $env:APP_ID }
+if (-not $AppId) { $AppId = Get-Content ./.app-id -ErrorAction SilentlyContinue }
+if (-not $AppId) {
+    Write-Error "APP_ID required. Provide via -AppId parameter or APP_ID env var"
+    exit 1
+}
+```
+
+✅ **TypeScript/JavaScript Configuration Pattern**:
+```typescript
+// ✅ CORRECT - Environment variables
+const config = {
+    tenantId: process.env.GRAPH_TENANT_ID || throwError('GRAPH_TENANT_ID required'),
+    clientId: process.env.GRAPH_CLIENT_ID || throwError('GRAPH_CLIENT_ID required'),
+    clientSecret: process.env.GRAPH_CLIENT_SECRET || throwError('GRAPH_CLIENT_SECRET required'),
+};
+
+function throwError(message: string): never {
+    throw new Error(message);
+}
+```
+
 ### Common Secret Patterns to Avoid
 
 Never commit files containing:
@@ -199,6 +349,8 @@ Never commit files containing:
 - Azure Storage connection strings
 - AWS access keys or secret keys
 - Hard-coded Event Hub names/namespaces used as defaults
+- Real secrets in comments: `# secret: Cql8Q~...`
+- Real IDs in documentation examples
 
 ### Documentation Security
 
