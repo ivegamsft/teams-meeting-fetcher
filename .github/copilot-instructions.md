@@ -11,21 +11,25 @@
 ### Command Execution in Terminal
 
 ❌ **NEVER** pipe PowerShell output in `run_in_terminal` commands:
+
 - Don't use: `| Out-Null`, `2>&1 | Out-Null`, `| Out-String`, `| Select-Object`
 - Piping causes parsing issues and unexpected failures
 - Exception: Piping is OK in multi-line scripts or `.ps1` files, just not in single terminal commands
 
 ✅ **DO** use proper Windows PowerShell syntax:
+
 - Use backticks (`` ` ``) for line continuation, not backslashes
 - Quote variables properly: `"$variable"` not `$variable`
 - Escape special characters: `` `< ``, `` `> ``, `` `& ``
 - Test angle brackets don't trigger operators: `<app-id>` in quotes → `"<app-id>"`
 
 ❌ **NEVER** use emojis in PowerShell scripts:
+
 - PowerShell console on Windows has encoding issues with emojis
 - Use text markers instead: `[INFO]`, `[ERROR]`, `[SUCCESS]`
 
 ✅ **DO** handle errors properly:
+
 - Use `-ErrorAction Stop` for git commands
 - Wrap in try/catch blocks when needed
 - Don't suppress errors unless intentional
@@ -243,6 +247,7 @@ These directories are gitignored and won't be committed (verify with `git status
 #### What NEVER to Include in Code
 
 ❌ **Secrets and Credentials**:
+
 - Client secrets: `'client_secret': 'Cql8Q~...'`
 - API keys: `'api_key': 'sk-...'`
 - Passwords: `'password': '...'`
@@ -252,6 +257,7 @@ These directories are gitignored and won't be committed (verify with `git status
 - Private keys or certificates
 
 ❌ **Infrastructure Identifiers**:
+
 - Tenant IDs: `'62837751-4e48-4d06-8bcb-57be1a669b78'`
 - Application/Client IDs: `'1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8'`
 - Subscription IDs: `'12345678-1234-1234-1234-123456789abc'`
@@ -261,6 +267,7 @@ These directories are gitignored and won't be committed (verify with `git status
 - Event Hub namespaces: `'tmf-ehns-eus-6an5wk'`
 
 ❌ **NEVER in Comments or Documentation Examples**:
+
 ```python
 # ❌ WRONG - Real secrets in comments
 client_secret = os.getenv('CLIENT_SECRET')  # Cql8Q~abc123...
@@ -272,6 +279,7 @@ app_id = os.getenv('APP_ID')  # 1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8
 #### What TO DO Instead
 
 ✅ **Use Configuration Priority Pattern**:
+
 ```python
 # 1. Explicit parameters (command-line arguments)
 # 2. Environment variables
@@ -296,6 +304,7 @@ client_secret = get_config('GRAPH_CLIENT_SECRET')
 ```
 
 ✅ **Use Placeholders in Documentation**:
+
 ```python
 # ✅ CORRECT - Placeholders in comments
 client_secret = os.getenv('CLIENT_SECRET')  # From .env file
@@ -308,6 +317,7 @@ connection_string = os.getenv('STORAGE_CONNECTION_STRING')  # Format: DefaultEnd
 ```
 
 ✅ **PowerShell Configuration Pattern**:
+
 ```powershell
 # ✅ CORRECT - Parameters with fallback
 param(
@@ -325,16 +335,17 @@ if (-not $AppId) {
 ```
 
 ✅ **TypeScript/JavaScript Configuration Pattern**:
+
 ```typescript
 // ✅ CORRECT - Environment variables
 const config = {
-    tenantId: process.env.GRAPH_TENANT_ID || throwError('GRAPH_TENANT_ID required'),
-    clientId: process.env.GRAPH_CLIENT_ID || throwError('GRAPH_CLIENT_ID required'),
-    clientSecret: process.env.GRAPH_CLIENT_SECRET || throwError('GRAPH_CLIENT_SECRET required'),
+  tenantId: process.env.GRAPH_TENANT_ID || throwError('GRAPH_TENANT_ID required'),
+  clientId: process.env.GRAPH_CLIENT_ID || throwError('GRAPH_CLIENT_ID required'),
+  clientSecret: process.env.GRAPH_CLIENT_SECRET || throwError('GRAPH_CLIENT_SECRET required'),
 };
 
 function throwError(message: string): never {
-    throw new Error(message);
+  throw new Error(message);
 }
 ```
 

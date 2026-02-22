@@ -72,6 +72,7 @@ class TestKeyVaultRBAC:
         # Azure AD client secrets are typically 40+ characters
         assert len(secret_value) >= 20
 
+    @pytest.mark.skip(reason="EventGrid now uses RBAC-only auth (eventhub_local_auth_enabled=false), access key no longer stored")
     def test_retrieve_eventgrid_key(self, azure_config, azure_credential):
         """Should retrieve Event Grid access key from Key Vault"""
         secret_value = get_keyvault_secret(
@@ -151,6 +152,7 @@ class TestSecretValues:
         assert 'REPLACE' not in secret
         assert 'TODO' not in secret
 
+    @pytest.mark.skip(reason="EventGrid now uses RBAC-only auth, access key no longer stored in Key Vault")
     def test_eventgrid_key_format(self, azure_config, azure_credential):
         """Event Grid key should be valid format"""
         secret = get_keyvault_secret(

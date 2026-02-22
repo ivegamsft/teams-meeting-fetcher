@@ -128,6 +128,7 @@ $env:BOT_APP_ID = "a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4"
 4. ✅ Verifies consent was granted successfully
 
 **Bot App ID Sources** (checked in order):
+
 1. `-BotAppId` parameter (highest priority)
 2. `$env:BOT_APP_ID` or `$env:AZURE_BOT_APP_ID` environment variables
 3. Terraform output `azure_bot_app_id` from `iac/` directory (automatic)
