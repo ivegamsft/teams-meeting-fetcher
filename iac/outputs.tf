@@ -95,6 +95,21 @@ output "aws_eventhub_processor_name" {
   value       = module.aws.eventhub_processor_function_name
 }
 
+output "aws_authorizer_function_name" {
+  description = "AWS authorizer Lambda function name"
+  value       = module.aws.authorizer_function_name
+}
+
+output "aws_renewal_function_name" {
+  description = "AWS subscription renewal Lambda function name"
+  value       = module.aws.renewal_lambda_function_name
+}
+
+output "aws_meeting_bot_function_name" {
+  description = "AWS meeting bot Lambda function name"
+  value       = module.aws.meeting_bot_function_name
+}
+
 output "aws_checkpoint_table_name" {
   description = "AWS DynamoDB checkpoint table name"
   value       = module.aws.eventhub_checkpoints_table_name
