@@ -53,6 +53,14 @@ Removes unnecessary Graph API permissions from existing Terraform deployment SPN
 **Usage**:
 
 ```powershell
+# Default SPN name (tmf-terraform-deploy-spn)
+.\scripts\setup\remove-terraform-spn-graph-permissions.ps1
+
+# Custom SPN name
+.\scripts\setup\remove-terraform-spn-graph-permissions.ps1 -SpnName "my-custom-spn"
+
+# With environment variable
+$env:TERRAFORM_SPN_NAME = "my-custom-spn"
 .\scripts\setup\remove-terraform-spn-graph-permissions.ps1
 ```
 
@@ -96,12 +104,20 @@ Re-grants admin consent for the Teams Meeting Fetcher Bot after permission chang
 **Usage**:
 
 ```powershell
+# Automatic (loads from Terraform outputs)
+.\scripts\setup\regrant-bot-app-consent.ps1
+
+# With explicit App ID
+.\scripts\setup\regrant-bot-app-consent.ps1 -BotAppId "a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4"
+
+# With environment variable
+$env:BOT_APP_ID = "a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4"
 .\scripts\setup\regrant-bot-app-consent.ps1
 ```
 
 **What it does**:
 
-1. ✅ Finds `Teams Meeting Fetcher Bot` (App ID: 330412bb-4f99-40b7-b270-24ad440a2746)
+1. ✅ Finds `Teams Meeting Fetcher Bot` by App ID (from Terraform outputs, env var, or parameter)
 2. ✅ Verifies 5 Graph API permissions are configured:
    - OnlineMeetings.ReadWrite.All
    - OnlineMeetingTranscript.Read.All
@@ -110,6 +126,11 @@ Re-grants admin consent for the Teams Meeting Fetcher Bot after permission chang
    - User.Read.All
 3. ✅ Grants admin consent for these permissions
 4. ✅ Verifies consent was granted successfully
+
+**Bot App ID Sources** (checked in order):
+1. `-BotAppId` parameter (highest priority)
+2. `$env:BOT_APP_ID` or `$env:AZURE_BOT_APP_ID` environment variables
+3. Terraform output `azure_bot_app_id` from `iac/` directory (automatic)
 
 **When to use**:
 
@@ -307,6 +328,7 @@ After running any setup or cleanup script:
 **Cause**: You don't have required Azure AD role to run the script.
 
 **Solution**:
+
 - Bootstrap scripts require: Privileged Role Administrator or Global Administrator
 - Cleanup scripts require: Application Administrator or higher
 - Contact your Azure AD administrator to grant the necessary role
@@ -316,6 +338,7 @@ After running any setup or cleanup script:
 **Cause**: Script attempted to create an SPN that already exists.
 
 **Solution**:
+
 - For bootstrap: Choose "reset credentials" when prompted
 - For cleanup: Run `.\scripts\setup\remove-terraform-spn-graph-permissions.ps1` to clean existing SPN
 
@@ -324,6 +347,7 @@ After running any setup or cleanup script:
 **Cause**: You don't have permissions to grant admin consent.
 
 **Solution**:
+
 - Grant consent manually in Azure Portal:
   1. Go to: App registrations → [App Name] → API permissions
   2. Click: "Grant admin consent for [Your Tenant]"
@@ -334,6 +358,7 @@ After running any setup or cleanup script:
 **Cause**: azure-ad module is not using hard-coded app role IDs.
 
 **Solution**:
+
 1. Pull latest code: `git pull origin main`
 2. Verify locals block exists in [iac/azure/modules/azure-ad/main.tf](../../iac/azure/modules/azure-ad/main.tf)
 3. Re-run: `cd iac && terraform init && terraform plan`

@@ -1,7 +1,17 @@
 # Script to regrant admin consent for Teams Meeting Fetcher Bot
 # After reducing permissions from 7 to 5, admin consent needs to be re-granted
 #
-# Usage: .\regrant-bot-app-consent.ps1
+# Usage: .\regrant-bot-app-consent.ps1 [-BotAppId <app-id>]
+#
+# The Bot App ID can be provided via:
+#   1. Parameter: -BotAppId
+#   2. Environment variable: BOT_APP_ID or AZURE_BOT_APP_ID
+#   3. Terraform output: azure_bot_app_id (from iac/ directory)
+
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$BotAppId
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -20,11 +30,51 @@ try {
     exit 1
 }
 
+# Get Bot App ID from parameter, environment variable, or Terraform output
+if (-not $BotAppId) {
+    # Try environment variables first
+    $BotAppId = $env:BOT_APP_ID
+    if (-not $BotAppId) {
+        $BotAppId = $env:AZURE_BOT_APP_ID
+    }
+    
+    # If still not found, try Terraform output
+    if (-not $BotAppId) {
+        Write-Host "Looking up Bot App ID from Terraform outputs..." -ForegroundColor Cyan
+        $iacDir = Join-Path $PSScriptRoot "..\..\iac"
+        if (Test-Path $iacDir) {
+            Push-Location $iacDir
+            try {
+                $tfOutputJson = terraform output -json 2>$null | ConvertFrom-Json
+                if ($tfOutputJson -and $tfOutputJson.azure_bot_app_id) {
+                    $BotAppId = $tfOutputJson.azure_bot_app_id.value
+                    Write-Host "  ✅ Found from Terraform: $BotAppId" -ForegroundColor Green
+                }
+            } catch {
+                Write-Host "  ⚠️  Could not read Terraform outputs" -ForegroundColor Yellow
+            } finally {
+                Pop-Location
+            }
+        }
+    }
+}
+
+# Validate Bot App ID is provided
+if (-not $BotAppId) {
+    Write-Host "❌ Bot App ID not found" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Please provide the Bot App ID via:" -ForegroundColor Yellow
+    Write-Host "  1. Parameter: .\regrant-bot-app-consent.ps1 -BotAppId <app-id>" -ForegroundColor Gray
+    Write-Host "  2. Environment variable: `$env:BOT_APP_ID='<app-id>'" -ForegroundColor Gray
+    Write-Host "  3. Terraform output: Run from iac/ directory after deployment" -ForegroundColor Gray
+    Write-Host ""
+    exit 1
+}
+
 $botAppName = "Teams Meeting Fetcher Bot"
-$botAppId = "330412bb-4f99-40b7-b270-24ad440a2746"  # From Terraform output
 
 Write-Host "Looking for Bot application: $botAppName" -ForegroundColor Cyan
-Write-Host "Expected App ID: $botAppId" -ForegroundColor Gray
+Write-Host "Bot App ID: $BotAppId" -ForegroundColor Gray
 Write-Host ""
 
 # Verify the app exists

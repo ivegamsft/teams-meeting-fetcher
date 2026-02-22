@@ -4,6 +4,56 @@
 
 This document explains the **correct and minimal** permissions required for the Terraform deployment Service Principal (`tmf-terraform-deploy-spn`), how they were hardened, and why certain Graph API permissions are NOT needed.
 
+## ⚠️ CRITICAL: Never Hardcode Secrets or Resource IDs
+
+**All scripts and documentation MUST follow these security practices:**
+
+### ✅ DO: Use Dynamic Configuration
+
+```powershell
+# Load from Terraform outputs (preferred)
+$botAppId = (terraform output -json | ConvertFrom-Json).azure_bot_app_id.value
+
+# Load from environment variables
+$botAppId = $env:BOT_APP_ID
+$tenantId = $env:GRAPH_TENANT_ID
+
+# Accept as parameters
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$BotAppId
+)
+```
+
+### ❌ DON'T: Hardcode Values
+
+```powershell
+# NEVER DO THIS - Exposes infrastructure details
+$botAppId = "330412bb-4f99-40b7-b270-24ad440a2746"
+$tenantId = "62837751-4e48-4d06-8bcb-57be1a669b78"
+$clientSecret = "Cql8Q~..."  # NEVER EVER DO THIS
+```
+
+### Script Configuration Priority
+
+All scripts should check for configuration in this order:
+
+1. **Parameters** (highest priority) - Explicit override: `-BotAppId "..."`
+2. **Environment variables** - Runtime configuration: `$env:BOT_APP_ID`
+3. **Terraform outputs** - Automatic from IaC: `terraform output azure_bot_app_id`
+4. **Error if not found** - Never use hardcoded defaults
+
+### Why This Matters
+
+- **Security**: Hardcoded IDs in git history can aid attackers in reconnaissance
+- **Portability**: Scripts work across different tenants/environments
+- **Auditing**: Clear source of truth for configuration values
+- **Compliance**: Meets security scanning and secret detection requirements
+
+See scripts in [`scripts/setup/`](../scripts/setup/) for reference implementations.
+
+---
+
 ## Security Hardening Summary
 
 **Date**: February 19, 2026  

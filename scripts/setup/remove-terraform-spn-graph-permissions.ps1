@@ -1,9 +1,24 @@
 # Script to remove unnecessary Graph API permissions from tmf-terraform-deploy-spn
 # This fixes existing SPNs that were created with the old bootstrap script
 #
-# Usage: .\remove-terraform-spn-graph-permissions.ps1
+# Usage: .\remove-terraform-spn-graph-permissions.ps1 [-SpnName <name>]
+#
+# The SPN name can be provided via:
+#   1. Parameter: -SpnName
+#   2. Environment variable: TERRAFORM_SPN_NAME
+#   3. Default: tmf-terraform-deploy-spn
+
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$SpnName = "tmf-terraform-deploy-spn"
+)
 
 $ErrorActionPreference = "Stop"
+
+# Allow environment variable override
+if ($env:TERRAFORM_SPN_NAME -and -not $PSBoundParameters.ContainsKey('SpnName')) {
+    $SpnName = $env:TERRAFORM_SPN_NAME
+}
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
