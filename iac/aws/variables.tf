@@ -62,7 +62,7 @@ variable "authorizer_package_path" {
 variable "meeting_bot_package_path" {
   description = "Path to meeting bot Lambda zip package"
   type        = string
-  default     = "../lambda/meeting-bot/meeting-bot.zip"
+  default     = "../scenarios/lambda/meeting-bot/meeting-bot.zip"
 }
 
 variable "client_state" {
