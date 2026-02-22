@@ -6,9 +6,9 @@ This guide walks you through setting up the required credentials (AWS IAM & Azur
 
 The GitHub workflows require:
 
-- **AWS**: IAM user with programmatic access (access key + secret key)
+- **AWS**: OIDC role for GitHub Actions
 - **Azure**: Service Principal with Contributor role on your subscription
-- Both credentials stored as GitHub repository secrets
+- GitHub Actions secrets and variables for cloud auth and Terraform state
 
 ## Prerequisites
 
@@ -19,18 +19,15 @@ The GitHub workflows require:
 
 ---
 
-## Part 1: AWS IAM Setup
+## Part 1: AWS OIDC Setup
 
-### Step 1a: Create AWS IAM User (AWS Console)
+### Step 1a: Create AWS OIDC Role
 
-1. Go to **AWS Management Console** → **IAM** → **Users**
-2. Click **Create user**
-3. Enter name: `tmf-github-actions` or similar
-4. Click **Next**
-5. Click **Attach policies directly**
-6. Search for and attach these policies:
-   - `AdministratorAccess` (for Terraform) — or more granular policies below
-7. Click **Next** → **Create user**
+1. Go to **AWS Management Console** → **IAM** → **Identity providers**
+2. Add an OIDC provider for GitHub (`https://token.actions.githubusercontent.com`)
+3. Create an IAM role for GitHub Actions
+4. Use a trust policy scoped to your repository
+5. Attach required policies (least privilege preferred)
 
 **Optional: Granular Policies instead of AdministratorAccess**
 
@@ -63,35 +60,21 @@ If you want tighter permissions, attach only what's needed:
 }
 ```
 
-### Step 1b: Generate Access Keys
-
-1. Click the new user: `tmf-github-actions`
-2. Go to **Security credentials** tab
-3. Click **Create access key**
-4. Choose **Application running outside AWS**
-5. Click **Next**
-6. Click **Create access key**
-7. **Copy both:**
-   - Access Key ID
-   - Secret access key (only shown once!)
-
-### Step 1c: Save to GitHub Secrets
+### Step 1b: Save to GitHub Secrets
 
 Using GitHub CLI:
 
 ```bash
-gh secret set AWS_ACCESS_KEY_ID --body "YOUR_ACCESS_KEY_ID"
-gh secret set AWS_SECRET_ACCESS_KEY --body "YOUR_SECRET_ACCESS_KEY"
+gh secret set AWS_ROLE_ARN --body "<your-role-arn>"
 ```
 
 Or manually in GitHub UI:
 
 1. Go to **Settings** → **Secrets and variables** → **Actions**
 2. Click **New repository secret**
-3. Add `AWS_ACCESS_KEY_ID` with the value
-4. Add `AWS_SECRET_ACCESS_KEY` with the value
+3. Add `AWS_ROLE_ARN` with the value
 
-✅ **AWS setup complete!**
+✅ **AWS OIDC setup complete!**
 
 ---
 
@@ -204,7 +187,29 @@ Or manually in GitHub UI:
 
 ---
 
-## Part 3: Graph API Secrets (for testing workflows)
+## Part 3: Terraform State Settings
+
+Store Terraform backend configuration in GitHub **variables** and the IP allowlist in **secrets**.
+
+### Variables
+
+```bash
+gh variable set TF_STATE_BUCKET --body "<state-bucket-name>"
+gh variable set TF_STATE_KEY --body "<state-key-path>"
+gh variable set TF_STATE_REGION --body "<state-region>"
+gh variable set TF_STATE_LOCK_TABLE --body "<state-lock-table>"
+gh variable set AWS_REGION --body "<aws-region>"
+```
+
+### Secrets
+
+```bash
+gh secret set TF_STATE_IP_CIDR --body "<your-ip-cidr>"
+```
+
+---
+
+## Part 4: Graph API Secrets (for testing workflows)
 
 These are optional but needed if your workflows run Graph API tests.
 
@@ -217,7 +222,7 @@ gh secret set GRAPH_CLIENT_SECRET --body "YOUR_GRAPH_CLIENT_SECRET"
 
 ---
 
-## Part 4: Verify Secrets in GitHub
+## Part 5: Verify Secrets and Variables in GitHub
 
 ```bash
 # List all secrets (values hidden)
@@ -226,8 +231,7 @@ gh secret list
 
 You should see:
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
+- `AWS_ROLE_ARN`
 - `AZURE_CREDENTIALS`
 - `AZURE_CLIENT_ID`
 - `AZURE_CLIENT_SECRET`
@@ -235,9 +239,17 @@ You should see:
 - `EXPECTED_TENANT_ID`
 - (optional) `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET`
 
+And variables:
+
+- `AWS_REGION`
+- `TF_STATE_BUCKET`
+- `TF_STATE_KEY`
+- `TF_STATE_REGION`
+- `TF_STATE_LOCK_TABLE`
+
 ---
 
-## Part 5: Test the Workflows
+## Part 6: Test the Workflows
 
 ### Trigger a test workflow:
 
