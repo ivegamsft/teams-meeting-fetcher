@@ -1,14 +1,4 @@
-terraform {
-  required_version = ">= 1.0"
+# Provider versions inherited from root iac/main.tf
+# Subdirectories should not redefine required_providers
+# to maintain unified deployment constraints
 
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
-}
