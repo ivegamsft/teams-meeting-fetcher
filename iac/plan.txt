@@ -1,7 +1,0 @@
-Γò╖
-Γöé Error: Failed to read state file
-Γöé 
-Γöé The state file could not be read: read terraform.tfstate: The process
-Γöé cannot access the file because another process has locked a portion of the
-Γöé file.
-Γò╡
