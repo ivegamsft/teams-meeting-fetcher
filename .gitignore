@@ -242,7 +242,6 @@ HTML/
 
 # CI/CD artifacts
 .circleci/
-.github/workflows/
 .gitlab-ci/
 .travis/
 

@@ -1,0 +1,204 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/aws-lambda/**"
+      - "iac/aws/**"
+      - "lambda/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_VERSION: "1.5.0"
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY }}
+  TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+  TF_STATE_LOCK_TABLE: ${{ vars.TF_STATE_LOCK_TABLE }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate & Plan
+    runs-on: ubuntu-latest
+    outputs:
+      plan-exists: ${{ steps.plan.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform init
+        run: |
+          cd iac
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="region=$TF_STATE_REGION" \
+            -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform validate
+        run: |
+          cd iac
+          terraform validate
+
+      - name: Terraform plan
+        id: plan
+        run: |
+          cd iac
+          terraform plan -out=tfplan
+          echo "exists=true" >> $GITHUB_OUTPUT
+
+      - name: Upload terraform plan
+        if: steps.plan.outputs.exists == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan-aws
+          path: iac/tfplan
+          retention-days: 1
+
+  build:
+    name: Build Lambda
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: |
+          cd apps/aws-lambda
+          npm ci
+
+      - name: Package Lambda
+        run: |
+          cd apps/aws-lambda
+          zip -r ../lambda.zip handler.js node_modules
+
+      - name: Upload Lambda artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-artifact
+          path: apps/lambda.zip
+          retention-days: 1
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: [validate, build]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: aws-${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Download terraform plan
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan-aws
+          path: iac/
+
+      - name: Terraform init
+        run: |
+          cd iac
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="region=$TF_STATE_REGION" \
+            -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform apply
+        run: |
+          cd iac
+          terraform apply -auto-approve tfplan
+
+      - name: Get Terraform outputs
+        id: tf-output
+        run: |
+          cd iac
+          LAMBDA_NAME=$(terraform output -raw lambda_function_name)
+          echo "lambda_name=$LAMBDA_NAME" >> $GITHUB_OUTPUT
+
+      - name: Download Lambda artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-artifact
+          path: apps/
+
+      - name: Deploy Lambda code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ steps.tf-output.outputs.lambda_name }} \
+            --zip-file fileb://apps/lambda.zip \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for Lambda update
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ steps.tf-output.outputs.lambda_name }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ AWS Deployment Complete"
+          echo "Lambda: ${{ steps.tf-output.outputs.lambda_name }}"
+          echo "Region: ${{ env.AWS_REGION }}"

@@ -1,0 +1,164 @@
+name: Release & Tag
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 1.0.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changelog
+        run: |
+          if [ ! -f "CHANGELOG.md" ]; then
+            echo "⚠️ No CHANGELOG.md found"
+          else
+            echo "✅ CHANGELOG.md exists"
+          fi
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION=${{ github.event.inputs.version }}
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version (or generate from commits)
+          if [ -f "CHANGELOG.md" ]; then
+            CHANGELOG=$(sed -n '/^## \[${{ steps.version.outputs.version }}\]/,/^## \[/p' CHANGELOG.md | head -n -1)
+          else
+            CHANGELOG="See commit details"
+          fi
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+
+  package:
+    name: Package Release Artifacts
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package Lambda handlers
+        run: |
+          # Handler
+          cd apps/aws-lambda
+          rm -f lambda.zip
+          zip -r lambda.zip handler.js node_modules
+          cd ../..
+
+          # Authorizer
+          cd apps/aws-lambda-authorizer
+          rm -f authorizer.zip
+          zip -r authorizer.zip authorizer.js node_modules
+          cd ../..
+
+      - name: Create distribution archive
+        run: |
+          mkdir -p dist
+          cp apps/aws-lambda/lambda.zip dist/
+          cp apps/aws-lambda-authorizer/authorizer.zip dist/
+          cp -r iac/ dist/
+          cp README.md dist/
+          zip -r teams-meeting-fetcher-${{ github.run_number }}.zip dist/
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-artifacts
+          path: teams-meeting-fetcher-${{ github.run_number }}.zip
+          retention-days: 90
+
+  teams-app-publish:
+    name: Publish to Teams App Catalog (optional)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Teams app manifest
+        run: |
+          if [ ! -f "teams-app/manifest.json" ]; then
+            echo "❌ Teams app manifest not found"
+            exit 1
+          fi
+
+          # Basic JSON validation
+          python3 -c "import json; json.load(open('teams-app/manifest.json'))" && echo "✅ Manifest is valid JSON"
+
+      - name: Package Teams app
+        run: |
+          cd teams-app
+          zip -r ../teams-app-${{ github.run_number }}.zip . -x "*.git*" "node_modules/*"
+
+      - name: Upload Teams app package
+        uses: actions/upload-artifact@v3
+        with:
+          name: teams-app-package
+          path: teams-app-${{ github.run_number }}.zip
+          retention-days: 30
+
+      - name: Note
+        run: |
+          echo "📝 Teams app package ready for upload to Teams admin center"
+          echo "See: https://admin.teams.microsoft.com/policies/app-setup"

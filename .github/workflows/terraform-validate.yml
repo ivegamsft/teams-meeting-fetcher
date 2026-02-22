@@ -1,0 +1,119 @@
+name: Terraform Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "iac/**"
+  workflow_dispatch:
+
+env:
+  TF_VERSION: "1.5.0"
+
+jobs:
+  validate-aws:
+    name: Validate AWS Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: |
+          cd iac/aws
+          terraform fmt -check -recursive -diff
+
+      - name: Terraform Init (backend=false)
+        run: |
+          cd iac/aws
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        run: |
+          cd iac/aws
+          terraform validate
+
+      - name: TFLint
+        uses: terraform-linters/setup-tflint@v3
+
+      - name: TFLint AWS Stack
+        run: |
+          cd iac/aws
+          tflint --init
+          tflint
+
+  validate-azure:
+    name: Validate Azure Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: |
+          cd iac/azure
+          terraform fmt -check -recursive -diff
+
+      - name: Terraform Init (backend=false)
+        run: |
+          cd iac/azure
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        run: |
+          cd iac/azure
+          terraform validate
+
+      - name: TFLint
+        uses: terraform-linters/setup-tflint@v3
+
+      - name: TFLint Azure Stack
+        run: |
+          cd iac/azure
+          tflint --init
+          tflint
+
+  consistency-check:
+    name: Cross-Stack Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for hardcoded IDs
+        run: |
+          echo "🔍 Scanning for hardcoded credentials or test IDs..."
+
+          if grep -r "d1234567\|test123\|LOCAL_DEBUG" iac/ --include="*.tf" -q; then
+            echo "❌ Found hardcoded test values!"
+            exit 1
+          fi
+
+          echo "✅ No obvious hardcoded values found"
+
+      - name: Verify module consistency
+        run: |
+          echo "🔍 Checking module structures..."
+
+          # Check that all modules have required files
+          for module_dir in iac/*/modules/*/; do
+            if [ ! -f "$module_dir/variables.tf" ]; then
+              echo "❌ Missing variables.tf in $module_dir"
+              exit 1
+            fi
+            if [ ! -f "$module_dir/outputs.tf" ]; then
+              echo "❌ Missing outputs.tf in $module_dir"
+              exit 1
+            fi
+          done
+
+          echo "✅ All modules have required files"

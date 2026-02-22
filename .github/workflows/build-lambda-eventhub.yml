@@ -1,0 +1,64 @@
+name: Build Lambda - EventHub Processor
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "apps/aws-lambda-eventhub/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "apps/aws-lambda-eventhub/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build EventHub Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install EventHub dependencies
+        run: |
+          cd apps/aws-lambda-eventhub
+          npm ci
+
+      - name: Validate handler
+        run: |
+          cd apps/aws-lambda-eventhub
+          node -c handler.js
+
+      - name: Package Lambda
+        run: |
+          cd apps/aws-lambda-eventhub
+          rm -f lambda.zip
+          zip -r lambda.zip handler.js node_modules -x "*.git*" "*.md"
+
+      - name: Verify package
+        run: |
+          cd apps/aws-lambda-eventhub
+          if [ ! -f lambda.zip ]; then
+            echo "Package failed: lambda.zip not created"
+            exit 1
+          fi
+          ZIPSIZE=$(stat -f%z lambda.zip 2>/dev/null || stat -c%s lambda.zip)
+          echo "EventHub package size: ${ZIPSIZE} bytes"
+
+      - name: Upload EventHub Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-eventhub-artifact
+          path: apps/aws-lambda-eventhub/lambda.zip
+          retention-days: 30

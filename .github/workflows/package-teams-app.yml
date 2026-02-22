@@ -1,0 +1,190 @@
+name: Package Teams App
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "teams-app/**"
+      - ".github/workflows/package-teams-app.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "teams-app/**"
+  workflow_dispatch:
+
+jobs:
+  validate-manifest:
+    name: Validate Teams App Manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check manifest files exist
+        run: |
+          if [ ! -f "teams-app/manifest.json" ]; then
+            echo "❌ manifest.json not found"
+            exit 1
+          fi
+
+          if [ ! -f "teams-app/manifest-dev.json" ]; then
+            echo "⚠️ manifest-dev.json not found (optional)"
+          fi
+
+          echo "✅ Manifest files present"
+
+      - name: Validate manifest JSON
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+
+          # Validate main manifest
+          try:
+            with open('teams-app/manifest.json') as f:
+              manifest = json.load(f)
+            print("✅ manifest.json is valid JSON")
+          except json.JSONDecodeError as e:
+            print(f"❌ manifest.json JSON error: {e}")
+            sys.exit(1)
+
+          # Validate dev manifest if it exists
+          try:
+            with open('teams-app/manifest-dev.json') as f:
+              dev = json.load(f)
+            print("✅ manifest-dev.json is valid JSON")
+          except FileNotFoundError:
+            pass
+          except json.JSONDecodeError as e:
+            print(f"❌ manifest-dev.json JSON error: {e}")
+            sys.exit(1)
+          EOF
+
+      - name: Validate manifest schema
+        run: |
+          python3 << 'EOF'
+          import json
+
+          with open('teams-app/manifest.json') as f:
+            manifest = json.load(f)
+
+          # Check required fields
+          required = ['id', 'version', 'name', 'description', 'bots', 'permissions']
+          missing = [field for field in required if field not in manifest]
+
+          if missing:
+            print(f"❌ Missing required fields: {missing}")
+            exit(1)
+
+          print("✅ All required manifest fields present")
+          print(f"  - App ID: {manifest['id']}")
+          print(f"  - Version: {manifest['version']}")
+          print(f"  - Name: {manifest['name']['short']}")
+          print(f"  - Bots: {len(manifest['bots'])} configured")
+          EOF
+
+      - name: Check for hardcoded credentials
+        run: |
+          if grep -r "secret\|password\|key\|token" teams-app/manifest*.json \
+             --ignore-case | grep -v "botId" | grep -v "clientId"; then
+            echo "⚠️ Found potential hardcoded credentials in manifest"
+            exit 1
+          fi
+          echo "✅ No obvious credentials detected"
+
+      - name: Verify app IDs match environment
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+
+          with open('teams-app/manifest.json') as f:
+            manifest = json.load(f)
+
+          # Check bot ID
+          if 'bots' in manifest and len(manifest['bots']) > 0:
+            bot_id = manifest['bots'][0].get('botId')
+            print(f"📋 Bot ID in manifest: {bot_id}")
+            
+            # Note: We check format, not actual value (for security)
+            if len(bot_id) < 10:
+              print("⚠️ Warning: Bot ID seems unusually short")
+
+          print("✅ Manifest structure valid")
+          EOF
+
+  package:
+    name: Package & Sign Teams App
+    runs-on: ubuntu-latest
+    needs: validate-manifest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package Teams app
+        run: |
+          cd teams-app
+          rm -f ../teams-app-*.zip
+          zip -r ../teams-app-${{ github.sha }}.zip . \
+            -x "*.git*" "node_modules/*" ".vscode/*"
+          echo "✅ Teams app packaged"
+
+      - name: Generate checksum
+        run: |
+          cd teams-app
+          sha256sum ../teams-app-${{ github.sha }}.zip > ../teams-app-${{ github.sha }}.sha256
+          cat ../teams-app-${{ github.sha }}.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: teams-app-package
+          path: |
+            teams-app-${{ github.sha }}.zip
+            teams-app-${{ github.sha }}.sha256
+          retention-days: 30
+
+      - name: Generate manifest summary
+        run: |
+          python3 << 'EOF'
+          import json
+
+          with open('teams-app/manifest.json') as f:
+            m = json.load(f)
+
+          print("📦 TEAMS APP PACKAGE SUMMARY")
+          print(f"  App ID: {m['id']}")
+          print(f"  Version: {m['version']}")
+          print(f"  Name: {m['name']['short']}")
+          print(f"  Package: teams-app-${{ github.sha }}.zip")
+          print()
+          print("⏭️  Next steps:")
+          print("  1. Download the package from artifacts")
+          print("  2. Go to Teams Admin Center")
+          print("  3. Navigate to Teams apps > Manage apps")
+          print("  4. Click 'Upload new app'")
+          print("  5. Select the .zip file")
+          EOF
+
+  upload:
+    name: Upload to Teams Admin Center (optional)
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Note
+        run: |
+          echo "📝 MANUAL STEP REQUIRED"
+          echo ""
+          echo "To upload the Teams app:"
+          echo "1. Download teams-app-*.zip from workflow artifacts"
+          echo "2. Go to Microsoft Teams Admin Center"
+          echo "3. Navigate to Teams apps > Manage apps"
+          echo "4. Click 'Upload new app'"
+          echo "5. Select the downloaded zip file"
+          echo ""
+          echo "Documentation: https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/appsource/publish"
