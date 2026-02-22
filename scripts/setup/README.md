@@ -148,11 +148,92 @@ $env:BOT_APP_ID = "a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4"
 
 ---
 
-## GitHub Workflow Scripts
+## GitHub OIDC Bootstrap (Recommended)
+
+### `bootstrap-github-oidc.ps1` / `bootstrap-github-oidc.sh`
+
+**RECOMMENDED**: Sets up secure OpenID Connect (OIDC) authentication for GitHub Actions without storing long-lived credentials in secrets.
+
+**Usage**:
+
+```powershell
+# PowerShell - Setup both Azure and AWS OIDC
+.\scripts\setup\bootstrap-github-oidc.ps1
+
+# PowerShell - Azure OIDC only
+.\scripts\setup\bootstrap-github-oidc.ps1 -AzureOnly
+
+# PowerShell - AWS OIDC only
+.\scripts\setup\bootstrap-github-oidc.ps1 -AwsOnly
+
+# Bash - Setup both
+bash scripts/setup/bootstrap-github-oidc.sh
+
+# Bash - Custom repository
+bash scripts/setup/bootstrap-github-oidc.sh --repository myorg/myrepo
+```
+
+**What it does**:
+
+**Azure OIDC**:
+- Creates Service Principal: `tmf-github-actions-oidc`
+- Creates federated credential for GitHub (main branch)
+- Assigns Azure RBAC roles: Contributor, User Access Administrator
+- Outputs secrets to configure in GitHub
+
+**AWS OIDC**:
+- Creates OpenID Connect provider from GitHub
+- Creates IAM role: `github-actions-oidc-role`
+- Sets up trust policy for your GitHub repository
+- Attaches policies for Lambda and infrastructure deployment
+
+**Security Benefits** ✅:
+- No long-lived credentials stored in GitHub
+- Short-lived tokens (expire after workflow completes)
+- Each workflow run gets a unique token
+- Full audit trail in AWS CloudTrail and Azure logs
+- Easier credential rotation (no manual secret updates)
+
+**Prerequisites**:
+- GitHub CLI (`gh --version`)
+- Azure CLI (for Azure: `az login`)
+- AWS CLI (for AWS: `aws configure`)
+- GitHub repo admin rights
+
+**After running**:
+```bash
+# Add secrets to GitHub (commands printed by script)
+gh secret set AZURE_CLIENT_ID --body '<value>'
+gh secret set AZURE_SUBSCRIPTION_ID --body '<value>'
+gh secret set AWS_ROLE_ARN --body '<value>'
+
+# Workflows automatically use OIDC (see: .github/workflows/*.yml)
+# Test with: gh workflow run test-and-lint.yml
+```
+
+**Benefits over legacy approach**:
+| Feature | OIDC | Legacy (IAM User) | Legacy (SPN) |
+|---------|------|-------------------|--------------|
+| Credentials expire | ✅ Per run | ✗ Until rotated | ✗ Until rotated |
+| Audit trail | ✅ Full | ⚠️ Limited | ⚠️ Limited |
+| Rotation needed | ✅ Never | ✗ Yearly | ✗ Yearly |
+| Attack surface | ✅ Minimal | ✗ Large | ✗ Large |
+| Compliance ready | ✅ Yes | ⚠️ For dev | ⚠️ For dev |
+
+**Documentation**:
+- Azure Workload Identity: https://learn.microsoft.com/entra/workload-id/
+- AWS OIDC: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-idp_oidc.html
+- GitHub OIDC: https://docs.github.com/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect
+
+---
+
+## Legacy GitHub Scripts
+
+**Note**: The scripts below use long-lived credentials. Use **`bootstrap-github-oidc.ps1`** instead for better security.
 
 ### `setup-github-azure-spn.ps1` / `setup-github-azure-spn.sh`
 
-Creates a separate Service Principal for GitHub Actions workflows and stores credentials as GitHub secrets.
+**DEPRECATED**: Creates Service Principal with long-lived credentials. Use OIDC approach above.
 
 **Usage**:
 
@@ -174,7 +255,7 @@ Creates a separate Service Principal for GitHub Actions workflows and stores cre
 
 ### `setup-github-aws-iam.ps1` / `setup-github-aws-iam.sh`
 
-Creates AWS IAM user for GitHub Actions workflows and stores credentials as GitHub secrets.
+**DEPRECATED**: Creates IAM user with long-lived credentials. Use OIDC approach above.
 
 **Usage**:
 
