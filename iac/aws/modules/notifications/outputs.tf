@@ -15,5 +15,5 @@ output "topic_id" {
 
 output "subscription_arn" {
   description = "ARN of the email subscription (if created)"
-  value       = var.notification_email != null ? aws_sns_topic_subscription.email[0].arn : null
+  value       = var.notification_email != null && var.notification_email != "" ? aws_sns_topic_subscription.email[0].arn : null
 }
