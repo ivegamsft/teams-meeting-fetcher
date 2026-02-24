@@ -22,7 +22,7 @@ resource "azurerm_key_vault" "main" {
   tags = var.tags
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 

@@ -70,6 +70,7 @@ env:
 permissions:
   contents: read
   id-token: write
+  actions: write
 
 jobs:
   infrastructure:
@@ -176,12 +177,29 @@ jobs:
         if: github.event.inputs.mode == 'apply'
         run: terraform apply -auto-approve tfplan
 
-      - name: Get Terraform outputs
+      - name: Export Terraform outputs to GitHub Variables
         id: tf-output
         if: github.event.inputs.mode == 'apply'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          LAMBDA_NAME=$(terraform output -raw lambda_function_name)
+          set -euo pipefail
+
+          KV_NAME=$(terraform output -raw azure_key_vault_name)
+          RG_NAME=$(terraform output -raw azure_resource_group_name)
+          LAMBDA_NAME=$(terraform output -raw aws_lambda_function_name)
+
           echo "lambda_name=$LAMBDA_NAME" >> $GITHUB_OUTPUT
+          echo "kv_name=$KV_NAME" >> $GITHUB_OUTPUT
+          echo "rg_name=$RG_NAME" >> $GITHUB_OUTPUT
+
+          echo "Exporting KEY_VAULT_NAME=${KV_NAME}..."
+          gh variable set KEY_VAULT_NAME --body "${KV_NAME}" --repo "${{ github.repository }}" || \
+            echo "::warning::Could not export KEY_VAULT_NAME. Set manually: gh variable set KEY_VAULT_NAME --body ${KV_NAME}"
+
+          echo "Exporting RESOURCE_GROUP_NAME=${RG_NAME}..."
+          gh variable set RESOURCE_GROUP_NAME --body "${RG_NAME}" --repo "${{ github.repository }}" || \
+            echo "::warning::Could not export RESOURCE_GROUP_NAME. Set manually: gh variable set RESOURCE_GROUP_NAME --body ${RG_NAME}"
 
       - name: Remove runner IP from Key Vault firewall
         if: always() && vars.KEY_VAULT_NAME != '' && steps.firewall_prep.outputs.ip != ''
