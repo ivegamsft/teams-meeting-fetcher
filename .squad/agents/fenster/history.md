@@ -35,3 +35,14 @@
 - **squad-main-guard.yml is working as designed**: Fails when `.squad/` files are pushed to main. This is intentional enforcement. Documented in DEPLOYMENT_PREREQUISITES.md section 8.1.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-02-25: Azure Firewall IP Management Pattern
+
+- **RBAC-only auth**: Key Vault (`rbac_authorization_enabled = true`), Storage Account (`shared_access_key_enabled = false`), Event Hub (`local_auth_enabled = false`). Never use key-based access.
+- **Firewall pattern**: Both Key Vault and Storage Account use `default_action = "Deny"`. CI/CD runners must add their IP before accessing resources, then remove it (with `if: always()`) after work completes.
+- **Single-job constraint**: Runner IP changes between GitHub Actions jobs/runners. All firewall add/remove operations plus the actual work MUST happen in the same job.
+- **Check before modify**: Always check `defaultAction` before adding/removing firewall rules. Skip modification if the resource is not set to `Deny`.
+- **az CLI, not Terraform**: Firewall rule changes for runner IPs use `az keyvault network-rule` and `az storage account network-rule`, not Terraform — avoids state conflicts.
+- **Reusable artifacts created**: Composite action at `.github/actions/azure-firewall-access/action.yml` and reusable workflow at `.github/workflows/azure-resource-access.yml` for other workflows needing firewalled access.
+- **deploy-azure.yml updated**: Deploy job now gets runner IP, adds to KV/Storage firewalls (from Terraform outputs), runs apply, then cleans up with `if: always()`.
+- **Required SPN roles for firewall management**: Key Vault Contributor (network rules) and Storage Account Contributor (network rules), in addition to existing data-plane roles.

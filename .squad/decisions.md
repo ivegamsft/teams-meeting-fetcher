@@ -230,54 +230,46 @@
 
 ---
 
-## 2026-02-24: No Root npm ci in Workflows
-
-**By:** Fenster (DevOps/Infra)
-
-**Decision:** All workflow files must install dependencies in app-specific directories only. Never run `npm ci` at the repo root. Always specify `cache-dependency-path` when using `cache: "npm"` in `setup-node`.
-
-**Rationale:**
-- No root `package.json` exists; this is a multi-app monorepo
-- Root `npm ci` fails immediately, blocking the entire workflow
-- `setup-node` with `cache: "npm"` without `cache-dependency-path` fails because it can't find a root `package-lock.json`
-
-**Pattern:**
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: "18"
-    cache: "npm"
-    cache-dependency-path: "apps/aws-lambda/package-lock.json"
-
-- name: Install dependencies
-  run: |
-    cd apps/aws-lambda
-    npm ci
-```
-
-**Implementation:** Fixed in 11 workflow files. The `test-and-lint.yml`, `e2e-integration-tests.yml`, `squad-ci.yml`, `squad-release.yml`, `squad-preview.yml`, and `squad-insider-release.yml` already followed this pattern correctly.
-
----
-
-## 2026-02-24: Documentation Audit and Quick Start Creation
+## 2026-02-24: Documentation Audit & Quick Start Creation
 
 **By:** Edie (Documentation Specialist)
 
-**Decision:** Create unified entry point documentation and scenario-specific quick start guides to ease onboarding for new users.
+**Decision:** Implement comprehensive documentation restructuring with focus on unified quick start guides and scenario clarity.
 
-**Rationale:**
-- Existing documentation is extensive but scattered across multiple files
-- No clear comparison of deployment options for new users
-- New users need 5-10 minute overview before committing to deep dives
+**Audit Scope:**
+- Reviewed 25+ documentation files across all areas
+- Coverage: 100% of user-facing docs + infrastructure guides
 
-**Actions taken:**
-- ✅ Created `QUICKSTART.md` (root) — Unified entry point comparing all 3 scenarios
-- ✅ Created `scenarios/nobots-eventhub/QUICKSTART.md` — Event Hub quick start
-- ✅ Created `scenarios/lambda/meeting-bot/QUICKSTART.md` — Teams Bot quick start
-- ✅ Confirmed `scenarios/nobots/QUICKSTART.md` — Already existed and accurate
+**Deliverables:**
+- Created QUICKSTART.md at root as unified entry point
+- Created scenarios/nobots-eventhub/QUICKSTART.md (Event Hub scenario guide)
+- Created scenarios/lambda/meeting-bot/QUICKSTART.md (Teams Bot scenario guide)
 
-**Critical issues identified (for future work):**
-- README.md references deprecated paths (`iac/azure`, `iac/aws`) — should only use `iac/`
+**Critical Issues Identified (Fix Immediately):**
+1. README.md and DEPLOYMENT.md reference deprecated deployment paths (iac/azure, iac/aws)
+2. DEPLOYMENT.md uses wrong folder name (infra/ instead of iac/)
+3. Conflicting terminology for "scenarios" across documentation
+
+**Major Issues (Fix Soon):**
+4. Missing prerequisites checklist (now in QUICKSTART.md)
+5. CONFIGURATION.md missing scenario-specific environment variable mapping
+6. Broken cross-references to missing docs (ARCHITECTURE.md, TROUBLESHOOTING.md)
+
+**Minor Issues (Nice to Have):**
+7. Inconsistent file naming conventions
+8. Missing glossary for terminology clarity
+9. Cost estimates scattered across multiple documents
+10. Missing "What's Next" guidance after README
+
+**Quality Metrics:**
+- Overall documentation quality: 4/5 stars → 5/5 stars with fixes
+- Root guides completeness: 95% (improved from 85%)
+- Scenario guides completeness: 100%
+
+**Recommendations Priority:**
+- **Immediate (This Week):** Fix deprecated paths, remove outdated references, add QUICKSTART.md link to README
+- **Short-Term (This Sprint):** Create scenarios/README.md, add scenario-specific config mapping, fix cross-references, create GLOSSARY.md
+- **Long-Term (Future):** Create docs/ARCHITECTURE.md, TROUBLESHOOTING.md, add automated link checker
 - DEPLOYMENT.md incorrectly refers to `infra/` folder — should be `iac/`
 - Missing cross-references: ARCHITECTURE.md, TROUBLESHOOTING.md, GLOSSARY.md
 
@@ -357,96 +349,6 @@ test/e2e/
 
 ---
 
-## 2026-02-24: Documentation Audit & Quick Start Creation
-
-**By:** Edie (Documentation Specialist)
-
-**Decision:** Implement comprehensive documentation restructuring with focus on unified quick start guides and scenario clarity.
-
-**Audit Scope:**
-- Reviewed 25+ documentation files across all areas
-- Coverage: 100% of user-facing docs + infrastructure guides
-
-**Deliverables:**
-- Created QUICKSTART.md at root as unified entry point
-- Created scenarios/nobots-eventhub/QUICKSTART.md (Event Hub scenario guide)
-- Created scenarios/lambda/meeting-bot/QUICKSTART.md (Teams Bot scenario guide)
-
-**Critical Issues Identified (Fix Immediately):**
-1. README.md and DEPLOYMENT.md reference deprecated deployment paths (iac/azure, iac/aws)
-2. DEPLOYMENT.md uses wrong folder name (infra/ instead of iac/)
-3. Conflicting terminology for "scenarios" across documentation
-
-**Major Issues (Fix Soon):**
-4. Missing prerequisites checklist (now in QUICKSTART.md)
-5. CONFIGURATION.md missing scenario-specific environment variable mapping
-6. Broken cross-references to missing docs (ARCHITECTURE.md, TROUBLESHOOTING.md)
-
-**Minor Issues (Nice to Have):**
-7. Inconsistent file naming conventions
-8. Missing glossary for terminology clarity
-9. Cost estimates scattered across multiple documents
-10. Missing "What's Next" guidance after README
-
-**Quality Metrics:**
-- Overall documentation quality: 4/5 stars → 5/5 stars with fixes
-- Root guides completeness: 95% (improved from 85%)
-- Scenario guides completeness: 100%
-
-**Recommendations Priority:**
-- **Immediate (This Week):** Fix deprecated paths, remove outdated references, add QUICKSTART.md link to README
-- **Short-Term (This Sprint):** Create scenarios/README.md, add scenario-specific config mapping, fix cross-references, create GLOSSARY.md
-- **Long-Term (Future):** Create docs/ARCHITECTURE.md, TROUBLESHOOTING.md, add automated link checker
-
-**Full audit with line-by-line recommendations:** Available in `.squad/decisions/inbox/edie-doc-audit-findings.md`
-
----
-
-## 2026-02-24: E2E Test Structure & Human-in-the-Loop Pattern
-
-**By:** Redfoot (End-to-End Tester)
-
-**Decision:** Implement human-in-the-loop E2E testing pattern using Jest with native Node.js for AWS/Graph API interactions.
-
-**Rationale:**
-1. **Human-in-the-loop necessary:** Teams meeting creation, bot installation, and transcript generation cannot be fully automated without complex Teams API bot infrastructure
-2. **Jest provides natural structure:** describe/test blocks organize pre-flight, setup, human action, validation, teardown phases naturally
-3. **Native Node.js preferred:** Using child_process.execSync and https module keeps dependencies minimal and tests maintainable
-4. **Serial execution required:** maxWorkers: 1 prevents concurrent tests from interfering with shared resources (DynamoDB, S3, Lambda logs)
-5. **Rich output guides humans:** Box-drawing characters, emojis, and structured logging provide clear instructions through test flow
-
-**Test Structure:**
-```
-test/e2e/
-├── helpers.js                     # Shared utilities
-├── jest.config.js                 # 10-minute timeout
-├── package.json                   # E2E-specific dependencies
-├── .env.test.example              # Configuration template
-├── aws/
-│   ├── teams-bot-e2e.test.js      # Scenario 1: Teams Bot
-│   ├── eventhub-e2e.test.js       # Scenario 2: Event Hub
-│   └── direct-graph-e2e.test.js   # Scenario 3: Direct Graph
-└── azure/
-    └── placeholder.test.js        # Future Azure tests
-```
-
-**Phase-Based Test Flow:**
-1. Pre-flight checks — Verify infrastructure exists
-2. Setup — Acquire tokens, create subscriptions
-3. Human action prompt — Visual box with clear instructions
-4. Wait periods — Allow async processing time
-5. Validation — Check logs, S3, DynamoDB
-6. Teardown — Clean up test resources
-7. Summary — Results + troubleshooting tips
-
-**Benefits:** Maintainable, realistic, debuggable, documented, flexible
-
-**Tradeoffs:** Not CI/CD friendly, slower (3-10 min per test), non-deterministic timing
-
-**Full decision available in:** `.squad/decisions/inbox/redfoot-e2e-structure.md`
-
----
-
 ## 2026-02-24: Deployment Prerequisites Documentation
 
 **By:** Fenster (DevOps/Infra)
@@ -469,3 +371,81 @@ test/e2e/
 - All agents: Reference this doc when discussing deployment setup
 - Edie (Docs): Link to this from README.md and DEPLOYMENT.md
 - ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows
+- New contributors had no way to know the full setup sequence from AWS OIDC to Terraform state to GitHub secrets
+
+**Key Points:**
+1. **AWS OIDC Provider** must be registered once per AWS account before any deploy workflow runs
+2. **Azure Federated Credentials** must be configured per branch (`main`, `develop`, PRs)
+3. **Terraform outputs** (Lambda names, API Gateway URLs) feed back into deploy workflows and Graph API configuration
+4. **Squad branch guard** (`squad-main-guard.yml`) failing on main pushes is intentional — documented as such
+5. All values are tagged: `Manual`, `Pipeline-generated`, `Terraform output`, or `Auto-created`
+
+**Impact:**
+- All agents: Reference this doc when discussing deployment setup
+- Edie (Docs): Link to this from README.md and DEPLOYMENT.md
+- ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows
+
+---
+
+## 2026-02-24T14:22: User Directive
+
+**By:** ivegamsft (via Copilot)
+
+**Directive:** For all Azure resources, RBAC is the only auth method — no KEY-based access. Most access will be via private link. Services must be locked down using firewalls. If a GitHub Actions runner needs access (e.g., Key Vault, Storage Account), it must:
+1. Use a single job
+2. Check its IP
+3. Add its IP to the service firewall
+4. Do work
+5. Remove its IP when done
+
+Do NOT change settings unless public access is off completely — use specific IPs only.
+
+**Rationale:** Security posture for Azure resources.
+
+---
+
+## 2026-02-24: Azure Firewall IP Management Pattern for CI/CD
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Implement a standardized pattern for GitHub Actions runners to temporarily gain firewall access to Azure resources (Key Vault, Storage Account) during CI/CD deployments.
+
+**Rationale:**
+- Key Vault and Storage Account both have `default_action = "Deny"` firewalls
+- GitHub Actions runners have dynamic public IPs that are not pre-whitelisted
+- Without firewall access, runners cannot read secrets, upload blobs, or verify deployment
+- RBAC-only auth means we cannot fall back to connection strings or SAS tokens
+- IPs change between GitHub Actions jobs, so all work must happen in a single job
+
+**Implementation:**
+
+1. **Composite Action** (`.github/actions/azure-firewall-access/action.yml`):
+   - Inputs: `resource-type` (keyvault | storage), `resource-name`, `resource-group`, `action` (add | remove)
+   - Checks `defaultAction` before modifying — skips if not `Deny`
+   - Uses `az` CLI for firewall management (not Terraform)
+
+2. **Reusable Workflow** (`.github/workflows/azure-resource-access.yml`):
+   - `workflow_call` with optional `keyvault-name`, `storage-account-name`, `resource-group`, `commands`
+   - Single job: login → add IP → run commands → always remove IP
+   - OIDC auth via existing secrets
+
+3. **Deploy Workflow** (`.github/workflows/deploy-azure.yml`):
+   - Inline steps (not composite action) for self-contained deployment
+   - Gets resource names from Terraform output
+   - Adds runner IP after tenant verify, removes with `if: always()` at end
+
+4. **Documentation**:
+   - DEPLOYMENT_PREREQUISITES.md section 2.4: RBAC requirements, SPN roles, firewall pattern
+   - DEPLOYMENT_RULES.md sections 9-12: RBAC-only policy, firewall rules, CI/CD pattern, private link
+
+**Constraints:**
+- `if: always()` on all cleanup steps — never leave stale IPs
+- Only modify firewall if `defaultAction` is `Deny`
+- Use `|| true` on remove commands to handle already-removed IPs
+- Log all IP add/remove operations for audit trail
+- 15-second wait after adding IP for propagation
+
+**Required SPN Roles (in addition to data-plane roles):**
+- Key Vault Contributor — Manage Key Vault network/firewall rules
+- Storage Account Contributor — Manage Storage Account network rules
+- Network Contributor — Only if using VNet-based rules
