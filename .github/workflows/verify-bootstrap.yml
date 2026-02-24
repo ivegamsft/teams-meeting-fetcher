@@ -1,0 +1,475 @@
+name: Verify Bootstrap
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Post-bootstrap verification workflow.
+# Run manually after completing AWS OIDC, Azure OIDC, and Terraform backend
+# setup to confirm that all secrets, variables, and cloud resources are
+# correctly configured.
+#
+# CHECKS REQUIRED SECRETS:
+#   AWS_ROLE_ARN, AZURE_CLIENT_ID, AZURE_TENANT_ID,
+#   AZURE_SUBSCRIPTION_ID, EXPECTED_TENANT_ID
+#
+# CHECKS REQUIRED VARIABLES:
+#   TF_STATE_BUCKET, TF_STATE_KEY, TF_STATE_REGION, TF_STATE_LOCK_TABLE
+#
+# See DEPLOYMENT_PREREQUISITES.md for full setup instructions.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REPO: ivegamsft/teams-meeting-fetcher
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Verify GitHub secrets and variables are configured
+  # ─────────────────────────────────────────────────────────────────────────
+  config-verify:
+    name: Verify GitHub Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      aws-secrets-ok: ${{ steps.check.outputs.aws_secrets_ok }}
+      azure-secrets-ok: ${{ steps.check.outputs.azure_secrets_ok }}
+      tf-vars-ok: ${{ steps.check.outputs.tf_vars_ok }}
+    steps:
+      - name: Check required secrets and variables
+        id: check
+        run: |
+          PASS=0
+          FAIL=0
+
+          echo "================================================================"
+          echo "  GitHub Configuration Verification"
+          echo "================================================================"
+          echo ""
+
+          # --- Required Secrets ---
+          echo "Required Secrets:"
+
+          check_secret() {
+            local NAME=$1
+            local VALUE=$2
+            if [ -n "$VALUE" ]; then
+              echo "  [PASS] $NAME is set"
+              PASS=$((PASS + 1))
+              return 0
+            else
+              echo "  [FAIL] $NAME is not set"
+              FAIL=$((FAIL + 1))
+              return 1
+            fi
+          }
+
+          AWS_OK=true
+          check_secret "AWS_ROLE_ARN" "${{ secrets.AWS_ROLE_ARN }}" || AWS_OK=false
+
+          AZURE_OK=true
+          check_secret "AZURE_CLIENT_ID" "${{ secrets.AZURE_CLIENT_ID }}" || AZURE_OK=false
+          check_secret "AZURE_SUBSCRIPTION_ID" "${{ secrets.AZURE_SUBSCRIPTION_ID }}" || AZURE_OK=false
+          check_secret "AZURE_TENANT_ID" "${{ secrets.AZURE_TENANT_ID }}" || AZURE_OK=false
+          check_secret "EXPECTED_TENANT_ID" "${{ secrets.EXPECTED_TENANT_ID }}" || AZURE_OK=false
+
+          echo ""
+
+          # --- Required Variables ---
+          echo "Required Variables:"
+
+          TF_OK=true
+          check_var() {
+            local NAME=$1
+            local VALUE=$2
+            if [ -n "$VALUE" ]; then
+              echo "  [PASS] $NAME = $VALUE"
+              PASS=$((PASS + 1))
+              return 0
+            else
+              echo "  [FAIL] $NAME is not set"
+              FAIL=$((FAIL + 1))
+              return 1
+            fi
+          }
+
+          check_var "TF_STATE_BUCKET" "${{ vars.TF_STATE_BUCKET }}" || TF_OK=false
+          check_var "TF_STATE_KEY" "${{ vars.TF_STATE_KEY }}" || TF_OK=false
+          check_var "TF_STATE_REGION" "${{ vars.TF_STATE_REGION }}" || TF_OK=false
+          check_var "TF_STATE_LOCK_TABLE" "${{ vars.TF_STATE_LOCK_TABLE }}" || TF_OK=false
+
+          echo ""
+
+          # --- Optional Secrets ---
+          echo "Optional Secrets:"
+
+          if [ -n "${{ secrets.GRAPH_TENANT_ID }}" ]; then
+            echo "  [PASS] GRAPH_TENANT_ID is set"
+          else
+            echo "  [WARN] GRAPH_TENANT_ID not set (needed for Graph API scenarios)"
+          fi
+
+          if [ -n "${{ secrets.GRAPH_CLIENT_ID }}" ]; then
+            echo "  [PASS] GRAPH_CLIENT_ID is set"
+          else
+            echo "  [WARN] GRAPH_CLIENT_ID not set (needed for Graph API scenarios)"
+          fi
+
+          echo ""
+
+          # --- Summary ---
+          echo "================================================================"
+          if [ "$FAIL" -eq 0 ]; then
+            echo "  Config: $PASS passed, $FAIL failed"
+          else
+            echo "  Config: $PASS passed, $FAIL failed"
+          fi
+          echo "================================================================"
+
+          echo "aws_secrets_ok=$AWS_OK" >> "$GITHUB_OUTPUT"
+          echo "azure_secrets_ok=$AZURE_OK" >> "$GITHUB_OUTPUT"
+          echo "tf_vars_ok=$TF_OK" >> "$GITHUB_OUTPUT"
+
+          if [ "$FAIL" -gt 0 ]; then
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Verify AWS OIDC bootstrap
+  # ─────────────────────────────────────────────────────────────────────────
+  aws-verify:
+    name: Verify AWS Bootstrap
+    runs-on: ubuntu-latest
+    needs: config-verify
+    if: needs.config-verify.outputs.aws-secrets-ok == 'true'
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.TF_STATE_REGION || 'us-east-1' }}
+
+      - name: Verify AWS OIDC resources
+        run: |
+          PASS=0
+          FAIL=0
+          WARN=0
+
+          pass() { PASS=$((PASS + 1)); echo "  [PASS] $1"; }
+          fail() { FAIL=$((FAIL + 1)); echo "  [FAIL] $1"; }
+          warn() { WARN=$((WARN + 1)); echo "  [WARN] $1"; }
+
+          echo "================================================================"
+          echo "  AWS Bootstrap Verification"
+          echo "================================================================"
+          echo ""
+
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "Account: $ACCOUNT_ID"
+          echo ""
+
+          # --- OIDC Provider ---
+          echo "OIDC Provider:"
+          OIDC_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+
+          if aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$OIDC_ARN" > /dev/null 2>&1; then
+            pass "OIDC provider exists"
+
+            # Check audience
+            AUDIENCES=$(aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$OIDC_ARN" --query "ClientIDList" --output text 2>/dev/null)
+            if echo "$AUDIENCES" | grep -q "sts.amazonaws.com"; then
+              pass "Audience includes sts.amazonaws.com"
+            else
+              fail "Audience missing sts.amazonaws.com (found: $AUDIENCES)"
+            fi
+          else
+            fail "OIDC provider does not exist ($OIDC_ARN)"
+          fi
+          echo ""
+
+          # --- IAM Role ---
+          echo "IAM Role:"
+          ROLE_ARN="${{ secrets.AWS_ROLE_ARN }}"
+          ROLE_NAME=$(echo "$ROLE_ARN" | sed 's|.*/||')
+
+          if aws iam get-role --role-name "$ROLE_NAME" > /dev/null 2>&1; then
+            pass "Role '$ROLE_NAME' exists"
+
+            # Check trust policy
+            TRUST_DOC=$(aws iam get-role --role-name "$ROLE_NAME" --query "Role.AssumeRolePolicyDocument" --output json 2>/dev/null)
+            if echo "$TRUST_DOC" | grep -q "token.actions.githubusercontent.com"; then
+              pass "Trust policy references GitHub OIDC provider"
+            else
+              fail "Trust policy does not reference GitHub OIDC provider"
+            fi
+
+            REPO="${{ env.REPO }}"
+            if echo "$TRUST_DOC" | grep -q "$REPO"; then
+              pass "Trust policy references repo '$REPO'"
+            else
+              warn "Trust policy does not explicitly reference '$REPO' (may use wildcard)"
+            fi
+          else
+            fail "Role '$ROLE_NAME' does not exist"
+          fi
+          echo ""
+
+          # --- Attached Policies ---
+          echo "Attached Policies:"
+          EXPECTED_POLICIES=(
+            "AmazonS3FullAccess"
+            "AWSLambda_FullAccess"
+            "AmazonDynamoDBFullAccess"
+            "AmazonAPIGatewayAdministrator"
+            "IAMFullAccess"
+            "AmazonEventBridgeFullAccess"
+            "AmazonSNSFullAccess"
+            "CloudWatchLogsFullAccess"
+            "CloudWatchFullAccessV2"
+          )
+
+          ATTACHED=$(aws iam list-attached-role-policies --role-name "$ROLE_NAME" --query "AttachedPolicies[].PolicyName" --output text 2>/dev/null || echo "")
+
+          for POLICY in "${EXPECTED_POLICIES[@]}"; do
+            if echo "$ATTACHED" | grep -qw "$POLICY"; then
+              pass "$POLICY"
+            else
+              fail "$POLICY not attached"
+            fi
+          done
+
+          if echo "$ATTACHED" | grep -qw "AdministratorAccess"; then
+            warn "AdministratorAccess is still attached -- consider removing it"
+          fi
+          echo ""
+
+          # --- S3 State Bucket ---
+          BUCKET="${{ vars.TF_STATE_BUCKET }}"
+          if [ -n "$BUCKET" ]; then
+            echo "S3 State Bucket ($BUCKET):"
+
+            if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+              pass "Bucket exists"
+            else
+              fail "Bucket does not exist: $BUCKET"
+            fi
+
+            # Versioning
+            VERSIONING=$(aws s3api get-bucket-versioning --bucket "$BUCKET" --query "Status" --output text 2>/dev/null || echo "")
+            if [ "$VERSIONING" = "Enabled" ]; then
+              pass "Versioning enabled"
+            else
+              fail "Versioning not enabled (status: $VERSIONING)"
+            fi
+
+            # Encryption
+            ENCRYPTION=$(aws s3api get-bucket-encryption --bucket "$BUCKET" --query "ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm" --output text 2>/dev/null || echo "")
+            if [ "$ENCRYPTION" = "AES256" ] || [ "$ENCRYPTION" = "aws:kms" ]; then
+              pass "Encryption enabled ($ENCRYPTION)"
+            else
+              fail "Encryption not configured"
+            fi
+
+            # Public access block
+            BLOCK_ALL=$(aws s3api get-public-access-block --bucket "$BUCKET" --output json 2>/dev/null || echo "{}")
+            BLOCK_ACLS=$(echo "$BLOCK_ALL" | jq -r '.PublicAccessBlockConfiguration.BlockPublicAcls // false')
+            IGNORE_ACLS=$(echo "$BLOCK_ALL" | jq -r '.PublicAccessBlockConfiguration.IgnorePublicAcls // false')
+            BLOCK_POLICY=$(echo "$BLOCK_ALL" | jq -r '.PublicAccessBlockConfiguration.BlockPublicPolicy // false')
+            RESTRICT=$(echo "$BLOCK_ALL" | jq -r '.PublicAccessBlockConfiguration.RestrictPublicBuckets // false')
+
+            if [ "$BLOCK_ACLS" = "true" ] && [ "$IGNORE_ACLS" = "true" ] && [ "$BLOCK_POLICY" = "true" ] && [ "$RESTRICT" = "true" ]; then
+              pass "All public access blocked"
+            else
+              fail "Public access not fully blocked"
+            fi
+          else
+            echo "S3 State Bucket:"
+            warn "TF_STATE_BUCKET variable not set -- skipping bucket checks"
+          fi
+          echo ""
+
+          # --- DynamoDB Lock Table ---
+          LOCK_TABLE="${{ vars.TF_STATE_LOCK_TABLE }}"
+          if [ -n "$LOCK_TABLE" ]; then
+            echo "DynamoDB Lock Table ($LOCK_TABLE):"
+            REGION="${{ vars.TF_STATE_REGION || 'us-east-1' }}"
+
+            TABLE_STATUS=$(aws dynamodb describe-table --table-name "$LOCK_TABLE" --region "$REGION" --query "Table.TableStatus" --output text 2>/dev/null || echo "NOT_FOUND")
+            if [ "$TABLE_STATUS" = "ACTIVE" ]; then
+              pass "Lock table exists and is ACTIVE"
+            else
+              fail "Lock table status: $TABLE_STATUS (expected ACTIVE)"
+            fi
+
+            KEY_SCHEMA=$(aws dynamodb describe-table --table-name "$LOCK_TABLE" --region "$REGION" --query "Table.KeySchema[0].AttributeName" --output text 2>/dev/null || echo "")
+            if [ "$KEY_SCHEMA" = "LockID" ]; then
+              pass "Partition key is LockID"
+            else
+              fail "Partition key is '$KEY_SCHEMA' (expected LockID)"
+            fi
+          else
+            echo "DynamoDB Lock Table:"
+            warn "TF_STATE_LOCK_TABLE variable not set -- skipping table checks"
+          fi
+          echo ""
+
+          # --- Summary ---
+          echo "================================================================"
+          RESULT="  AWS: $PASS passed, $FAIL failed"
+          if [ "$WARN" -gt 0 ]; then
+            RESULT="$RESULT, $WARN warnings"
+          fi
+          echo "$RESULT"
+          echo "================================================================"
+
+          if [ "$FAIL" -gt 0 ]; then
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Verify Azure OIDC bootstrap
+  # ─────────────────────────────────────────────────────────────────────────
+  azure-verify:
+    name: Verify Azure Bootstrap
+    runs-on: ubuntu-latest
+    needs: config-verify
+    if: needs.config-verify.outputs.azure-secrets-ok == 'true'
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure OIDC resources
+        run: |
+          PASS=0
+          FAIL=0
+
+          pass() { PASS=$((PASS + 1)); echo "  [PASS] $1"; }
+          fail() { FAIL=$((FAIL + 1)); echo "  [FAIL] $1"; }
+
+          echo "================================================================"
+          echo "  Azure Bootstrap Verification"
+          echo "================================================================"
+          echo ""
+
+          # --- Authentication ---
+          echo "Authentication:"
+          TENANT_ID=$(az account show --query tenantId -o tsv 2>/dev/null || echo "")
+          SUB_ID=$(az account show --query id -o tsv 2>/dev/null || echo "")
+
+          if [ -n "$TENANT_ID" ]; then
+            pass "Service principal authenticated successfully"
+          else
+            fail "Could not authenticate with Azure OIDC"
+            echo ""
+            echo "================================================================"
+            echo "  Azure: 0 passed, 1 failed"
+            echo "================================================================"
+            exit 1
+          fi
+
+          echo "  Tenant:       $TENANT_ID"
+          echo "  Subscription: $SUB_ID"
+          echo ""
+
+          # --- Tenant Verification ---
+          echo "Tenant Verification:"
+          EXPECTED="${{ secrets.EXPECTED_TENANT_ID }}"
+          if [ "$TENANT_ID" = "$EXPECTED" ]; then
+            pass "Tenant ID matches EXPECTED_TENANT_ID"
+          else
+            fail "Tenant mismatch: active=$TENANT_ID expected=$EXPECTED"
+          fi
+          echo ""
+
+          # --- Subscription Access ---
+          echo "Subscription Access:"
+          SUB_STATE=$(az account show --query state -o tsv 2>/dev/null || echo "")
+          if [ "$SUB_STATE" = "Enabled" ]; then
+            pass "Subscription is enabled"
+          else
+            fail "Subscription state: $SUB_STATE (expected Enabled)"
+          fi
+          echo ""
+
+          # --- Service Principal Info ---
+          echo "Service Principal:"
+          CLIENT_ID="${{ secrets.AZURE_CLIENT_ID }}"
+          SP_DISPLAY=$(az ad sp show --id "$CLIENT_ID" --query displayName -o tsv 2>/dev/null || echo "")
+          if [ -n "$SP_DISPLAY" ]; then
+            pass "Service principal found: $SP_DISPLAY"
+          else
+            fail "Could not query service principal for client ID $CLIENT_ID"
+          fi
+          echo ""
+
+          # --- Summary ---
+          echo "================================================================"
+          echo "  Azure: $PASS passed, $FAIL failed"
+          echo "================================================================"
+
+          if [ "$FAIL" -gt 0 ]; then
+            exit 1
+          fi
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: Final summary
+  # ─────────────────────────────────────────────────────────────────────────
+  summary:
+    name: Bootstrap Summary
+    runs-on: ubuntu-latest
+    needs: [config-verify, aws-verify, azure-verify]
+    if: always()
+    steps:
+      - name: Report results
+        run: |
+          echo "================================================================"
+          echo "  BOOTSTRAP VERIFICATION SUMMARY"
+          echo "================================================================"
+          echo ""
+
+          CONFIG="${{ needs.config-verify.result }}"
+          AWS="${{ needs.aws-verify.result }}"
+          AZURE="${{ needs.azure-verify.result }}"
+
+          report() {
+            local NAME=$1
+            local RESULT=$2
+            case "$RESULT" in
+              success)  echo "  [PASS] $NAME" ;;
+              failure)  echo "  [FAIL] $NAME" ;;
+              skipped)  echo "  [SKIP] $NAME (missing prerequisites)" ;;
+              *)        echo "  [????] $NAME ($RESULT)" ;;
+            esac
+          }
+
+          report "GitHub Configuration" "$CONFIG"
+          report "AWS Bootstrap" "$AWS"
+          report "Azure Bootstrap" "$AZURE"
+
+          echo ""
+          echo "================================================================"
+
+          FAILED=false
+          if [ "$CONFIG" = "failure" ] || [ "$AWS" = "failure" ] || [ "$AZURE" = "failure" ]; then
+            FAILED=true
+          fi
+
+          if [ "$FAILED" = "true" ]; then
+            echo "  RESULT: FAIL -- see job logs above for details"
+            echo ""
+            echo "  Troubleshooting:"
+            echo "    - See DEPLOYMENT_PREREQUISITES.md for setup instructions"
+            echo "    - Run scripts/verify/verify-github-secrets.ps1 locally"
+            echo "    - Run scripts/verify/verify-terraform-backend.ps1 locally"
+            echo "================================================================"
+            exit 1
+          else
+            echo "  RESULT: PASS -- bootstrap is complete"
+            echo "================================================================"
+          fi

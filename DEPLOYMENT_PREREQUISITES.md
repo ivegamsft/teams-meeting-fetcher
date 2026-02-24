@@ -163,6 +163,16 @@ gh secret list
 
 A standalone verification script is available at `scripts/verify/verify-github-secrets.ps1` (PowerShell) or `.sh` (Bash) that automates these checks and provides a pass/fail summary.
 
+**CI Verification Workflow:**
+
+After completing all bootstrap steps (AWS OIDC, Azure OIDC, Terraform backend, GitHub secrets/variables), run the `Verify Bootstrap` workflow from the Actions tab to confirm everything is correctly configured:
+
+```bash
+gh workflow run verify-bootstrap.yml -R ivegamsft/teams-meeting-fetcher
+```
+
+This workflow authenticates via OIDC to both AWS and Azure, verifies all cloud-side resources, and reports a PASS/FAIL summary. See `.github/workflows/verify-bootstrap.yml` for details.
+
 ---
 
 ## 2. Terraform State Backend Setup
@@ -621,6 +631,7 @@ The `squad-main-guard.yml` workflow **intentionally fails** when `.squad/`, `.ai
 | `e2e-integration-tests.yml` | `develop` | `main`, `develop` | Yes | |
 | `security-scan.yml` | `develop`, `main` | `main`, `develop` | Yes | |
 | `terraform-validate.yml` | | `main`, `develop` | Yes | |
+| `verify-bootstrap.yml` | | | Yes | |
 | **Release** | | | | |
 | `release.yml` | `main` (+ tags) | | Yes | |
 | `package-teams-app.yml` | `main`, `develop` | `main`, `develop` | Yes | |
@@ -670,5 +681,6 @@ Use this checklist to verify your setup is complete:
 - [ ] All GitHub variables set (section 5)
 - [ ] First `terraform init` succeeded with backend config (section 6.4)
 - [ ] First `terraform apply` succeeded (section 7)
+- [ ] Bootstrap verification workflow passed (`gh workflow run verify-bootstrap.yml`)
 - [ ] Lambda function names from Terraform outputs noted
 - [ ] API Gateway URL from Terraform output configured in Graph subscriptions

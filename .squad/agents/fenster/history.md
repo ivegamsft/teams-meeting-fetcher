@@ -85,3 +85,11 @@
 - **Verify script**: `scripts/verify/verify-terraform-backend.ps1` and `.sh` — checks bucket (exists, versioning, encryption, public access), table (exists, ACTIVE, key schema, billing), and GitHub vars (set + match expected values). 12 checks total, exit 1 on any failure.
 - **Azure Terraform does NOT use S3 backend**: `deploy-azure.yml` runs `terraform init` in `iac/azure/` without backend-config flags — uses local backend. No additional state backend vars needed for Azure.
 - **DEPLOYMENT_PREREQUISITES.md updated**: Section 2.3 examples updated to use actual naming convention (`tmf-terraform-state-<ACCOUNT_ID>`, `tmf-terraform-state-lock`). Section 2.4 updated with actual script usage and removed TODO comments.
+
+### Verify Bootstrap CI Workflow
+
+- **Created `.github/workflows/verify-bootstrap.yml`**: Post-bootstrap verification workflow, triggered manually via `workflow_dispatch`. Four jobs: `config-verify` (GitHub secrets/variables), `aws-verify` (OIDC provider, IAM role, trust policy, 9 policies, S3 bucket, DynamoDB table), `azure-verify` (OIDC auth, tenant match, subscription state, SP lookup), `summary` (PASS/FAIL rollup with troubleshooting pointers).
+- **OIDC-only auth**: AWS uses `aws-actions/configure-aws-credentials@v4` with `role-to-assume`; Azure uses `azure/login@v2` with federated identity. No static keys.
+- **Conditional job execution**: `aws-verify` only runs if `AWS_ROLE_ARN` is set; `azure-verify` only runs if all 4 Azure secrets are set. Prevents noisy failures when only one cloud is bootstrapped.
+- **Matches existing conventions**: Same `[PASS]/[FAIL]/[WARN]/[SKIP]` output format as `verify-github-secrets.ps1` and `verify-terraform-backend.ps1`. Same bordered header style as `deploy-aws.yml` and `deploy-azure.yml`.
+- **DEPLOYMENT_PREREQUISITES.md updated**: Added CI verification workflow reference to section 1.3, added `verify-bootstrap.yml` to workflow trigger summary table (section 8.2), added workflow step to setup checklist.
