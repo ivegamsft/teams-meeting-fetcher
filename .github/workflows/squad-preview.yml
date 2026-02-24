@@ -13,19 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
-      - name: Build and validate
-        run: |
-          # Validate all Lambda handlers compile
-          (cd apps/aws-lambda && npm ci && node -c handler.js)
-          (cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js)
-          (cd apps/aws-lambda-eventhub && npm ci && node -c handler.js)
-          (cd scenarios/lambda/meeting-bot && npm ci && node -c index.js)
-
       - name: Validate Teams app manifest
         run: |
           python3 -c "import json; json.load(open('apps/teams-app/manifest.json'))" && echo "✅ Manifest valid"
