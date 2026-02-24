@@ -1,0 +1,143 @@
+name: Azure Resource Access (Reusable)
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Reusable workflow for accessing Azure resources behind firewalls.
+# Runs as a SINGLE JOB to ensure the same runner IP is used for add and remove.
+# Uses OIDC auth — no keys or connection strings.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+on:
+  workflow_call:
+    inputs:
+      keyvault-name:
+        description: 'Key Vault name to add runner IP to (optional)'
+        required: false
+        type: string
+        default: ''
+      storage-account-name:
+        description: 'Storage Account name to add runner IP to (optional)'
+        required: false
+        type: string
+        default: ''
+      resource-group:
+        description: 'Resource group for the resources (required if storage-account-name is set)'
+        required: false
+        type: string
+        default: ''
+      commands:
+        description: 'Shell commands to run while the runner has firewall access'
+        required: true
+        type: string
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  access-resources:
+    name: Access Azure Resources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get runner IP
+        id: ip
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "runner_ip=$RUNNER_IP" >> $GITHUB_OUTPUT
+          echo "Runner IP: $RUNNER_IP"
+
+      # --- Add runner IP to firewalls ---
+
+      - name: Add runner IP to Key Vault firewall
+        if: inputs.keyvault-name != ''
+        run: |
+          NAME="${{ inputs.keyvault-name }}"
+          IP="${{ steps.ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Key Vault '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping."
+            exit 0
+          fi
+
+          echo "Adding runner IP $IP/32 to Key Vault '$NAME' firewall..."
+          az keyvault network-rule add --name "$NAME" --ip-address "$IP/32" --only-show-errors
+          echo "Successfully added $IP/32 to Key Vault '$NAME'."
+
+      - name: Add runner IP to Storage Account firewall
+        if: inputs.storage-account-name != ''
+        run: |
+          NAME="${{ inputs.storage-account-name }}"
+          RG="${{ inputs.resource-group }}"
+          IP="${{ steps.ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Storage Account '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping."
+            exit 0
+          fi
+
+          echo "Adding runner IP $IP to Storage Account '$NAME' firewall..."
+          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors
+          echo "Successfully added $IP to Storage Account '$NAME'."
+
+      - name: Wait for firewall propagation
+        if: inputs.keyvault-name != '' || inputs.storage-account-name != ''
+        run: |
+          echo "Waiting 15s for firewall rule propagation..."
+          sleep 15
+
+      # --- Run caller's commands ---
+
+      - name: Run commands
+        run: ${{ inputs.commands }}
+
+      # --- Cleanup: always remove runner IP ---
+
+      - name: Remove runner IP from Key Vault firewall
+        if: always() && inputs.keyvault-name != ''
+        run: |
+          NAME="${{ inputs.keyvault-name }}"
+          IP="${{ steps.ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Key Vault '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping removal."
+            exit 0
+          fi
+
+          echo "Removing runner IP $IP/32 from Key Vault '$NAME' firewall..."
+          az keyvault network-rule remove --name "$NAME" --ip-address "$IP/32" --only-show-errors || true
+          echo "Successfully removed $IP/32 from Key Vault '$NAME'."
+
+      - name: Remove runner IP from Storage Account firewall
+        if: always() && inputs.storage-account-name != ''
+        run: |
+          NAME="${{ inputs.storage-account-name }}"
+          RG="${{ inputs.resource-group }}"
+          IP="${{ steps.ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Storage Account '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping removal."
+            exit 0
+          fi
+
+          echo "Removing runner IP $IP from Storage Account '$NAME' firewall..."
+          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors || true
+          echo "Successfully removed $IP from Storage Account '$NAME'."

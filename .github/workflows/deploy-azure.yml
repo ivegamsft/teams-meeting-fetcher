@@ -133,9 +133,75 @@ jobs:
         run: |
           TENANT_ID=$(az account show --query tenantId -o tsv)
           if [ "$TENANT_ID" != "${{ secrets.EXPECTED_TENANT_ID }}" ]; then
-            echo "❌ TENANT MISMATCH - Deployment blocked!"
+            echo "TENANT MISMATCH - Deployment blocked!"
             exit 1
           fi
+
+      - name: Get runner IP
+        id: runner-ip
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "runner_ip=$RUNNER_IP" >> $GITHUB_OUTPUT
+          echo "Runner IP: $RUNNER_IP"
+
+      - name: Get resource names from Terraform output
+        id: resources
+        run: |
+          cd iac/azure
+          # Try to get resource names from Terraform state; fall back to secrets/variables
+          terraform init -input=false > /dev/null 2>&1 || true
+          KV_NAME=$(terraform output -raw key_vault_name 2>/dev/null || echo "")
+          STORAGE_NAME=$(terraform output -raw storage_account_name 2>/dev/null || echo "")
+          RG_NAME=$(terraform output -raw resource_group_name 2>/dev/null || echo "")
+          echo "kv_name=$KV_NAME" >> $GITHUB_OUTPUT
+          echo "storage_name=$STORAGE_NAME" >> $GITHUB_OUTPUT
+          echo "rg_name=$RG_NAME" >> $GITHUB_OUTPUT
+          echo "Key Vault: $KV_NAME | Storage: $STORAGE_NAME | RG: $RG_NAME"
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_USE_OIDC: true
+          TF_VAR_use_oidc: "true"
+
+      - name: Add runner IP to Key Vault firewall
+        if: steps.resources.outputs.kv_name != ''
+        run: |
+          NAME="${{ steps.resources.outputs.kv_name }}"
+          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Key Vault '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping."
+            exit 0
+          fi
+
+          echo "Adding runner IP $IP/32 to Key Vault '$NAME' firewall..."
+          az keyvault network-rule add --name "$NAME" --ip-address "$IP/32" --only-show-errors
+          echo "Successfully added $IP/32 to Key Vault '$NAME'."
+
+      - name: Add runner IP to Storage Account firewall
+        if: steps.resources.outputs.storage_name != '' && steps.resources.outputs.rg_name != ''
+        run: |
+          NAME="${{ steps.resources.outputs.storage_name }}"
+          RG="${{ steps.resources.outputs.rg_name }}"
+          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Storage Account '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping."
+            exit 0
+          fi
+
+          echo "Adding runner IP $IP to Storage Account '$NAME' firewall..."
+          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors
+          echo "Successfully added $IP to Storage Account '$NAME'."
+
+      - name: Wait for firewall propagation
+        if: steps.resources.outputs.kv_name != '' || steps.resources.outputs.storage_name != ''
+        run: |
+          echo "Waiting 15s for firewall rule propagation..."
+          sleep 15
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -184,6 +250,41 @@ jobs:
 
       - name: Deployment Summary
         run: |
-          echo "✅ Azure Deployment Complete"
+          echo "Azure Deployment Complete"
           echo "Subscription: ${{ secrets.AZURE_SUBSCRIPTION_ID }}"
           echo "Tenant: ${{ secrets.EXPECTED_TENANT_ID }}"
+
+      # --- Cleanup: always remove runner IP from firewalls ---
+
+      - name: Remove runner IP from Key Vault firewall
+        if: always() && steps.resources.outputs.kv_name != ''
+        run: |
+          NAME="${{ steps.resources.outputs.kv_name }}"
+          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Key Vault '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping removal."
+            exit 0
+          fi
+
+          echo "Removing runner IP $IP/32 from Key Vault '$NAME' firewall..."
+          az keyvault network-rule remove --name "$NAME" --ip-address "$IP/32" --only-show-errors || true
+          echo "Successfully removed $IP/32 from Key Vault '$NAME'."
+
+      - name: Remove runner IP from Storage Account firewall
+        if: always() && steps.resources.outputs.storage_name != '' && steps.resources.outputs.rg_name != ''
+        run: |
+          NAME="${{ steps.resources.outputs.storage_name }}"
+          RG="${{ steps.resources.outputs.rg_name }}"
+          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+
+          DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+          if [ "$DEFAULT_ACTION" != "Deny" ]; then
+            echo "Storage Account '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping removal."
+            exit 0
+          fi
+
+          echo "Removing runner IP $IP from Storage Account '$NAME' firewall..."
+          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors || true
+          echo "Successfully removed $IP from Storage Account '$NAME'."

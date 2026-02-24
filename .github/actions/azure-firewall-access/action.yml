@@ -1,0 +1,96 @@
+name: 'Azure Firewall Access'
+description: 'Add or remove the GitHub Actions runner IP from Azure resource firewalls (Key Vault or Storage Account). RBAC-only — no keys or connection strings.'
+
+inputs:
+  resource-type:
+    description: 'Azure resource type: keyvault or storage'
+    required: true
+  resource-name:
+    description: 'Name of the Azure resource'
+    required: true
+  resource-group:
+    description: 'Resource group (required for storage, ignored for keyvault)'
+    required: false
+    default: ''
+  action:
+    description: 'Action to perform: add or remove'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Get runner IP
+      id: ip
+      shell: bash
+      run: |
+        RUNNER_IP=$(curl -s https://api.ipify.org)
+        echo "runner_ip=$RUNNER_IP" >> $GITHUB_OUTPUT
+        echo "Runner IP: $RUNNER_IP"
+
+    - name: Manage Key Vault firewall rule
+      if: inputs.resource-type == 'keyvault'
+      shell: bash
+      run: |
+        NAME="${{ inputs.resource-name }}"
+        IP="${{ steps.ip.outputs.runner_ip }}"
+        ACTION="${{ inputs.action }}"
+
+        # Check if the default action is Deny (firewall is enabled)
+        DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+
+        if [ "$DEFAULT_ACTION" != "Deny" ]; then
+          echo "Key Vault '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping firewall modification."
+          exit 0
+        fi
+
+        if [ "$ACTION" == "add" ]; then
+          echo "Adding runner IP $IP/32 to Key Vault '$NAME' firewall..."
+          az keyvault network-rule add --name "$NAME" --ip-address "$IP/32" --only-show-errors
+          echo "Waiting 10s for firewall rule propagation..."
+          sleep 10
+          echo "Successfully added $IP/32 to Key Vault '$NAME' firewall."
+        elif [ "$ACTION" == "remove" ]; then
+          echo "Removing runner IP $IP/32 from Key Vault '$NAME' firewall..."
+          az keyvault network-rule remove --name "$NAME" --ip-address "$IP/32" --only-show-errors || true
+          echo "Successfully removed $IP/32 from Key Vault '$NAME' firewall."
+        else
+          echo "Unknown action: $ACTION. Use 'add' or 'remove'."
+          exit 1
+        fi
+
+    - name: Manage Storage Account firewall rule
+      if: inputs.resource-type == 'storage'
+      shell: bash
+      run: |
+        NAME="${{ inputs.resource-name }}"
+        RG="${{ inputs.resource-group }}"
+        IP="${{ steps.ip.outputs.runner_ip }}"
+        ACTION="${{ inputs.action }}"
+
+        if [ -z "$RG" ]; then
+          echo "Error: resource-group is required for storage account firewall management."
+          exit 1
+        fi
+
+        # Check if the default action is Deny (firewall is enabled)
+        DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
+
+        if [ "$DEFAULT_ACTION" != "Deny" ]; then
+          echo "Storage Account '$NAME' default action is '$DEFAULT_ACTION' (not Deny). Skipping firewall modification."
+          exit 0
+        fi
+
+        if [ "$ACTION" == "add" ]; then
+          echo "Adding runner IP $IP to Storage Account '$NAME' firewall..."
+          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors
+          echo "Waiting 10s for firewall rule propagation..."
+          sleep 10
+          echo "Successfully added $IP to Storage Account '$NAME' firewall."
+        elif [ "$ACTION" == "remove" ]; then
+          echo "Removing runner IP $IP from Storage Account '$NAME' firewall..."
+          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors || true
+          echo "Successfully removed $IP from Storage Account '$NAME' firewall."
+        else
+          echo "Unknown action: $ACTION. Use 'add' or 'remove'."
+          exit 1
+        fi
