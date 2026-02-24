@@ -252,19 +252,6 @@
 - All agents: Reference this doc when discussing deployment setup
 - Edie (Docs): Link to this from README.md and DEPLOYMENT.md
 - ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows
-- New contributors had no way to know the full setup sequence from AWS OIDC to Terraform state to GitHub secrets
-
-**Key Points:**
-1. **AWS OIDC Provider** must be registered once per AWS account before any deploy workflow runs
-2. **Azure Federated Credentials** must be configured per branch (`main`, `develop`, PRs)
-3. **Terraform outputs** (Lambda names, API Gateway URLs) feed back into deploy workflows and Graph API configuration
-4. **Squad branch guard** (`squad-main-guard.yml`) failing on main pushes is intentional — documented as such
-5. All values are tagged: `Manual`, `Pipeline-generated`, `Terraform output`, or `Auto-created`
-
-**Impact:**
-- All agents: Reference this doc when discussing deployment setup
-- Edie (Docs): Link to this from README.md and DEPLOYMENT.md
-- ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows
 
 ---
 
@@ -364,3 +351,40 @@ Do NOT change settings unless public access is off completely — use specific I
 - All remaining workflows follow correct patterns (cache-dependency-path, app-specific npm ci, RBAC auth)
 - No fragile `cd && ... && cd` patterns exist
 - Total inventory: 25 workflows (down from 29)
+
+---
+
+## 2026-02-24: AWS OIDC Bootstrap Script Updates
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Replace `AdministratorAccess` in bootstrap scripts with 9 scoped AWS managed policies matching the production `GitHubActionsTeamsMeetingFetcher` role. Replace IAM-user-era secret checks in verify scripts with OIDC-era checks including AWS-side resource verification.
+
+**Rationale:**
+- `AdministratorAccess` violated least-privilege. The 9 scoped policies (S3, Lambda, DynamoDB, API Gateway, IAM, EventBridge, SNS, CloudWatch Logs, CloudWatch) match exactly what the role needs.
+- The old role name `github-actions-oidc-role` didn't match the manually created `GitHubActionsTeamsMeetingFetcher` role.
+- Verify scripts checked for stale IAM-user secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) that are no longer used with OIDC.
+- No script verified AWS-side resources (OIDC provider existence, role existence, trust policy, attached policies).
+
+**Implementation:**
+1. `scripts/setup/bootstrap-github-oidc.ps1` and `.sh`:
+   - Default role name: `GitHubActionsTeamsMeetingFetcher` (configurable via `-RoleName` / `--role-name`)
+   - 9 scoped policies instead of `AdministratorAccess`
+   - `-SetSecrets` / `--set-secrets` flag to optionally run `gh secret set` commands
+
+2. `scripts/verify/verify-github-secrets.ps1` and `.sh`:
+   - Checks OIDC-era secrets: `AWS_ROLE_ARN`, `AWS_REGION`
+   - Warns about stale IAM-user-era secrets
+   - Verifies AWS OIDC provider exists
+   - Verifies IAM role exists and trust policy references correct repo
+   - Verifies all 9 expected policies are attached
+   - Warns if `AdministratorAccess` is still attached
+   - Reports pass/fail count with exit code 1 on any failure
+
+3. `DEPLOYMENT_PREREQUISITES.md` section 1.2:
+   - Added 5 new policies (IAM, EventBridge, SNS, CloudWatch Logs, CloudWatch) to existing 4
+
+**Impact:**
+- All agents: Bootstrap and verify scripts now match production OIDC configuration
+- New contributors: Running the bootstrap script produces a correctly scoped role
+- CI/CD: Verify script can be used as a pre-flight check before running deploy workflows
