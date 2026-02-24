@@ -53,6 +53,10 @@ Teams Meeting Fetcher automatically captures Teams meeting transcripts using Mic
 
 ## Prerequisites for All Scenarios
 
+### Before You Begin
+
+**If deploying to AWS (Event Hub or Teams Bot scenarios):** Complete the OIDC provider setup in [DEPLOYMENT_PREREQUISITES.md](DEPLOYMENT_PREREQUISITES.md#11-oidc-identity-provider-for-github-actions) before running workflows. This is a one-time AWS account setup required for GitHub Actions authentication.
+
 ### Required
 - **Microsoft 365 tenant** with admin access
 - **Azure AD app registration** with Graph API permissions:

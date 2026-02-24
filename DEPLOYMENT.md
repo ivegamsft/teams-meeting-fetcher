@@ -8,6 +8,7 @@ See `.github/copilot-instructions.md` for detailed unified deployment rules.
 
 ## Prerequisites
 
+- **AWS OIDC Identity Provider** for GitHub Actions — see [DEPLOYMENT_PREREQUISITES.md section 1.1](DEPLOYMENT_PREREQUISITES.md#11-oidc-identity-provider-for-github-actions) (one-time AWS account setup)
 - Azure app registration with Graph API permissions
 - AWS CLI configured with `tmf-dev` profile
 - Terraform >= 1.0
