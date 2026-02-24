@@ -2,11 +2,11 @@
 
 Preview infrastructure changes before applying them.
 
-## ⚠️ CRITICAL: Only Use `infra/`
+## ⚠️ CRITICAL: Only Use `iac/`
 
 **NEVER run `terraform plan` from `iac/aws/` or `iac/azure/` folders.**
 
-These old folders are DEPRECATED and will create duplicate resources. Always use `infra/` as the single source of truth.
+These old folders are DEPRECATED and will create duplicate resources. Always use `iac/` as the single source of truth.
 
 ## Context
 
@@ -14,19 +14,19 @@ This prompt generates a Terraform plan for the unified deployment, showing what 
 
 ## Prerequisites
 
-- ✅ `infra/terraform.tfvars` exists and is configured
+- ✅ `iac/terraform.tfvars` exists and is configured
 - ✅ Terraform initialized (`terraform init`)
-- ✅ Running from `infra/` directory (not `iac/aws/` or `iac/azure/`)
+- ✅ Running from `iac/` directory (not `iac/aws/` or `iac/azure/`)
 
 ## Prompt
 
 I need to review infrastructure changes before deploying.
 
-**IMPORTANT: All commands below MUST run from `infra/` directory.**
+**IMPORTANT: All commands below MUST run from `iac/` directory.**
 
 **Steps:**
 
-1. Navigate to `infra/` directory: `cd infra/`
+1. Navigate to `iac/` directory: `cd iac/`
 2. Generate a detailed plan: `terraform plan -out=tfplan`
 3. Review the plan summary
 
