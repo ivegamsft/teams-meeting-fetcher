@@ -34,7 +34,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
@@ -56,6 +56,7 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
+          cache-dependency-path: "scenarios/lambda/meeting-bot/package-lock.json"
 
       - name: Install Meeting Bot dependencies
         run: |

@@ -6,14 +6,14 @@ on:
       - main
       - develop
     paths:
-      - "teams-app/**"
+      - "apps/teams-app/**"
       - ".github/workflows/package-teams-app.yml"
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - "teams-app/**"
+      - "apps/teams-app/**"
   workflow_dispatch:
 
 jobs:
@@ -25,12 +25,12 @@ jobs:
 
       - name: Check manifest files exist
         run: |
-          if [ ! -f "teams-app/manifest.json" ]; then
+          if [ ! -f "apps/teams-app/manifest.json" ]; then
             echo "❌ manifest.json not found"
             exit 1
           fi
 
-          if [ ! -f "teams-app/manifest-dev.json" ]; then
+          if [ ! -f "apps/teams-app/manifest-dev.json" ]; then
             echo "⚠️ manifest-dev.json not found (optional)"
           fi
 
@@ -44,7 +44,7 @@ jobs:
 
           # Validate main manifest
           try:
-            with open('teams-app/manifest.json') as f:
+            with open('apps/teams-app/manifest.json') as f:
               manifest = json.load(f)
             print("✅ manifest.json is valid JSON")
           except json.JSONDecodeError as e:
@@ -53,7 +53,7 @@ jobs:
 
           # Validate dev manifest if it exists
           try:
-            with open('teams-app/manifest-dev.json') as f:
+            with open('apps/teams-app/manifest-dev.json') as f:
               dev = json.load(f)
             print("✅ manifest-dev.json is valid JSON")
           except FileNotFoundError:
@@ -68,7 +68,7 @@ jobs:
           python3 << 'EOF'
           import json
 
-          with open('teams-app/manifest.json') as f:
+          with open('apps/teams-app/manifest.json') as f:
             manifest = json.load(f)
 
           # Check required fields
@@ -88,7 +88,7 @@ jobs:
 
       - name: Check for hardcoded credentials
         run: |
-          if grep -r "secret\|password\|key\|token" teams-app/manifest*.json \
+          if grep -r "secret\|password\|key\|token" apps/teams-app/manifest*.json \
              --ignore-case | grep -v "botId" | grep -v "clientId"; then
             echo "⚠️ Found potential hardcoded credentials in manifest"
             exit 1
@@ -101,7 +101,7 @@ jobs:
           import json
           import os
 
-          with open('teams-app/manifest.json') as f:
+          with open('apps/teams-app/manifest.json') as f:
             manifest = json.load(f)
 
           # Check bot ID
@@ -125,20 +125,19 @@ jobs:
 
       - name: Package Teams app
         run: |
-          cd teams-app
-          rm -f ../teams-app-*.zip
-          zip -r ../teams-app-${{ github.sha }}.zip . \
+          cd apps/teams-app
+          rm -f ../../teams-app-*.zip
+          zip -r ../../teams-app-${{ github.sha }}.zip . \
             -x "*.git*" "node_modules/*" ".vscode/*"
           echo "✅ Teams app packaged"
 
       - name: Generate checksum
         run: |
-          cd teams-app
-          sha256sum ../teams-app-${{ github.sha }}.zip > ../teams-app-${{ github.sha }}.sha256
-          cat ../teams-app-${{ github.sha }}.sha256
+          sha256sum teams-app-${{ github.sha }}.zip > teams-app-${{ github.sha }}.sha256
+          cat teams-app-${{ github.sha }}.sha256
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: teams-app-package
           path: |
@@ -151,7 +150,7 @@ jobs:
           python3 << 'EOF'
           import json
 
-          with open('teams-app/manifest.json') as f:
+          with open('apps/teams-app/manifest.json') as f:
             m = json.load(f)
 
           print("📦 TEAMS APP PACKAGE SUMMARY")

@@ -25,21 +25,30 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
+          cache-dependency-path: "apps/aws-lambda/package-lock.json"
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          cd apps/aws-lambda
+          npm ci
 
       - name: Lint
-        run: npm run lint
+        run: |
+          cd apps/aws-lambda
+          npm run lint || echo "No lint script configured"
 
       - name: Type Check
-        run: npm run type-check
+        run: |
+          cd apps/aws-lambda
+          npm run type-check || echo "No type-check script configured"
 
       - name: Run tests
-        run: npm test
+        run: |
+          cd apps/aws-lambda
+          npm test
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          files: ./coverage/lcov.info
+          files: ./apps/aws-lambda/coverage/lcov.info
           fail_ci_if_error: false

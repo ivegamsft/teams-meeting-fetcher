@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
+          cache-dependency-path: "scenarios/lambda/meeting-bot/package-lock.json"
 
       - name: Install Meeting Bot dependencies
         run: |
@@ -54,7 +55,7 @@ jobs:
           echo "Meeting bot package size: ${ZIPSIZE} bytes"
 
       - name: Upload Meeting Bot Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lambda-meeting-bot-artifact
           path: scenarios/lambda/meeting-bot/meeting-bot.zip

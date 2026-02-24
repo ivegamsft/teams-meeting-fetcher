@@ -1,5 +1,22 @@
 name: Deploy to AWS
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# REQUIRED GITHUB SECRETS:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# AWS_ROLE_ARN                  - IAM role ARN for OIDC authentication
+# AZURE_CLIENT_ID               - Azure App Registration client ID
+# AZURE_TENANT_ID               - Azure AD tenant ID
+# AZURE_SUBSCRIPTION_ID         - Azure subscription ID
+#
+# REQUIRED GITHUB VARIABLES:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# AWS_REGION                    - AWS deployment region (e.g., us-east-1)
+# TF_STATE_BUCKET               - S3 bucket for Terraform state
+# TF_STATE_KEY                  - S3 key for Terraform state file
+# TF_STATE_REGION               - S3 bucket region
+# TF_STATE_LOCK_TABLE           - DynamoDB table for state locking
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 on:
   push:
     branches:
@@ -7,7 +24,7 @@ on:
     paths:
       - "apps/aws-lambda/**"
       - "iac/aws/**"
-      - "lambda/**"
+      - "scenarios/lambda/**"
   workflow_dispatch:
     inputs:
       environment:
@@ -48,14 +65,14 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
@@ -80,10 +97,15 @@ jobs:
           cd iac
           terraform plan -out=tfplan
           echo "exists=true" >> $GITHUB_OUTPUT
+        env:
+          TF_VAR_use_oidc: "true"
+          TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Upload terraform plan
         if: steps.plan.outputs.exists == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tfplan-aws
           path: iac/tfplan
@@ -101,9 +123,7 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-
-      - name: Install dependencies (root)
-        run: npm ci
+          cache-dependency-path: "apps/aws-lambda/package-lock.json"
 
       - name: Install Lambda dependencies
         run: |
@@ -116,7 +136,7 @@ jobs:
           zip -r ../lambda.zip handler.js node_modules
 
       - name: Upload Lambda artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lambda-artifact
           path: apps/lambda.zip
@@ -139,19 +159,19 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Azure Login (OIDC)
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Download terraform plan
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tfplan-aws
           path: iac/
@@ -170,6 +190,11 @@ jobs:
         run: |
           cd iac
           terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_use_oidc: "true"
+          TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
 
       - name: Get Terraform outputs
         id: tf-output
@@ -179,7 +204,7 @@ jobs:
           echo "lambda_name=$LAMBDA_NAME" >> $GITHUB_OUTPUT
 
       - name: Download Lambda artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: lambda-artifact
           path: apps/
