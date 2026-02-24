@@ -101,6 +101,10 @@ jobs:
           cd iac
           terraform validate
 
+      - name: Get runner IP for Key Vault firewall
+        id: runner-ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
       - name: Terraform plan
         id: plan
         run: |
@@ -118,6 +122,7 @@ jobs:
           TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
+          TF_VAR_allowed_ip_addresses: '["${{ steps.runner-ip.outputs.ip }}"]'
 
       - name: Upload terraform plan
         if: steps.plan.outputs.exists == 'true'
@@ -203,10 +208,14 @@ jobs:
             -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
             -backend-config="encrypt=true"
 
+      - name: Get runner IP for Key Vault firewall
+        id: runner-ip
+        run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
       - name: Terraform apply
         run: |
           cd iac
-          terraform apply -input=false -auto-approve tfplan
+          terraform apply -input=false -auto-approve
         env:
           TF_VAR_use_oidc: "true"
           TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -218,6 +227,7 @@ jobs:
           TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
+          TF_VAR_allowed_ip_addresses: '["${{ steps.runner-ip.outputs.ip }}"]'
 
       - name: Get Terraform outputs
         id: tf-output
