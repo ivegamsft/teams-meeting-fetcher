@@ -105,6 +105,15 @@ jobs:
         id: runner-ip
         run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
 
+      - name: Add runner IP to Key Vault firewall
+        if: vars.KEY_VAULT_NAME != ''
+        run: |
+          az keyvault network-rule add \
+            --name "${{ vars.KEY_VAULT_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --ip-address "${{ steps.runner-ip.outputs.ip }}/32" \
+            --only-show-errors || true
+
       - name: Terraform plan
         id: plan
         run: |
@@ -123,6 +132,15 @@ jobs:
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
           TF_VAR_allowed_ip_addresses: '["${{ steps.runner-ip.outputs.ip }}"]'
+
+      - name: Remove runner IP from Key Vault firewall
+        if: always() && vars.KEY_VAULT_NAME != ''
+        run: |
+          az keyvault network-rule remove \
+            --name "${{ vars.KEY_VAULT_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --ip-address "${{ steps.runner-ip.outputs.ip }}/32" \
+            --only-show-errors || true
 
       - name: Upload terraform plan
         if: steps.plan.outputs.exists == 'true'
@@ -212,6 +230,15 @@ jobs:
         id: runner-ip
         run: echo "ip=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
 
+      - name: Add runner IP to Key Vault firewall
+        if: vars.KEY_VAULT_NAME != ''
+        run: |
+          az keyvault network-rule add \
+            --name "${{ vars.KEY_VAULT_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --ip-address "${{ steps.runner-ip.outputs.ip }}/32" \
+            --only-show-errors || true
+
       - name: Terraform apply
         run: |
           cd iac
@@ -228,6 +255,15 @@ jobs:
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
           TF_VAR_allowed_ip_addresses: '["${{ steps.runner-ip.outputs.ip }}"]'
+
+      - name: Remove runner IP from Key Vault firewall
+        if: always() && vars.KEY_VAULT_NAME != ''
+        run: |
+          az keyvault network-rule remove \
+            --name "${{ vars.KEY_VAULT_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --ip-address "${{ steps.runner-ip.outputs.ip }}/32" \
+            --only-show-errors || true
 
       - name: Get Terraform outputs
         id: tf-output
