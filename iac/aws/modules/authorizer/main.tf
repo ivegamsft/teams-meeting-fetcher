@@ -35,7 +35,7 @@ resource "aws_lambda_function" "authorizer" {
   memory_size   = var.memory_size
 
   filename         = var.package_path
-  source_code_hash = filebase64sha256(var.package_path)
+  source_code_hash = try(filebase64sha256(var.package_path), null)
 
   environment {
     variables = {

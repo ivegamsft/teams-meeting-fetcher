@@ -111,7 +111,7 @@ resource "aws_lambda_function" "meeting_bot" {
   timeout          = var.timeout
   memory_size      = var.memory_size
   filename         = var.package_path
-  source_code_hash = filebase64sha256(var.package_path)
+  source_code_hash = try(filebase64sha256(var.package_path), null)
 
   # Package path supplied by root module
 
