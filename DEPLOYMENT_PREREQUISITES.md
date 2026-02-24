@@ -191,6 +191,45 @@ az ad app federated-credential create --id $APP_OBJECT_ID --parameters '{
 | Tenant ID | Azure Portal > Azure Active Directory > Overview | **Manual** |
 | Subscription ID | Azure Portal > Subscriptions | **Manual** |
 
+### 2.4 RBAC-Only Auth and Firewall IP Management
+
+All Azure resources in this project use **RBAC-only authentication** — no key-based access is permitted. Key Vault has `rbac_authorization_enabled = true`, Storage has `shared_access_key_enabled = false`, and Event Hub has `local_auth_enabled = false`.
+
+Both Key Vault and Storage Account firewalls default to `Deny`, allowing only approved IPs and Azure Services to connect. When the CI/CD runner needs to access these resources (e.g., to read secrets or upload blobs), the workflow must temporarily add the runner's IP to the firewall.
+
+**Pattern used in `deploy-azure.yml`:**
+
+1. Azure Login (OIDC) and tenant verification
+2. Get the runner's public IP via `curl -s https://api.ipify.org`
+3. Add the runner IP to Key Vault and Storage Account firewalls (only if `defaultAction` is `Deny`)
+4. Wait for firewall rule propagation (~15s)
+5. Perform Terraform apply, secret reads, or blob operations
+6. **Always** remove the runner IP from all firewalls (using `if: always()`)
+
+**Critical:** Steps 1-6 must run in a **single job**. GitHub Actions assigns different IPs to different runners, so splitting across jobs would cause the remove step to target a different IP than the add step.
+
+**Required RBAC roles for the OIDC service principal:**
+
+| Role | Scope | Purpose |
+|------|-------|---------|
+| **Key Vault Contributor** | Key Vault resource | Manage firewall/network rules |
+| **Key Vault Secrets Officer** | Key Vault resource | Read/write secrets (already assigned by Terraform) |
+| **Storage Account Contributor** | Storage Account resource | Manage network rules |
+| **Storage Blob Data Contributor** | Storage Account resource | Read/write blobs (already assigned by Terraform) |
+| **Network Contributor** | Resource Group | Required only if using VNet-based rules |
+
+```bash
+# Assign firewall management roles to the GitHub Actions SPN
+APP_ID="<your-azure-client-id>"
+KV_ID="/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.KeyVault/vaults/<KV_NAME>"
+STORAGE_ID="/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.Storage/storageAccounts/<STORAGE_NAME>"
+
+az role assignment create --assignee "$APP_ID" --role "Key Vault Contributor" --scope "$KV_ID"
+az role assignment create --assignee "$APP_ID" --role "Storage Account Contributor" --scope "$STORAGE_ID"
+```
+
+A reusable composite action (`.github/actions/azure-firewall-access/`) and a reusable workflow (`.github/workflows/azure-resource-access.yml`) are available for other workflows that need firewall access.
+
 ---
 
 ## 3. GitHub Repository Secrets
