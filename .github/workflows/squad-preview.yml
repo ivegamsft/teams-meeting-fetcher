@@ -21,10 +21,10 @@ jobs:
       - name: Build and validate
         run: |
           # Validate all Lambda handlers compile
-          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
-          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
-          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
-          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+          (cd apps/aws-lambda && npm ci && node -c handler.js)
+          (cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js)
+          (cd apps/aws-lambda-eventhub && npm ci && node -c handler.js)
+          (cd scenarios/lambda/meeting-bot && npm ci && node -c index.js)
 
       - name: Validate Teams app manifest
         run: |
@@ -34,8 +34,8 @@ jobs:
         run: |
           # Check for syntax issues in .tf files
           if command -v terraform &> /dev/null; then
-            cd iac/aws && terraform fmt -check -recursive -diff && cd ../..
-            cd iac/azure && terraform fmt -check -recursive -diff && cd ../..
+            (cd iac/aws && terraform fmt -check -recursive -diff)
+            (cd iac/azure && terraform fmt -check -recursive -diff)
           else
             echo "ℹ️ Terraform not installed — skipping format check"
           fi

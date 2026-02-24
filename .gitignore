@@ -3,7 +3,6 @@ tasks/
 
 # Dependencies
 node_modules/
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 *.npm
@@ -248,6 +247,5 @@ HTML/
 # Azure DevOps
 .azure-pipelines/
 
-# Avoid committing lock files for libraries (only for apps)
-package-lock.json
+# Lock files are committed for reproducible CI builds
 iac/plan-output.txt

@@ -23,10 +23,10 @@ jobs:
       - name: Build and validate
         run: |
           # Validate Lambda handlers
-          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
-          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
-          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
-          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+          (cd apps/aws-lambda && npm ci && node -c handler.js)
+          (cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js)
+          (cd apps/aws-lambda-eventhub && npm ci && node -c handler.js)
+          (cd scenarios/lambda/meeting-bot && npm ci && node -c index.js)
 
       - name: Create release
         env:

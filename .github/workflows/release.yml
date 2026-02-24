@@ -94,22 +94,16 @@ jobs:
 
       - name: Install and build Lambda handlers
         run: |
-          cd apps/aws-lambda && npm ci && cd ../..
-          cd apps/aws-lambda-authorizer && npm ci && cd ../..
+          (cd apps/aws-lambda && npm ci)
+          (cd apps/aws-lambda-authorizer && npm ci)
 
       - name: Package Lambda handlers
         run: |
           # Handler
-          cd apps/aws-lambda
-          rm -f lambda.zip
-          zip -r lambda.zip handler.js node_modules
-          cd ../..
+          (cd apps/aws-lambda && rm -f lambda.zip && zip -r lambda.zip handler.js node_modules)
 
           # Authorizer
-          cd apps/aws-lambda-authorizer
-          rm -f authorizer.zip
-          zip -r authorizer.zip authorizer.js node_modules
-          cd ../..
+          (cd apps/aws-lambda-authorizer && rm -f authorizer.zip && zip -r authorizer.zip authorizer.js node_modules)
 
       - name: Create distribution archive
         run: |
