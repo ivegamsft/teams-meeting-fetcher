@@ -50,7 +50,9 @@ data "azuread_client_config" "current" {}
 
 // Get Azure AD domains to use default verified domain for test user
 // NOTE: Requires Directory.Read.All permission on SPN
+// Only queried when create_test_user is true (avoids needing permission in CI)
 data "azuread_domains" "aad_domains" {
+  count        = var.create_test_user ? 1 : 0
   only_default = true
 }
 
@@ -62,8 +64,10 @@ locals {
   base_name = var.base_name
   suffix    = random_string.suffix.result
   // Default domain for test user UPN (requires Directory.Read.All to query domains)
-  // Get the verified default domain name from Azure AD or use override if provided (useful for sovereign clouds)
-  default_domain = var.domain_name_suffix == "" ? data.azuread_domains.aad_domains.domains[0].domain_name : var.domain_name_suffix
+  // Only resolved when create_test_user is true; uses override if provided
+  default_domain = var.domain_name_suffix != "" ? var.domain_name_suffix : (
+    var.create_test_user ? data.azuread_domains.aad_domains[0].domains[0].domain_name : "placeholder.onmicrosoft.com"
+  )
 
   // Common tags
   common_tags = {

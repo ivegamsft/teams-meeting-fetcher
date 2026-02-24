@@ -56,7 +56,7 @@ provider "azuread" {
 
 provider "aws" {
   region  = var.aws_region
-  profile = var.aws_profile
+  profile = var.use_oidc ? null : var.aws_profile
 
   default_tags {
     tags = {
