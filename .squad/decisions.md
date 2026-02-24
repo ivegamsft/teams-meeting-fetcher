@@ -444,3 +444,28 @@ test/e2e/
 **Tradeoffs:** Not CI/CD friendly, slower (3-10 min per test), non-deterministic timing
 
 **Full decision available in:** `.squad/decisions/inbox/redfoot-e2e-structure.md`
+
+---
+
+## 2026-02-24: Deployment Prerequisites Documentation
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Created `DEPLOYMENT_PREREQUISITES.md` as the canonical reference for all infrastructure prerequisites, secrets, variables, and setup steps required to deploy Teams Meeting Fetcher.
+
+**Rationale:**
+- GitHub Actions workflows were failing due to missing AWS OIDC provider registration — this is a manual prerequisite, not a code fix
+- No single document existed that mapped every secret/variable to its origin (manual vs pipeline-generated vs Terraform output)
+- New contributors had no way to know the full setup sequence from AWS OIDC to Terraform state to GitHub secrets
+
+**Key Points:**
+1. **AWS OIDC Provider** must be registered once per AWS account before any deploy workflow runs
+2. **Azure Federated Credentials** must be configured per branch (`main`, `develop`, PRs)
+3. **Terraform outputs** (Lambda names, API Gateway URLs) feed back into deploy workflows and Graph API configuration
+4. **Squad branch guard** (`squad-main-guard.yml`) failing on main pushes is intentional — documented as such
+5. All values are tagged: `Manual`, `Pipeline-generated`, `Terraform output`, or `Auto-created`
+
+**Impact:**
+- All agents: Reference this doc when discussing deployment setup
+- Edie (Docs): Link to this from README.md and DEPLOYMENT.md
+- ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows

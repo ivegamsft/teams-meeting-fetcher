@@ -26,4 +26,12 @@
 - **App directories with package.json**: `apps/aws-lambda/`, `apps/aws-lambda-authorizer/`, `apps/aws-lambda-eventhub/`, `scenarios/lambda/meeting-bot/`. All verified to `npm ci` + syntax check cleanly.
 - **Pre-existing test failure**: `apps/aws-lambda` has 1 failing test in `handler.test.js:147` — not workflow-related.
 
+### 2026-02-25: Workflow Audit & Deployment Prerequisites (Round 3)
+
+- **squad-promote.yml fix**: Four locations used `require('./package.json').version` without try/catch. Since no root `package.json` exists, these crash. Fixed to use the same `try { ... } catch(e) { console.log('0.0.0') }` pattern as `squad-release.yml` and `squad-insider-release.yml`.
+- **Full 29-workflow audit**: All 29 workflow files reviewed. Build, deploy, security, release, squad, and test workflows all verified correct after prior rounds of fixes. No other issues found.
+- **DEPLOYMENT_PREREQUISITES.md created**: Comprehensive document covering AWS OIDC setup, Azure App Registration, GitHub secrets/variables, Terraform state backend, local dev setup, pipeline-generated values (Terraform outputs), and Squad/CI notes.
+- **AWS OIDC is a manual prereq**: The `deploy-lambda-*.yml` and `deploy-aws.yml` failures are NOT code bugs -- they require the user to register the GitHub Actions OIDC provider in their AWS account and create an IAM role with trust policy. Documented in DEPLOYMENT_PREREQUISITES.md section 1.
+- **squad-main-guard.yml is working as designed**: Fails when `.squad/` files are pushed to main. This is intentional enforcement. Documented in DEPLOYMENT_PREREQUISITES.md section 8.1.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
