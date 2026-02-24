@@ -308,12 +308,56 @@ from utils.aws_helpers import wait_for_s3_object
 wait_for_s3_object(bucket, key, max_attempts=10, delay=2)
 ```
 
+## End-to-End Testing
+
+### What Are E2E Tests?
+
+End-to-end tests verify the **complete workflow** from Teams meeting creation through transcript storage. Unlike unit and integration tests, E2E tests require **human participation** in a live Teams meeting because:
+
+- Microsoft Graph API only returns transcripts **after a meeting ends** and has 30+ seconds of audio
+- Transcript generation can take 2-10 minutes
+- Human presence is needed to trigger Teams meeting events
+
+### Three E2E Scenarios
+
+The project has **3 distinct test scenarios**, each exercising a different data ingestion path:
+
+| **Scenario** | **Flow** | **Location** | **Time** |
+|---|---|---|---|
+| **1. Teams Bot** | Teams → Bot Framework → Graph API → S3 + DynamoDB | `scenarios/lambda/meeting-bot/` | 30-40 min |
+| **2. Event Hub** | Teams → Graph Subscription → Azure Event Hub → AWS Lambda → DynamoDB | `scenarios/nobots-eventhub/` | 25-35 min |
+| **3. Direct Graph** | Teams → Graph Subscription → API Gateway → Lambda → S3 | `scenarios/nobots/` | 30-40 min |
+
+### Running E2E Tests
+
+**See [E2E_RUNBOOK.md](./e2e/E2E_RUNBOOK.md)** for step-by-step instructions.
+
+The runbook includes:
+- Prerequisites and setup
+- Pre-flight checklists
+- Detailed human actions (starting Teams meetings, monitoring data flow)
+- Validation and verification steps
+- Troubleshooting for common failures
+
+**Quick Start:**
+```powershell
+# Read the E2E runbook (essential!)
+cat test/e2e/E2E_RUNBOOK.md
+
+# Run Scenario 2 (Event Hub - fastest)
+.\test-scripts\test-complete-flow.ps1
+
+# Follow instructions for Scenarios 1 and 3
+```
+
+---
+
 ## Next Steps
 
-1. Implement remaining unit tests
-2. Add Graph API integration tests (requires backend service)
-3. Create infrastructure compliance tests
-4. Set up GitHub Actions workflows
-5. Add E2E tests for complete workflows
+1. ✅ **E2E runbook created** — see `test/e2e/E2E_RUNBOOK.md`
+2. ⬜ Implement remaining unit tests
+3. ⬜ Add Graph API integration tests (requires backend service)
+4. ⬜ Create infrastructure compliance tests
+5. ⬜ Set up GitHub Actions workflows (note: E2E tests require manual trigger)
 
 See [TEST_PLAN.md](./TEST_PLAN.md) for comprehensive testing strategy.

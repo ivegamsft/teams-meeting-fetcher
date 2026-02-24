@@ -1,0 +1,25 @@
+{
+  "name": "teams-meeting-fetcher-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Teams Meeting Fetcher",
+  "private": true,
+  "scripts": {
+    "test": "jest --config jest.config.js",
+    "test:teams-bot": "jest --config jest.config.js aws/teams-bot-e2e.test.js",
+    "test:eventhub": "jest --config jest.config.js aws/eventhub-e2e.test.js",
+    "test:direct-graph": "jest --config jest.config.js aws/direct-graph-e2e.test.js",
+    "test:azure": "jest --config jest.config.js azure/placeholder.test.js",
+    "test:verbose": "jest --config jest.config.js --verbose"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Teams Meeting Fetcher Team",
+  "license": "MIT"
+}

@@ -7,12 +7,15 @@ module.exports = {
     '<rootDir>/apps/aws-lambda',
   ],
   testMatch: ['**/?(*.)+(spec|test).js'],
-  modulePaths: ['<rootDir>/lambda/meeting-bot/node_modules'],
+  modulePaths: [
+    '<rootDir>/scenarios/lambda/meeting-bot/node_modules',
+    '<rootDir>/apps/aws-lambda/node_modules',
+  ],
   collectCoverageFrom: [
     'apps/aws-lambda/**/*.js',
-    'lambda/meeting-bot/**/*.js',
+    'scenarios/lambda/meeting-bot/**/*.js',
     '!apps/aws-lambda/node_modules/**',
     '!apps/aws-lambda/**/*.test.js',
-    '!lambda/meeting-bot/node_modules/**',
+    '!scenarios/lambda/meeting-bot/node_modules/**',
   ],
 };

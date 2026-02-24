@@ -59,7 +59,7 @@ process.env.GRAPH_TENANT_ID = 'test-tenant-id';
 process.env.BOT_APP_ID = 'test-bot-app-id';
 process.env.BOT_APP_SECRET = 'test-secret';
 
-const graphClient = require('../../../lambda/meeting-bot/graph-client');
+const graphClient = require('../../../scenarios/lambda/meeting-bot/graph-client');
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 

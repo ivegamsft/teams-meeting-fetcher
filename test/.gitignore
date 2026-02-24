@@ -34,3 +34,7 @@ Thumbs.db
 # Temporary test data
 fixtures/temp/
 fixtures/*.tmp
+
+# Node.js (E2E tests)
+node_modules/
+package-lock.json

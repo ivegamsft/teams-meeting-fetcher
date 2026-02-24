@@ -38,7 +38,7 @@ const mockGetOnlineMeeting = jest
   .mockResolvedValue({ id: 'meeting-1', chatInfo: { threadId: '19:meeting_abc@thread.v2' } });
 const mockUpdateOnlineMeeting = jest.fn().mockResolvedValue({});
 
-jest.mock('../../../lambda/meeting-bot/graph-client', () => ({
+jest.mock('../../../scenarios/lambda/meeting-bot/graph-client', () => ({
   graphRequest: mockGraphRequest,
   getMeetingTranscripts: mockGetMeetingTranscripts,
   getTranscriptContent: mockGetTranscriptContent,
@@ -88,7 +88,7 @@ process.env.POLL_LOOKAHEAD_MINUTES = '60';
 process.env.GRAPH_NOTIFICATION_URL = 'https://example.com/bot/notifications';
 process.env.GRAPH_NOTIFICATION_CLIENT_STATE = 'test-client-state';
 
-const { handler } = require('../../../lambda/meeting-bot/index');
+const { handler } = require('../../../scenarios/lambda/meeting-bot/index');
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
@@ -349,7 +349,7 @@ describe('Meeting Bot Handler', () => {
       // Should send success message
       expect(mockReplyToActivity).toHaveBeenCalled();
       const replyText = mockReplyToActivity.mock.calls[0][3];
-      expect(replyText).toContain('Auto-recording and transcription have been enabled');
+      expect(replyText).toContain('Auto-recording configured for this meeting');
     });
 
     it('should show warning when no join_url available for record command', async () => {
