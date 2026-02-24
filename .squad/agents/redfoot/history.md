@@ -53,3 +53,13 @@
 - Box-drawing characters for visual sections
 - Troubleshooting tips in summary sections
 - No markdown files for planning/notes - tests are documentation
+
+---
+
+## Team Updates
+
+### 2026-02-24T08:34:33Z: E2E Test Structure Decision Merged
+
+📌 Team update (2026-02-24T08:34:33Z): Redfoot's E2E test structure decision (human-in-the-loop pattern with Jest) has been merged into .squad/decisions.md along with Edie's doc audit findings. Documentation now includes unified quick start guides across all 3 scenarios. E2E tests should reference new QUICKSTART.md files for scenario documentation.
+
+**Related decision:** E2E Test Structure & Human-in-the-Loop Pattern → Jest + native Node.js, phase-based structure, serial execution
