@@ -1,0 +1,41 @@
+name: Squad Preview Validation
+
+on:
+  push:
+    branches: [preview]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Build and validate
+        run: |
+          # Validate all Lambda handlers compile
+          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
+          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
+          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
+          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+
+      - name: Validate Teams app manifest
+        run: |
+          python3 -c "import json; json.load(open('apps/teams-app/manifest.json'))" && echo "✅ Manifest valid"
+
+      - name: Validate Terraform
+        run: |
+          # Check for syntax issues in .tf files
+          if command -v terraform &> /dev/null; then
+            cd iac/aws && terraform fmt -check -recursive -diff && cd ../..
+            cd iac/azure && terraform fmt -check -recursive -diff && cd ../..
+          else
+            echo "ℹ️ Terraform not installed — skipping format check"
+          fi

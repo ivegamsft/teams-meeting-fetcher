@@ -1,0 +1,43 @@
+name: Squad Insider Release
+
+on:
+  push:
+    branches: [insider]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Build and validate
+        run: |
+          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
+          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
+          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
+          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+
+      - name: Create insider release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -e "try { console.log(require('./package.json').version) } catch(e) { console.log('0.0.0') }")
+          TAG="v${VERSION}-insider.$(date +%Y%m%d%H%M%S)"
+
+          NOTES=$(git log --oneline --no-merges -10)
+          gh release create "$TAG" \
+            --title "Insider Release $TAG" \
+            --notes "$NOTES" \
+            --prerelease \
+            --generate-notes
+          echo "✅ Insider release $TAG created"

@@ -1,0 +1,48 @@
+name: Squad Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Build and validate
+        run: |
+          # Validate Lambda handlers
+          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
+          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
+          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
+          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -e "try { console.log(require('./package.json').version) } catch(e) { console.log('0.0.0') }")
+          TAG="v${VERSION}-$(git rev-parse --short HEAD)"
+
+          # Only create release if tag doesn't already exist
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            NOTES=$(git log --oneline --no-merges -10)
+            gh release create "$TAG" \
+              --title "Release $TAG" \
+              --notes "$NOTES" \
+              --generate-notes
+            echo "✅ Release $TAG created"
+          else
+            echo "ℹ️ Release $TAG already exists — skipping"
+          fi

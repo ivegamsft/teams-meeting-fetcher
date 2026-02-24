@@ -1,0 +1,43 @@
+name: Squad CI
+
+on:
+  pull_request:
+    branches: [dev, preview, main, insider]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [dev, insider]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install and test Lambda handlers
+        run: |
+          # Handler Lambda
+          cd apps/aws-lambda && npm ci && node -c handler.js && cd ../..
+
+          # Authorizer Lambda
+          cd apps/aws-lambda-authorizer && npm ci && node -c authorizer.js && cd ../..
+
+          # EventHub Lambda
+          cd apps/aws-lambda-eventhub && npm ci && node -c handler.js && cd ../..
+
+          # Meeting Bot
+          cd scenarios/lambda/meeting-bot && npm ci && node -c index.js && cd ../../..
+
+      - name: Validate Teams app manifest
+        run: |
+          python3 -c "import json; json.load(open('apps/teams-app/manifest.json'))" && echo "✅ Manifest valid"
