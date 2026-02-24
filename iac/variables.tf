@@ -42,9 +42,16 @@ variable "azure_client_id" {
 }
 
 variable "azure_client_secret" {
-  description = "Azure Service Principal client secret"
+  description = "Azure Service Principal client secret (not required when use_oidc = true)"
   type        = string
   sensitive   = true
+  default     = null
+}
+
+variable "use_oidc" {
+  description = "Use OIDC authentication for Azure provider (true for CI/CD, false for local with SPN)"
+  type        = bool
+  default     = false
 }
 
 variable "create_test_user" {

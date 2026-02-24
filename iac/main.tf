@@ -32,7 +32,8 @@ provider "azurerm" {
   subscription_id = var.azure_subscription_id
   tenant_id       = var.azure_tenant_id
   client_id       = var.azure_client_id
-  client_secret   = var.azure_client_secret
+  client_secret   = var.use_oidc ? null : var.azure_client_secret
+  use_oidc        = var.use_oidc
 
   features {
     key_vault {
@@ -49,7 +50,8 @@ provider "azurerm" {
 provider "azuread" {
   tenant_id     = var.azure_tenant_id
   client_id     = var.azure_client_id
-  client_secret = var.azure_client_secret
+  client_secret = var.use_oidc ? null : var.azure_client_secret
+  use_oidc      = var.use_oidc
 }
 
 provider "aws" {
