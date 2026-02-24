@@ -55,7 +55,11 @@ Teams Meeting Fetcher automatically captures Teams meeting transcripts using Mic
 
 ### Before You Begin
 
-**If deploying to AWS (Event Hub or Teams Bot scenarios):** Complete the OIDC provider setup in [DEPLOYMENT_PREREQUISITES.md](DEPLOYMENT_PREREQUISITES.md#11-oidc-identity-provider-for-github-actions) before running workflows. This is a one-time AWS account setup required for GitHub Actions authentication.
+**If deploying to AWS (Event Hub or Teams Bot scenarios):** Complete these AWS prerequisites before running workflows:
+1. **AWS OIDC provider** setup in [DEPLOYMENT_PREREQUISITES.md section 1](DEPLOYMENT_PREREQUISITES.md#1-aws-account-setup) — one-time AWS account setup for GitHub Actions authentication
+2. **Terraform state backend** setup in [DEPLOYMENT_PREREQUISITES.md section 2](DEPLOYMENT_PREREQUISITES.md#2-terraform-state-backend-setup) — creates S3 bucket and DynamoDB table for state storage, and sets GitHub variables
+
+Both are one-time setup steps per AWS account.
 
 ### Required
 - **Microsoft 365 tenant** with admin access

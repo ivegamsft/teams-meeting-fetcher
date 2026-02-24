@@ -75,3 +75,13 @@
 - **Verify scripts rewritten**: `scripts/verify/verify-github-secrets.ps1` and `.sh` now check OIDC-era secrets (AWS_ROLE_ARN, AWS_REGION), verify AWS-side resources (OIDC provider, IAM role, trust policy, all 9 attached policies), warn about stale IAM-user-era secrets, and report pass/fail with exit codes.
 - **DEPLOYMENT_PREREQUISITES.md updated**: Section 1.2 now lists all 9 policies instead of only 4.
 - **Emojis removed**: All output uses `[PASS]`, `[FAIL]`, `[WARN]`, `[ERROR]`, `[SKIP]` prefixes per project conventions.
+
+### 2026-02-25: Terraform State Backend Provisioned
+
+- **AWS resources created**: S3 bucket `tmf-terraform-state-833337371676` (versioning, AES-256 encryption, all public access blocked) and DynamoDB table `tmf-terraform-state-lock` (LockID partition key, PAY_PER_REQUEST) in us-east-1.
+- **Naming convention**: `tmf-terraform-state-{account_id}` for bucket (globally unique), `tmf-terraform-state-lock` for lock table. State key: `teams-meeting-fetcher/terraform.tfstate`.
+- **GitHub variables set**: `TF_STATE_BUCKET`, `TF_STATE_KEY`, `TF_STATE_REGION`, `TF_STATE_LOCK_TABLE` on `ivegamsft/teams-meeting-fetcher`. These are variables (not secrets) since they contain non-sensitive values.
+- **Bootstrap script**: `scripts/setup/bootstrap-terraform-backend.ps1` and `.sh` — idempotent, auto-detects account ID, creates bucket/table, sets GitHub vars. Standalone from `bootstrap-github-oidc.ps1` (that script's `-SetupTerraformState` flag requires an IP CIDR and applies a bucket policy; the new script is simpler and doesn't require IP allowlisting).
+- **Verify script**: `scripts/verify/verify-terraform-backend.ps1` and `.sh` — checks bucket (exists, versioning, encryption, public access), table (exists, ACTIVE, key schema, billing), and GitHub vars (set + match expected values). 12 checks total, exit 1 on any failure.
+- **Azure Terraform does NOT use S3 backend**: `deploy-azure.yml` runs `terraform init` in `iac/azure/` without backend-config flags — uses local backend. No additional state backend vars needed for Azure.
+- **DEPLOYMENT_PREREQUISITES.md updated**: Section 2.3 examples updated to use actual naming convention (`tmf-terraform-state-<ACCOUNT_ID>`, `tmf-terraform-state-lock`). Section 2.4 updated with actual script usage and removed TODO comments.

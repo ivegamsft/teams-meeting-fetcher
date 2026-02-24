@@ -8,7 +8,8 @@ See `.github/copilot-instructions.md` for detailed unified deployment rules.
 
 ## Prerequisites
 
-- **AWS OIDC Identity Provider** for GitHub Actions — see [DEPLOYMENT_PREREQUISITES.md section 1.1](DEPLOYMENT_PREREQUISITES.md#11-oidc-identity-provider-for-github-actions) (one-time AWS account setup)
+- **AWS OIDC Identity Provider** for GitHub Actions — see [DEPLOYMENT_PREREQUISITES.md section 1](DEPLOYMENT_PREREQUISITES.md#1-aws-account-setup) (one-time AWS account setup)
+- **Terraform State Backend** (S3 + DynamoDB) — see [DEPLOYMENT_PREREQUISITES.md section 2](DEPLOYMENT_PREREQUISITES.md#2-terraform-state-backend-setup) (one-time setup, creates remote state storage)
 - Azure app registration with Graph API permissions
 - AWS CLI configured with `tmf-dev` profile
 - Terraform >= 1.0

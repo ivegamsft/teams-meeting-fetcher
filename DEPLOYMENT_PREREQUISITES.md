@@ -163,34 +163,54 @@ gh secret list
 
 A standalone verification script is available at `scripts/verify/verify-github-secrets.ps1` (PowerShell) or `.sh` (Bash) that automates these checks and provides a pass/fail summary.
 
-### 1.4 S3 Bucket for Terraform State
+---
 
-**Source:** Manual (create before first `terraform init`)
+## 2. Terraform State Backend Setup
+
+Terraform state must be stored in a remote backend (S3 + DynamoDB for AWS) instead of locally. This enables:
+- **Team collaboration** — multiple engineers can deploy simultaneously with state locking
+- **CI/CD integration** — GitHub Actions workflows access shared state
+- **Disaster recovery** — versioned backups prevent state loss
+- **Audit trail** — all state changes are logged
+
+This is a **one-time setup per AWS account**, performed before the first `terraform init`.
+
+### 2.1 S3 Bucket for Terraform State
+
+Create an S3 bucket to store the Terraform state file.
+
+**Source:** Manual
 
 ```bash
+# Create the S3 bucket
 aws s3api create-bucket \
   --bucket <your-tf-state-bucket> \
   --region us-east-1
 
+# Enable versioning (allows rollback if state is corrupted)
 aws s3api put-bucket-versioning \
   --bucket <your-tf-state-bucket> \
   --versioning-configuration Status=Enabled
 
+# Enable encryption at rest (protects sensitive data like secrets)
 aws s3api put-bucket-encryption \
   --bucket <your-tf-state-bucket> \
   --server-side-encryption-configuration '{
     "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "aws:kms"}}]
   }'
 
+# Block public access (critical for security — state contains secrets)
 aws s3api put-public-access-block \
   --bucket <your-tf-state-bucket> \
   --public-access-block-configuration \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
 
-### 1.5 DynamoDB Table for State Locking
+### 2.2 DynamoDB Table for State Locking
 
-**Source:** Manual (create before first `terraform init`)
+Create a DynamoDB table to manage concurrent state access. When multiple engineers or CI/CD pipelines run `terraform apply` simultaneously, DynamoDB prevents race conditions by holding a lock.
+
+**Source:** Manual
 
 ```bash
 aws dynamodb create-table \
@@ -201,11 +221,88 @@ aws dynamodb create-table \
   --region us-east-1
 ```
 
+### 2.3 GitHub Repository Variables for Terraform Backend
+
+Configure GitHub repository variables (not secrets) that point to your S3 bucket and DynamoDB table. These are referenced by all deploy workflows.
+
+**Source:** Manual — set via `gh variable set` in the GitHub CLI (or use the bootstrap script in section 2.4)
+
+| Variable | Value | Example |
+|----------|-------|---------|
+| `TF_STATE_BUCKET` | Name of the S3 bucket from section 2.1 | `tmf-terraform-state-<ACCOUNT_ID>` |
+| `TF_STATE_KEY` | S3 object key (path) where state file is stored | `teams-meeting-fetcher/terraform.tfstate` |
+| `TF_STATE_REGION` | AWS region where the S3 bucket exists | `us-east-1` |
+| `TF_STATE_LOCK_TABLE` | Name of the DynamoDB table from section 2.2 | `tmf-terraform-state-lock` |
+
+**Quick setup commands:**
+
+```bash
+gh variable set TF_STATE_BUCKET --body "tmf-terraform-state-<ACCOUNT_ID>"
+gh variable set TF_STATE_KEY --body "teams-meeting-fetcher/terraform.tfstate"
+gh variable set TF_STATE_REGION --body "us-east-1"
+gh variable set TF_STATE_LOCK_TABLE --body "tmf-terraform-state-lock"
+```
+
+> **Important:** These are **GitHub Variables** (public), not **GitHub Secrets** (encrypted). The distinction matters:
+> - Use `gh variable set` for bucket/table names, region (non-sensitive values)
+> - Use `gh secret set` for AWS credentials, passwords, tokens (sensitive values)
+
+### 2.4 Bootstrap and Verify Scripts
+
+Two helper scripts automate the setup and verification:
+
+**Bootstrap script** — Creates S3 bucket and DynamoDB table, sets GitHub variables
+- **Path:** `scripts/setup/bootstrap-terraform-backend.ps1` (PowerShell) or `.sh` (Bash)
+- **Usage:** `./bootstrap-terraform-backend.ps1` (uses sensible defaults) or `./bootstrap-terraform-backend.sh`
+- **Defaults:** Bucket `tmf-terraform-state-<ACCOUNT_ID>`, table `tmf-terraform-state-lock`, key `teams-meeting-fetcher/terraform.tfstate`, region `us-east-1`
+- **Idempotent:** Safe to re-run; skips resources that already exist
+- **What it does:**
+  1. Creates S3 bucket with versioning, AES-256 encryption, and all public access blocked
+  2. Creates DynamoDB table with `LockID` partition key and PAY_PER_REQUEST billing
+  3. Sets GitHub variables (`TF_STATE_BUCKET`, `TF_STATE_KEY`, `TF_STATE_REGION`, `TF_STATE_LOCK_TABLE`) automatically
+
+**Verify script** — Validates that S3 and DynamoDB are correctly configured
+- **Path:** `scripts/verify/verify-terraform-backend.ps1` (PowerShell) or `.sh` (Bash)
+- **Usage:** `./verify-terraform-backend.ps1` or `./verify-terraform-backend.sh`
+- **What it does:**
+  1. Checks S3 bucket exists with versioning, encryption, and public access blocked
+  2. Checks DynamoDB table exists, is ACTIVE, has correct key schema and billing
+  3. Verifies GitHub variables are set and match expected values
+  4. Reports pass/fail/warn counts with exit code 1 on any failure
+
+### 2.5 State Migration (if starting from local backend)
+
+If you initially deployed with a local Terraform backend and want to migrate to S3:
+
+```bash
+cd iac
+
+# Initialize with the new S3 backend
+terraform init \
+  -backend-config="bucket=<your-tf-state-bucket>" \
+  -backend-config="key=teams-meeting-fetcher/terraform.tfstate" \
+  -backend-config="region=us-east-1" \
+  -backend-config="dynamodb_table=<your-tf-lock-table>" \
+  -backend-config="encrypt=true" \
+  -migrate-state
+
+# Terraform will prompt: "Do you want to copy existing state to the new backend?"
+# Answer: yes
+```
+
+After migration, you can safely delete the local state files:
+
+```bash
+rm -f iac/aws/terraform.tfstate*
+rm -f iac/azure/terraform.tfstate*
+rm -f iac/.terraform.tfstate.lock.info
+```
+
 ---
 
-## 2. Azure Account Setup
+## 3. Azure Account Setup
 
-### 2.1 App Registration
+### 3.1 App Registration
 
 Create an Azure AD App Registration for GitHub Actions OIDC authentication.
 
@@ -228,7 +325,7 @@ az role assignment create \
   --scope /subscriptions/<SUBSCRIPTION_ID>
 ```
 
-### 2.2 Federated Credentials for GitHub OIDC
+### 3.2 Federated Credentials for GitHub OIDC
 
 **Source:** Manual
 
@@ -260,7 +357,7 @@ az ad app federated-credential create --id $APP_OBJECT_ID --parameters '{
 }'
 ```
 
-### 2.3 Values to Collect
+### 3.3 Values to Collect
 
 | Value | Where to Find | Source |
 |-------|---------------|--------|
@@ -268,7 +365,7 @@ az ad app federated-credential create --id $APP_OBJECT_ID --parameters '{
 | Tenant ID | Azure Portal > Azure Active Directory > Overview | **Manual** |
 | Subscription ID | Azure Portal > Subscriptions | **Manual** |
 
-### 2.4 RBAC-Only Auth and Firewall IP Management
+### 3.4 RBAC-Only Auth and Firewall IP Management
 
 All Azure resources in this project use **RBAC-only authentication** — no key-based access is permitted. Key Vault has `rbac_authorization_enabled = true`, Storage has `shared_access_key_enabled = false`, and Event Hub has `local_auth_enabled = false`.
 
@@ -309,7 +406,7 @@ A reusable composite action (`.github/actions/azure-firewall-access/`) and a reu
 
 ---
 
-## 3. GitHub Repository Secrets
+## 4. GitHub Repository Secrets
 
 All secrets are configured manually in **Settings > Secrets and variables > Actions > Secrets**.
 
@@ -352,69 +449,18 @@ gh secret set COPILOT_ASSIGN_TOKEN --body "ghp_..."
 
 ---
 
-## 4. GitHub Repository Variables
+## 5. GitHub Repository Variables
 
 All variables are configured manually in **Settings > Secrets and variables > Actions > Variables**.
 
 | Variable | Description | Example | Source |
 |----------|-------------|---------|--------|
 | `AWS_REGION` | AWS deployment region | `us-east-1` | **Manual** |
-| `TF_STATE_BUCKET` | S3 bucket for Terraform state (from section 1.3) | `my-tf-state-bucket` | **Manual** |
-| `TF_STATE_KEY` | S3 object key for state file | `teams-meeting-fetcher/terraform.tfstate` | **Manual** |
-| `TF_STATE_REGION` | Region of the S3 state bucket | `us-east-1` | **Manual** |
-| `TF_STATE_LOCK_TABLE` | DynamoDB table for state locking (from section 1.4) | `terraform-locks` | **Manual** |
 
 ### Quick Setup Commands
 
 ```bash
 gh variable set AWS_REGION --body "us-east-1"
-gh variable set TF_STATE_BUCKET --body "<your-tf-state-bucket>"
-gh variable set TF_STATE_KEY --body "teams-meeting-fetcher/terraform.tfstate"
-gh variable set TF_STATE_REGION --body "us-east-1"
-gh variable set TF_STATE_LOCK_TABLE --body "<your-tf-lock-table>"
-```
-
----
-
-## 5. Terraform State Backend
-
-The project uses an S3 backend with DynamoDB locking, configured in `iac/backend.tf`:
-
-```hcl
-terraform {
-  backend "s3" {}
-}
-```
-
-Backend values are passed at init time via `-backend-config` flags (see workflow files). This keeps the backend configuration out of source control.
-
-### State Migration (Local to S3)
-
-If you initially deployed with a local backend and want to migrate to S3:
-
-```bash
-cd iac
-
-# Initialize with the new S3 backend
-terraform init \
-  -backend-config="bucket=<your-tf-state-bucket>" \
-  -backend-config="key=teams-meeting-fetcher/terraform.tfstate" \
-  -backend-config="region=us-east-1" \
-  -backend-config="dynamodb_table=<your-tf-lock-table>" \
-  -backend-config="encrypt=true" \
-  -migrate-state
-
-# Terraform will prompt: "Do you want to copy existing state to the new backend?"
-# Answer: yes
-```
-
-### Lock File Cleanup
-
-If a Terraform process exits unexpectedly, you may see `.terraform.tfstate.lock.info` files. These are safe to delete if no Terraform process is actively running:
-
-```bash
-rm iac/aws/.terraform.tfstate.lock.info
-rm iac/azure/.terraform.tfstate.lock.info
 ```
 
 ---
@@ -614,13 +660,15 @@ Use this checklist to verify your setup is complete:
 
 - [ ] AWS OIDC Identity Provider created (section 1.1)
 - [ ] AWS IAM Role created with trust policy (section 1.2)
-- [ ] S3 bucket for Terraform state created (section 1.3)
-- [ ] DynamoDB table for state locking created (section 1.4)
-- [ ] Azure App Registration created (section 2.1)
-- [ ] Azure federated credentials configured (section 2.2)
-- [ ] All GitHub secrets set (section 3)
-- [ ] All GitHub variables set (section 4)
-- [ ] First `terraform init` succeeded (section 5)
+- [ ] Terraform state backend setup complete (section 2)
+  - [ ] S3 bucket for state created (section 2.1)
+  - [ ] DynamoDB table for locking created (section 2.2)
+  - [ ] GitHub variables set: TF_STATE_BUCKET, TF_STATE_KEY, TF_STATE_REGION, TF_STATE_LOCK_TABLE (section 2.3)
+- [ ] Azure App Registration created (section 3.1)
+- [ ] Azure federated credentials configured (section 3.2)
+- [ ] All GitHub secrets set (section 4)
+- [ ] All GitHub variables set (section 5)
+- [ ] First `terraform init` succeeded with backend config (section 6.4)
 - [ ] First `terraform apply` succeeded (section 7)
 - [ ] Lambda function names from Terraform outputs noted
 - [ ] API Gateway URL from Terraform output configured in Graph subscriptions

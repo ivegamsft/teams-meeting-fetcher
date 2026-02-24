@@ -11,6 +11,60 @@
 
 ## Learnings
 
+### 2026-02-25: Terraform State Backend Documentation (Edie)
+
+**Work completed:**
+- Created comprehensive new section 2 in DEPLOYMENT_PREREQUISITES.md covering Terraform state backend setup (S3 + DynamoDB)
+- Positioned section 2 between AWS OIDC (section 1) and Azure setup (section 3) — logical grouping of AWS prerequisites
+- Documented 4 GitHub Variables (TF_STATE_BUCKET, TF_STATE_KEY, TF_STATE_REGION, TF_STATE_LOCK_TABLE) with examples and quick setup commands
+- Added critical callout emphasizing Variables (public, `gh variable set`) vs Secrets (encrypted, `gh secret set`)
+- Included bootstrap and verify script references with TODO comments (Fenster creating these scripts)
+- Added state migration section (local→S3) with complete commands and cleanup instructions
+- Reorganized all section numbering (old section 2-8 now 3-8) to accommodate new section
+- Updated DEPLOYMENT.md Prerequisites to explicitly reference TF state backend setup
+- Updated QUICKSTART.md "Before You Begin" to list both OIDC and TF state backend as prerequisites
+- Updated checklist in DEPLOYMENT_PREREQUISITES.md with new section numbers
+
+**Key patterns documented:**
+- One-time setup per AWS account (like OIDC provider)
+- S3 bucket with versioning (rollback), encryption (secrets protection), public access block (security)
+- DynamoDB with PAY_PER_REQUEST billing (no provisioned capacity needed)
+- GitHub Variables separate from Secrets — non-sensitive infrastructure values
+- Bootstrap/verify scripts provide automation (placeholder pattern for pending Fenster scripts)
+
+**Cross-reference updates:**
+- DEPLOYMENT_PREREQUISITES.md section 1: AWS OIDC setup
+- DEPLOYMENT_PREREQUISITES.md section 2: Terraform State Backend (new)
+- DEPLOYMENT_PREREQUISITES.md section 3: Azure setup (was 2)
+- DEPLOYMENT_PREREQUISITES.md section 4: GitHub Secrets (was 3)
+- DEPLOYMENT_PREREQUISITES.md section 5: GitHub Variables (was 4, reduced to single AWS_REGION)
+- DEPLOYMENT.md Prerequisites section: Added TF state backend link
+- QUICKSTART.md Before You Begin: Added TF state backend link
+
+**Important technical distinctions:**
+- S3 bucket enables: team collaboration (shared state), CI/CD (workflows access state), disaster recovery (versioning), audit trail (all changes logged)
+- DynamoDB table enables: concurrent deployments without race conditions via state locking
+- GitHub Variables are public (visible in repo settings) — use for bucket names, region
+- GitHub Secrets are encrypted — use for credentials, tokens, passwords
+
+**Script status:**
+- Bootstrap script path: `scripts/setup/bootstrap-terraform-backend.ps1/.sh` (TODO: verify exists)
+- Verify script path: `scripts/verify/verify-terraform-backend.ps1/.sh` (TODO: verify exists)
+- Pattern follows existing `bootstrap-github-oidc.ps1/.sh` and `verify-github-secrets.ps1/.sh`
+
+**File modifications:**
+- `DEPLOYMENT_PREREQUISITES.md`: Added section 2 (4KB), reorganized sections 3-8, updated checklist
+- `DEPLOYMENT.md`: Updated Prerequisites section with TF state backend link
+- `QUICKSTART.md`: Updated Before You Begin section with TF state backend link
+- `.squad/decisions/inbox/edie-tf-state-backend-docs.md`: Created decision log
+
+**Citation:** DEPLOYMENT_PREREQUISITES.md sections 1-8 (reorganized), DEPLOYMENT.md Prerequisites, QUICKSTART.md Before You Begin, .squad/decisions/inbox/edie-tf-state-backend-docs.md
+
+---
+
+
+## Learnings
+
 ### 2026-02-25: AWS OIDC Documentation Gaps Patched (Edie)
 
 **Work completed:**
