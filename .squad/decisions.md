@@ -320,6 +320,72 @@ Do NOT change settings unless public access is off completely — use specific I
 
 ---
 
+## 2026-02-25: Terraform State Backend Setup
+
+**By:** Edie (Documentation Specialist) & Fenster (DevOps/Infra)
+
+**Decision:** Create comprehensive Terraform state backend setup documentation (S3 bucket + DynamoDB table) as a one-time prerequisite, positioned between AWS OIDC setup and Azure setup in DEPLOYMENT_PREREQUISITES.md.
+
+**Rationale:**
+- S3 + DynamoDB state backend is a prerequisite for all AWS Terraform deployments
+- Previous documentation lacked clear state backend setup instructions
+- Users need to understand the distinction between GitHub Variables (public: `gh variable set`) vs Secrets (encrypted: `gh secret set`)
+
+**Key Details:**
+- **S3 Bucket:** `tmf-terraform-state-{account_id}` (includes AWS account ID for global uniqueness)
+- **DynamoDB Lock Table:** `tmf-terraform-state-lock` (single table per account)
+- **State Key:** `teams-meeting-fetcher/terraform.tfstate` (namespaced under project name)
+- **Region:** `us-east-1` (matches default `aws_region` in Terraform variables)
+- **GitHub Variables (4 total):** TF_STATE_BUCKET, TF_STATE_KEY, TF_STATE_REGION, TF_STATE_LOCK_TABLE
+
+**Implementation:**
+- New section 2 in DEPLOYMENT_PREREQUISITES.md (S3/DynamoDB setup, Variables config, Bootstrap/verify scripts, State migration)
+- All section numbers reorganized (old section 2→3, 3→4, etc.)
+- Bootstrap/verify scripts with TODO comments (scripts to be created by Fenster)
+- Cross-references updated in DEPLOYMENT.md and QUICKSTART.md
+
+**Impact:**
+- New contributors: Follow section 2 before first `terraform init`
+- Operations teams: Use bootstrap script to automate setup across repos
+- CI/CD operators: TF_STATE_* variables must be set before workflows run
+
+---
+
+## 2026-02-25: Deployment Pipeline Analysis — App Registration is Terraform-Managed
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Azure AD app registrations (Teams Meeting Fetcher, Teams Meeting Fetcher Bot, Lambda EventHub Consumer) are **created by Terraform**, not manually. They are NOT deployment prerequisites.
+
+**Rationale:**
+- `iac/azure/modules/azure-ad/main.tf` contains three `azuread_application` resources with auto-created service principals and passwords
+- Root `iac/main.tf` passes Azure module outputs directly into AWS module — no manual credential copying needed
+- This clarifies documentation that confused the deployment SPN (prerequisite) with application app registrations (Terraform-managed)
+
+**Correct Prerequisites:**
+
+| Prerequisite | Type | Purpose |
+|---|---|---|
+| AWS OIDC Provider + IAM Role | Manual (one-time) | GitHub Actions OIDC auth to AWS |
+| Terraform State Backend (S3 + DynamoDB) | Manual (one-time) | Remote state storage |
+| Azure Deployment SPN | Manual (one-time) | Terraform executor identity |
+| Azure SPN Permissions | Manual (one-time) | Contributor + Azure AD permissions |
+| GitHub Secrets/Variables | Manual (one-time) | Workflow configuration |
+| Lambda Zip Packages | Build step | Lambda code artifacts |
+| `terraform.tfvars` | Manual | Deployment configuration |
+
+**Post-Deploy Manual Steps:**
+1. Grant admin consent for Graph API permissions on Terraform-created app registrations
+2. Update `bot_messaging_endpoint` in `terraform.tfvars` with API Gateway URL (chicken-and-egg: first deploy creates the URL)
+3. Update `graph_notification_url` with webhook endpoint URL
+4. Add users to admin security group created by Terraform
+
+**Impact:**
+- Documentation should distinguish between deployment SPN (prerequisite) and application app registrations (Terraform-managed)
+- Correct deployment sequence clarified for all agents
+
+---
+
 ## 2026-02-25: GitHub Actions Workflow Consolidation
 
 **By:** Fenster (DevOps/Infra)
@@ -388,3 +454,114 @@ Do NOT change settings unless public access is off completely — use specific I
 - All agents: Bootstrap and verify scripts now match production OIDC configuration
 - New contributors: Running the bootstrap script produces a correctly scoped role
 - CI/CD: Verify script can be used as a pre-flight check before running deploy workflows
+
+---
+
+## 2026-02-25: Unified Workflow Rename (deploy-aws.yml → deploy-unified.yml)
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Rename `.github/workflows/deploy-aws.yml` to `deploy-unified.yml` and update workflow name to "Deploy Unified Infrastructure". Expand `on.push.paths` to include `iac/*.tf` and `iac/azure/**`.
+
+**Rationale:**
+- The workflow runs `iac/main.tf` which deploys BOTH Azure (Event Hub, Key Vault, app registrations) AND AWS (Lambda, DynamoDB, S3) — naming it "Deploy to AWS" was misleading
+- The `iac/azure/**` module is a dependency of the AWS module (`depends_on`), so changes there should trigger the unified pipeline
+- `iac/*.tf` contains the root `main.tf` entry point — changes there should trigger the workflow
+
+**What Changed:**
+1. File renamed via `git mv` (preserves git history)
+2. Workflow `name:` changed from "Deploy to AWS" to "Deploy Unified Infrastructure"
+3. `on.push.paths` expanded: added `iac/*.tf` and `iac/azure/**`
+4. `workflow_dispatch` trigger preserved unchanged
+5. All non-historical references across docs/prompts updated by Edie
+
+**What Did NOT Change:**
+- `deploy-azure.yml` — standalone Azure-only deployment (runs from `iac/azure/` directory)
+- Job names within the workflow (deploy job still says "Deploy to AWS" since it deploys Lambda code)
+- Historical `.squad/` records (orchestration logs, prior decisions)
+
+**Impact:**
+- Clear signaling that `deploy-unified.yml` orchestrates deployment of BOTH clouds
+- New contributors understand the standard deployment model (unified via `iac/main.tf`)
+- Workflow triggers appropriately on changes to root Terraform and Azure module
+
+---
+
+## 2026-02-25: Verify Bootstrap CI Workflow
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Create `.github/workflows/verify-bootstrap.yml` — a manual-dispatch workflow that verifies AWS OIDC, Azure OIDC, Terraform state backend, and GitHub secrets/variables are all correctly configured after running bootstrap scripts.
+
+**Rationale:**
+- No CI-level verification existed to confirm bootstrap was complete
+- Existing `verify-github-secrets.ps1` and `verify-terraform-backend.ps1` scripts run locally, but no validation from inside GitHub Actions (where OIDC actually matters)
+- Single workflow_dispatch workflow provides clear PASS/FAIL for each cloud + config area
+
+**Implementation:**
+- 4 jobs: `config-verify` (secrets/variables), `aws-verify` (OIDC provider, IAM role, 9 policies, S3 bucket, DynamoDB table), `azure-verify` (OIDC auth, tenant match, SP validation), `summary` (rollup)
+- OIDC-only auth for both clouds — no static keys
+- `[PASS]/[FAIL]/[WARN]/[SKIP]` output format matching existing verify scripts
+- DEPLOYMENT_PREREQUISITES.md updated with workflow reference and checklist item
+
+**Usage:**
+- After bootstrap, point users to `gh workflow run verify-bootstrap.yml` to confirm setup
+- Conditional job execution avoids noisy failures when only one cloud is bootstrapped
+
+**Impact:**
+- All agents: Reference this workflow when directing users to verify bootstrap completion
+- Edie (Docs): Workflow is already referenced in DEPLOYMENT_PREREQUISITES.md
+- CI/CD: Provides automated validation before deployment workflows run
+
+---
+
+## 2026-02-25: Nobots-EventHub Deployment Plan
+
+**By:** Keaton (Lead/Architect)
+
+**Decision:** Created comprehensive 6-phase deployment and testing plan for **nobots-eventhub scenario** covering pre-flight validation, infrastructure deploy, post-deploy configuration, E2E testing, validation checklist, and rollback procedures.
+
+**Plan Summary:**
+
+| Phase | Focus | Duration | Owner |
+|-------|-------|----------|---|
+| **1: Pre-flight** | Credential/backend validation, blocker identification | 15-20 min | ivegamsft |
+| **2: Infrastructure** | Terraform init → plan → apply (101 resources) | 10-15 min | Deployment agent |
+| **3: Post-Deploy Config** | Graph API subscription, Lambda env vars, Key Vault/Storage firewall | 10 min | ivegamsft + automation |
+| **4: Testing** | Pre-flight checks (5m), quick test (5-10m), detailed E2E (30-45m) | 50-60 min | Hockney/Redfoot |
+| **5: Validation** | 25-point checklist (9 infra, 5 config, 6 functional) | 5 min | Keaton |
+| **6: Rollback** | Partial, full, and emergency procedures | 5-30 min | Keaton/Fenster |
+
+**Critical Blockers Identified:**
+1. Azure Client Secret expired → Update from Key Vault
+2. Lambda zip package not built → Run `npm ci && ./package.sh`
+3. Graph API Service Principal missing Calendars.Read → Assign role
+4. Event Hub consumer group missing → Terraform creates (verify post-deploy)
+5. RBAC roles not propagating → Wait 5-10s after Terraform apply
+
+**Major Risks (8 documented):**
+- Wrong Azure tenant (mitigated by Phase 1.2 validation)
+- Event Hub in wrong region
+- Lambda timeout during polling
+- RBAC role propagation delay
+- Graph subscription expiration
+- S3 bucket policy too restrictive
+- And 2 others
+
+**Decision Gates:**
+- **Gate 1 (Before Deploy):** Pre-flight complete, plan reviewed, approval needed
+- **Gate 2 (After Deploy):** Resources created, pre-flight checks pass, approval to test
+- **Gate 3 (After Testing):** 20/20 validation points, no critical errors, approval for production
+
+**Validation Criteria (Success = 20/20 points):**
+- 9 infrastructure components (Event Hub, Lambda, DynamoDB, S3, RBAC, Key Vault, Storage, etc.)
+- 5 configuration components (Graph subscription, Lambda env, Terraform state, GitHub secrets/variables)
+- 6 functional scenarios (event creation, notification, processing, storage, checkpoint tracking, transcript fetch)
+
+**Plan Location:** `.squad/decisions/inbox/keaton-nobots-eventhub-plan.md` (ready for execution post-approval)
+
+**Impact:**
+- Comprehensive deployment procedure for nobots-eventhub scenario
+- Clear decision gates prevent bad deployments
+- 25-point validation checklist ensures reliability
+- Rollback procedures document disaster recovery options

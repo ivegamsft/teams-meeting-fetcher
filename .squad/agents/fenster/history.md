@@ -112,3 +112,5 @@
 - **workflow_dispatch preserved**: Manual trigger with dev/staging/prod environment selector unchanged.
 - **deploy-azure.yml NOT touched**: That workflow is the standalone Azure-only deployment running from `iac/azure/` directory — completely separate concern.
 - **References updated**: All non-historical docs, prompts, and agent files updated (14 files by Edie in prior session). Historical `.squad/` logs and decisions left as-is (they record what happened at that time).
+
+📌 Team update (2026-02-24T21:09): Unified workflow rename complete — Orchestration logs, session log, and decision merges finalized — decided by Scribe

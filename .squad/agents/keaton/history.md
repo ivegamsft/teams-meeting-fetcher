@@ -24,4 +24,6 @@
 
 **Output:** Comprehensive plan at `.copilot/session-state/*/plan.md` (33KB, 6 phases, 25-point validation checklist).
 
+📌 Team update (2026-02-24T21:09): Nobots-EventHub deployment plan merged into canonical decisions — Scribe finalized orchestration and decision sync
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

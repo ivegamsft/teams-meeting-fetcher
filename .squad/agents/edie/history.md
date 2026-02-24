@@ -194,6 +194,8 @@
 - Documented 10 major issues in .squad/decisions/inbox/edie-doc-audit-findings.md
 
 **Key architecture patterns discovered**:
+
+📌 Team update (2026-02-24T21:09): Decision inbox merged, orchestration logs created — Scribe finalized documentation and decision sync
 1. **No-Bot scenario**: Simple polling, local scripts, no infrastructure (scenarios/nobots/)
 2. **Event Hub scenario**: Real-time Azure Event Hub + AWS Lambda, production-ready (scenarios/nobots-eventhub/)
 3. **Teams Bot scenario**: Bot Framework + Lambda, highest complexity (scenarios/lambda/meeting-bot/)
