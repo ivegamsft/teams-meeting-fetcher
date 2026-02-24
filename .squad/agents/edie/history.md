@@ -11,6 +11,60 @@
 
 ## Learnings
 
+### 2026-02-25: Unified Terraform Deployment Workflow Documentation (Edie)
+
+**Work completed:**
+- Updated 14 documentation and prompt files to reflect workflow rename: `deploy-aws.yml` → `deploy-unified.yml`
+- Updated README.md to clarify "Deploy unified infrastructure (Azure + AWS)"
+- Added comprehensive "GitHub Actions Deployment Workflows" section to DEPLOYMENT.md with:
+  - Clear workflow dependency chain table showing all 6 workflows and their purposes
+  - Critical callout emphasizing `deploy-unified.yml` must run first (creates infrastructure)
+  - Instructions for running workflows via GitHub Actions UI
+  - Explanation of when to use `deploy-lambda-*.yml` (code redeployment only, requires unified to exist first)
+- Reorganized DEPLOYMENT.md structure: Moved workflows section before manual deployment steps
+- Updated all workflow references:
+  - DEPLOYMENT_PREREQUISITES.md (table)
+  - .github/GITHUB_WORKFLOWS_SETUP.md (3 references)
+  - .github/agents/run-e2e.agent.md
+  - .github/agents/deploy-aws.agent.md (description updated)
+  - .github/prompts/*.md (7 bootstrap and deploy prompts)
+  - docs/QUICK_DEPLOY.md
+  - docs/TEAMS_BOT_SPEC.md
+
+**Key patterns documented:**
+- **Unified deployment** (deploy-unified.yml): Orchestrates `iac/main.tf`, creates both Azure + AWS from single Terraform run
+- **Standalone Azure** (deploy-azure.yml): Optional alternative, runs `iac/azure/` only, does not create AWS resources
+- **Lambda redeployment** (deploy-lambda-*.yml): 4 workflows for code updates to existing functions, requires infrastructure to exist first
+- Clarified that unified Terraform deploys from `iac/` root (not `iac/aws/` or `iac/azure/`)
+
+**Important technical notes:**
+- Unified deployment chains Azure outputs (app client IDs, secrets, EventHub names) into AWS Terraform module inputs
+- All `deploy-lambda-*.yml` workflows depend on unified deployment having created the Lambda functions first
+- GitHub Actions deployment is alternative to manual `terraform apply` — choose one pattern per environment
+
+**Files modified:**
+1. DEPLOYMENT_PREREQUISITES.md (1 table cell)
+2. DEPLOYMENT.md (added new section, reorganized structure)
+3. README.md (1 line)
+4. .github/GITHUB_WORKFLOWS_SETUP.md (3 references)
+5. .github/agents/run-e2e.agent.md (2 references)
+6. .github/agents/deploy-aws.agent.md (description)
+7. .github/prompts/bootstrap-aws-iam.prompt.md
+8. .github/prompts/bootstrap-dev-env.prompt.md
+9. .github/prompts/bootstrap-gh-workflow-creds.prompt.md
+10. .github/prompts/bootstrap-teams-config.prompt.md
+11. .github/prompts/deploy-aws.prompt.md (title updated)
+12. docs/QUICK_DEPLOY.md
+13. docs/TEAMS_BOT_SPEC.md
+
+**Notes for team:**
+- Historical decision logs (.squad/decisions.md, agent history files, orchestration logs) were not modified as they are immutable session records
+- Session plan file contains one reference to deploy-aws.yml but was not modified per instructions (session artifacts)
+- Fenster's unified Terraform structure (iac/main.tf orchestrating iac/azure/ + iac/aws/) is now clearly documented as the deployment model
+- Pre-existing folder name discrepancy noted: DEPLOYMENT.md and DEPLOYMENT_RULES.md still reference `infra/` instead of `iac/` (separate issue, not in scope for this task)
+
+---
+
 ### 2026-02-25: Terraform State Backend Documentation (Edie)
 
 **Work completed:**

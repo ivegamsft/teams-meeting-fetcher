@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: Deploy Unified Infrastructure
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # REQUIRED GITHUB SECRETS:
@@ -23,7 +23,9 @@ on:
       - main
     paths:
       - "apps/aws-lambda/**"
+      - "iac/*.tf"
       - "iac/aws/**"
+      - "iac/azure/**"
       - "scenarios/lambda/**"
   workflow_dispatch:
     inputs:

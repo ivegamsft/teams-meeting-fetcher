@@ -184,7 +184,7 @@ These DEPRECATED folders create duplicate resources. If you did use them:
 
 ## Next Steps
 
-1. Deploy AWS infrastructure: `cd iac/aws && terraform apply`
+1. Deploy unified infrastructure (Azure + AWS): `cd iac && terraform apply`
 2. Test bot functionality
 3. Wait for Azure AD permissions to propagate (~30 min)
 4. Deploy Azure infrastructure

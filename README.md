@@ -101,7 +101,7 @@ See [Workflow Documentation](./.github/workflows/) for details on each workflow.
 - **terraform-validate** - Terraform format and validation (PR)
 - **security-scan** - Secret detection and npm vulnerabilities (PR/push)
 - **build-lambda** - Package Lambda functions (push to develop)
-- **deploy-aws** - Deploy to AWS (push to main)
+- **deploy-unified** - Deploy unified infrastructure (Azure + AWS) via Terraform (push to main)
 - **deploy-azure** - Deploy to Azure (push to main)
 - **e2e-integration-tests** - Full integration tests with Graph API
 - **release** - Create GitHub releases and package artifacts

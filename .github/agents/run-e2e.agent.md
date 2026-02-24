@@ -51,9 +51,9 @@ Present options:
 - **Azure only**
 - **Both AWS and Azure**
 
-### Step 5: Deploy AWS (if selected)
+### Step 5: Deploy Infrastructure (if selected)
 
-1. Follow AWS deployment workflow (see `deploy-aws.agent.md`)
+1. Follow unified deployment workflow (see `deploy-unified.agent.md`)
    - Verify credentials
    - Plan Terraform
    - Apply Terraform

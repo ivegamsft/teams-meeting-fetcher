@@ -514,7 +514,7 @@ aws iam attach-role-policy \
 ## Next Steps
 
 1. **Deploy Infrastructure**: Run `cd iac/aws && terraform apply`
-2. **Deploy Lambda Functions**: Run `npm run deploy-aws`
+2. **Deploy Infrastructure and Lambda**: Run deployment workflow or `terraform apply` from `iac/` directory
 3. **Configure Monitoring**: Set up CloudWatch alarms and dashboards
 4. **Set Up Backups**: Enable S3 versioning and snapshot Lambda code
 5. **Document Access**: Create runbook for new developer onboarding

@@ -1,5 +1,5 @@
 ---
-description: Deploy AWS infrastructure and Lambda code with automated environment updates
+description: Deploy unified infrastructure (Azure + AWS) and Lambda code with automated environment updates
 ---
 
 ## User Input

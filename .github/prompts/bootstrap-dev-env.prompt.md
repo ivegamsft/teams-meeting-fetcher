@@ -333,7 +333,7 @@ source .venv/bin/activate  # macOS/Linux
 1. **Register Teams Bot**: Run `scripts/graph/01-verify-setup.py` to register the bot in Teams
 2. **Create Webhook Subscription**: Run `scripts/graph/02-create-webhook-subscription.py`
 3. **Create Teams App Package**: Run the App Studio package creation steps
-4. **Deploy to Dev Environment**: Use `npm run deploy-aws` or `npm run deploy-azure`
+4. **Deploy to Dev Environment**: Use `deploy-unified.yml` (creates all infrastructure) or `deploy-azure.yml` (Azure-only) workflows
 5. **Run E2E Tests**: Execute `npm run test:e2e` to verify end-to-end integration
 
 ---

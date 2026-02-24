@@ -261,10 +261,10 @@ gh workflow run terraform-validate.yml
 gh workflow run security-scan.yml
 
 # Test AWS deployment (requires approval)
-gh workflow run deploy-aws.yml
+gh workflow run deploy-unified.yml
 
 # Monitor workflow
-gh run list --workflow=deploy-aws.yml
+gh run list --workflow=deploy-unified.yml
 gh run view <run-id> --log
 ```
 
@@ -355,7 +355,7 @@ Once secrets are configured:
 
 1. Push changes to trigger CI workflows
 2. Create a test meeting to validate Graph API access
-3. Run `deploy-aws.yml` or `deploy-azure.yml` to deploy infrastructure
+3. Run `deploy-unified.yml` (creates all Azure + AWS infrastructure) or `deploy-azure.yml` (Azure-only) to deploy infrastructure
 4. Monitor logs in GitHub Actions
 
 See `.github/workflows/` for workflow definitions and `.github/prompts/` for manual operation guides.

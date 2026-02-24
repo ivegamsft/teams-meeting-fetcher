@@ -668,7 +668,7 @@ az ad app permission admin-consent \
 # (Manual step in Azure Portal → Bot Services)
 ```
 
-### 2. Deploy AWS Infrastructure
+### 2. Deploy Unified Infrastructure (Azure + AWS)
 
 ```bash
 cd iac/aws

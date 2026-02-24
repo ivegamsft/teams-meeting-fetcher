@@ -619,7 +619,7 @@ The `squad-main-guard.yml` workflow **intentionally fails** when `.squad/`, `.ai
 | `build-lambda-eventhub.yml` | `develop` | `main`, `develop` | Yes | |
 | `build-lambda-meeting-bot.yml` | `develop` | `main`, `develop` | Yes | |
 | **Deploy Workflows** | | | | |
-| `deploy-aws.yml` | `main` | | Yes | |
+| `deploy-unified.yml` | `main` | | Yes | |
 | `deploy-azure.yml` | `main` | | Yes | |
 | `deploy-lambda-handler.yml` | `main` | | Yes | |
 | `deploy-lambda-authorizer.yml` | `main` | | Yes | |

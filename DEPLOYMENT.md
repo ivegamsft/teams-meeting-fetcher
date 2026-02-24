@@ -6,7 +6,37 @@
 
 See `.github/copilot-instructions.md` for detailed unified deployment rules.
 
-## Prerequisites
+## GitHub Actions Deployment Workflows
+
+> **Note:** This guide covers **manual Terraform deployments** (local). For **CI/CD deployments via GitHub Actions**, see below.
+
+### Workflow Dependency Chain
+
+The project includes multiple GitHub Actions workflows with specific dependencies:
+
+| Workflow | Trigger | Purpose | Dependencies |
+|----------|---------|---------|---|
+| `deploy-unified.yml` | Manual / `main` branch | Creates ALL infrastructure (Azure + AWS) via unified Terraform from `iac/main.tf` | AWS OIDC provider, Terraform state backend (S3 + DynamoDB), Azure service principal secrets |
+| `deploy-azure.yml` | Manual | Deploys Azure-only resources from `iac/azure/` | Azure service principal secrets (standalone, no AWS required) |
+| `deploy-lambda-handler.yml` | Manual / `main` push | Redeploys Lambda handler code to existing function | Requires `deploy-unified.yml` to have run first (creates the function) |
+| `deploy-lambda-authorizer.yml` | Manual / `main` push | Redeploys Lambda authorizer code to existing function | Requires `deploy-unified.yml` to have run first |
+| `deploy-lambda-eventhub.yml` | Manual / `main` push | Redeploys Event Hub consumer Lambda code to existing function | Requires `deploy-unified.yml` to have run first |
+| `deploy-lambda-meeting-bot.yml` | Manual / `main` push | Redeploys Teams bot Lambda code to existing function | Requires `deploy-unified.yml` to have run first |
+
+**⚠️ CRITICAL:** Run `deploy-unified.yml` **once** to create infrastructure. Afterward, use `deploy-lambda-*.yml` workflows to redeploy code to existing functions without recreating infrastructure.
+
+**To deploy via GitHub Actions:**
+
+1. Go to **Actions** tab → Find your workflow (e.g., `Deploy Unified Infrastructure`)
+2. Click **Run workflow** → Select branch (`main`) → Click **Run**
+3. Wait for completion (5-10 minutes for unified, 2-3 minutes for Lambda redeployments)
+4. Check logs for errors
+
+---
+
+## Manual Terraform Deployment
+
+### Prerequisites
 
 - **AWS OIDC Identity Provider** for GitHub Actions — see [DEPLOYMENT_PREREQUISITES.md section 1](DEPLOYMENT_PREREQUISITES.md#1-aws-account-setup) (one-time AWS account setup)
 - **Terraform State Backend** (S3 + DynamoDB) — see [DEPLOYMENT_PREREQUISITES.md section 2](DEPLOYMENT_PREREQUISITES.md#2-terraform-state-backend-setup) (one-time setup, creates remote state storage)
@@ -15,7 +45,7 @@ See `.github/copilot-instructions.md` for detailed unified deployment rules.
 - Terraform >= 1.0
 - Python 3.11+
 
-## 1. Set Credentials in Terraform
+### 1. Set Credentials in Terraform
 
 Update `infra/terraform.tfvars` with your Azure credentials:
 
@@ -27,7 +57,7 @@ azure_graph_client_secret = "<terraform output app_client_secret>"
 renewal_schedule_expression = "cron(0 2 * * ? *)"  # 2 AM UTC daily
 ```
 
-## 2. Deploy Infrastructure (Unified)
+### 2. Deploy Infrastructure (Unified)
 
 ```bash
 # ALWAYS use the infra/ folder — NEVER use iac/aws/ or iac/azure/
@@ -64,7 +94,7 @@ This creates:
 - **API Gateway**: Webhook endpoint for Teams bot
 - **S3 bucket**: Webhook payload archival
 
-## 3. Configure Teams Admin Policies (post-Terraform)
+### 3. Configure Teams Admin Policies (post-Terraform)
 
 Teams admin policies cannot be managed via Terraform — they require the MicrosoftTeams
 PowerShell module. Run this **once** after `terraform apply`:
@@ -92,7 +122,7 @@ This configures three policies:
 
 See [docs/TEAMS-ADMIN-POLICIES.md](docs/TEAMS-ADMIN-POLICIES.md) for manual steps and troubleshooting.
 
-## 4. Save Current Subscriptions to DynamoDB
+### 4. Save Current Subscriptions to DynamoDB
 
 After Terraform deployment, record your existing Graph API subscriptions:
 
@@ -110,7 +140,7 @@ python scripts/aws/subscription-tracker.py save \
   --type "transcript"
 ```
 
-## 5. Verify Deployment
+### 5. Verify Deployment
 
 ```bash
 # List subscriptions in DynamoDB
@@ -133,7 +163,7 @@ These will create duplicate resources and break the deployment. If you did use t
 2. Run `rm -Force terraform.tfstate*` and `rm -Force .terraform` in those folders
 3. Deploy correctly from `infra/` instead
 
-## 6. Monitor Renewals
+### 6. Monitor Renewals
 
 Lambda runs automatically daily at 2 AM UTC:
 

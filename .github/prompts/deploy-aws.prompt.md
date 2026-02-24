@@ -1,4 +1,4 @@
-# Deploy AWS — Infrastructure + Lambda Code
+# Deploy Unified Infrastructure — Azure + AWS via Terraform
 
 ⚠️ **DEPRECATED — USE `deploy-unified.prompt.md` INSTEAD**
 

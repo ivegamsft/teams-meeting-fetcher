@@ -340,7 +340,7 @@ python scripts/graph/02-create-webhook-subscription.py --ttl 4320
 
 ## Next Steps
 
-1. **Deploy Bot to AWS/Azure**: Run `npm run deploy-aws` or `npm run deploy-azure`
+1. **Deploy Bot to AWS/Azure**: Run deployment workflows: `deploy-unified.yml` creates all infrastructure, or use `deploy-lambda-*.yml` to redeploy Lambda code to existing infrastructure
 2. **Create Teams Channel App**: Install bot in a test Teams channel
 3. **Run E2E Tests**: Execute `npm run test:e2e` to validate integration
 4. **Set Up Monitoring**: Configure Azure Application Insights or CloudWatch logging

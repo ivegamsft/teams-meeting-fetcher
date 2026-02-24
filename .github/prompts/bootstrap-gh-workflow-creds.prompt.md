@@ -477,7 +477,7 @@ gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/actions/secr
 
 ## Next Steps
 
-1. **Run Deploy Workflows**: Trigger `deploy-aws.yml` and `deploy-azure.yml` manually to verify credentials work
+1. **Run Deploy Workflows**: Trigger `deploy-unified.yml` (unified infrastructure) and `deploy-azure.yml` (Azure-only) manually to verify credentials work
 2. **Set Up Branch Protection**: Require status checks and code reviews before merging to main
 3. **Enable Notifications**: Configure Slack/email alerts for workflow failures
 4. **Document Credentials**: Maintain secure record of all service accounts in secrets manager
