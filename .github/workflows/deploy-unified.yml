@@ -119,6 +119,7 @@ jobs:
 
       - name: Get runner IP for Key Vault firewall
         id: firewall_prep
+        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
           CURRENT_IP=$(curl -s https://api.ipify.org)
@@ -129,18 +130,32 @@ jobs:
           echo "Detected runner IP: $CURRENT_IP"
           echo "ip=${CURRENT_IP}" >> "${GITHUB_OUTPUT}"
 
-      - name: Add runner IP to Key Vault firewall
+      - name: Enable Key Vault public access and add runner IP
+        id: kv_firewall
         if: vars.KEY_VAULT_NAME != ''
         run: |
+          set -euo pipefail
+          RUNNER_IP="${{ steps.firewall_prep.outputs.ip }}"
+
+          echo "Enabling public network access on Key Vault..."
+          az keyvault update \
+            --name "${{ vars.KEY_VAULT_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --public-network-access Enabled \
+            --only-show-errors
+
+          echo "Adding runner IP ${RUNNER_IP} to Key Vault firewall..."
           az keyvault network-rule add \
             --name "${{ vars.KEY_VAULT_NAME }}" \
             --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
-            --ip-address "${{ steps.firewall_prep.outputs.ip }}/32" \
+            --ip-address "${RUNNER_IP}/32" \
             --only-show-errors || true
+        working-directory: ${{ github.workspace }}
 
       - name: Wait for firewall propagation
         if: vars.KEY_VAULT_NAME != ''
         run: sleep 30
+        working-directory: ${{ github.workspace }}
 
       - name: Terraform plan
         run: terraform plan -input=false -out=tfplan
@@ -170,6 +185,7 @@ jobs:
 
       - name: Remove runner IP from Key Vault firewall
         if: always() && vars.KEY_VAULT_NAME != '' && steps.firewall_prep.outputs.ip != ''
+        working-directory: ${{ github.workspace }}
         run: |
           az keyvault network-rule remove \
             --name "${{ vars.KEY_VAULT_NAME }}" \
