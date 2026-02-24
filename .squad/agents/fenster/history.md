@@ -58,3 +58,20 @@
 - **Required SPN roles for firewall management**: Key Vault Contributor (network rules) and Storage Account Contributor (network rules), in addition to existing data-plane roles.
 
 📌 Team update (2026-02-25T1552): Workflow consolidation complete — deleted 2 duplicate workflows (squad-docs.yml, squad-preview.yml), consolidated 29 workflows → 25, all squad orchestration workflows are unique — decided by Fenster
+
+### 2026-02-25: AWS OIDC Bootstrap Audit
+
+- **Existing bootstrap scripts**: `scripts/setup/bootstrap-github-oidc.ps1` and `.sh` already automate the full OIDC setup (OIDC provider, IAM role, trust policy, policy attachment) for both AWS and Azure. They are idempotent — check-before-create on every resource. The user's manual steps exactly match what the script automates.
+- **Script vs manual mismatch**: User created role `GitHubActionsTeamsMeetingFetcher` with 4 scoped policies; script creates `github-actions-oidc-role` with `AdministratorAccess`. The 4-policy approach is better (least privilege), but the script's role name differs from what the user deployed. Script also includes Azure OIDC setup and optional Terraform state backend bootstrapping.
+- **Legacy scripts still present**: `setup-github-aws-iam.ps1/.sh` create IAM users with long-lived credentials and `AdministratorAccess` — marked deprecated in README but still in repo. `verify-github-secrets.ps1/.sh` check for legacy secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AZURE_CLIENT_SECRET`) that are no longer used with OIDC.
+- **Terraform does NOT manage OIDC**: No `aws_iam_openid_connect_provider` or OIDC IAM role resource exists in `iac/aws/`. This is intentional (chicken-and-egg: OIDC must exist before Terraform can run via CI/CD). The `use_oidc` variable in Terraform is for Azure provider auth mode, not AWS OIDC resource management.
+- **Verification gap**: No verification script or CI step validates that the OIDC provider, IAM role, trust policy, or attached policies are correctly configured. The `verify-github-secrets.ps1/.sh` scripts only check GitHub secret names (not values or AWS-side resources).
+- **Security concern**: Both the bootstrap script (`AdministratorAccess`) and the `setup-github-aws-iam` scripts grant overly broad permissions. The user's manual approach with 4 specific policies (S3FullAccess, Lambda_FullAccess, DynamoDBFullAccess, APIGatewayAdministrator) is better but still uses `*FullAccess` managed policies rather than custom least-privilege policies scoped to project resources.
+
+### Bootstrap and Verify Scripts Updated for OIDC
+
+- **Bootstrap scripts updated**: `scripts/setup/bootstrap-github-oidc.ps1` and `.sh` now use 9 scoped AWS managed policies instead of `AdministratorAccess`. Default role name changed from `github-actions-oidc-role` to `GitHubActionsTeamsMeetingFetcher` (configurable via parameter). Added `-SetSecrets`/`--set-secrets` flag to optionally run `gh secret set` after creating the role.
+- **9 scoped policies**: AmazonS3FullAccess, AWSLambda_FullAccess, AmazonDynamoDBFullAccess, AmazonAPIGatewayAdministrator, IAMFullAccess, AmazonEventBridgeFullAccess, AmazonSNSFullAccess, CloudWatchLogsFullAccess, CloudWatchFullAccessV2. These match the production `GitHubActionsTeamsMeetingFetcher` role exactly.
+- **Verify scripts rewritten**: `scripts/verify/verify-github-secrets.ps1` and `.sh` now check OIDC-era secrets (AWS_ROLE_ARN, AWS_REGION), verify AWS-side resources (OIDC provider, IAM role, trust policy, all 9 attached policies), warn about stale IAM-user-era secrets, and report pass/fail with exit codes.
+- **DEPLOYMENT_PREREQUISITES.md updated**: Section 1.2 now lists all 9 policies instead of only 4.
+- **Emojis removed**: All output uses `[PASS]`, `[FAIL]`, `[WARN]`, `[ERROR]`, `[SKIP]` prefixes per project conventions.

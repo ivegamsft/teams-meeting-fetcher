@@ -17,6 +17,8 @@ This document covers every prerequisite needed to deploy Teams Meeting Fetcher v
 
 GitHub Actions authenticates to AWS via OpenID Connect (OIDC). You must register the OIDC provider **once per AWS account**.
 
+This is a one-time setup per AWS account. If you have multiple repositories in the same AWS account, they can all share the same OIDC provider—just add repository-specific conditions to the trust policy (see section 1.2). If you need to deploy to a different AWS account, repeat sections 1.1 and 1.2 for that account with its own OIDC provider and IAM role.
+
 **Source:** Manual
 
 ```bash
@@ -82,11 +84,86 @@ aws iam attach-role-policy \
 aws iam attach-role-policy \
   --role-name GitHubActionsTeamsMeetingFetcher \
   --policy-arn arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator
+
+aws iam attach-role-policy \
+  --role-name GitHubActionsTeamsMeetingFetcher \
+  --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+
+aws iam attach-role-policy \
+  --role-name GitHubActionsTeamsMeetingFetcher \
+  --policy-arn arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
+
+aws iam attach-role-policy \
+  --role-name GitHubActionsTeamsMeetingFetcher \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSNSFullAccess
+
+aws iam attach-role-policy \
+  --role-name GitHubActionsTeamsMeetingFetcher \
+  --policy-arn arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+
+aws iam attach-role-policy \
+  --role-name GitHubActionsTeamsMeetingFetcher \
+  --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccessV2
 ```
 
 The resulting role ARN (e.g., `arn:aws:iam::<ACCOUNT_ID>:role/GitHubActionsTeamsMeetingFetcher`) is stored as the `AWS_ROLE_ARN` GitHub secret.
 
-### 1.3 S3 Bucket for Terraform State
+After completing this section, save the role ARN and proceed to section 3 to set the GitHub secret with `gh secret set AWS_ROLE_ARN --body "arn:aws:iam::<ACCOUNT_ID>:role/GitHubActionsTeamsMeetingFetcher"`.
+
+### 1.3 Verify the Bootstrap
+
+After setting up the OIDC provider, IAM role, and GitHub secret, verify the bootstrap is complete with the following commands:
+
+**Verify OIDC provider exists:**
+
+```bash
+aws iam list-open-id-connect-providers
+```
+
+**Expected output:** You should see the provider ARN `arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com` listed.
+
+**Verify IAM role and trust policy:**
+
+```bash
+aws iam get-role --role-name GitHubActionsTeamsMeetingFetcher
+aws iam get-role-policy --role-name GitHubActionsTeamsMeetingFetcher --policy-name AssumeRolePolicy
+```
+
+**Expected output:** The role exists and the trust policy includes:
+- Federated principal: `arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com`
+- Audience condition: `sts.amazonaws.com`
+- Subject condition: Your repository in the format `repo:<OWNER>/<REPO>:*`
+
+**Verify attached policies:**
+
+```bash
+aws iam list-attached-role-policies --role-name GitHubActionsTeamsMeetingFetcher
+```
+
+**Expected output:** All 9 policies attached (or whatever count matches your bootstrap):
+- AmazonS3FullAccess
+- AWSLambda_FullAccess
+- AmazonDynamoDBFullAccess
+- AmazonAPIGatewayAdministrator
+- IAMFullAccess
+- EventBridgeFullAccess
+- SNSFullAccess
+- CloudWatchLogsFullAccess
+- CloudWatchFullAccessV2
+
+**Verify GitHub secret is set:**
+
+```bash
+gh secret list
+```
+
+**Expected output:** `AWS_ROLE_ARN` appears in the list with a masked value.
+
+**Verification Script:**
+
+A standalone verification script is available at `scripts/verify/verify-github-secrets.ps1` (PowerShell) or `.sh` (Bash) that automates these checks and provides a pass/fail summary.
+
+### 1.4 S3 Bucket for Terraform State
 
 **Source:** Manual (create before first `terraform init`)
 
@@ -111,7 +188,7 @@ aws s3api put-public-access-block \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
 
-### 1.4 DynamoDB Table for State Locking
+### 1.5 DynamoDB Table for State Locking
 
 **Source:** Manual (create before first `terraform init`)
 

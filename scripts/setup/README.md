@@ -185,7 +185,7 @@ bash scripts/setup/bootstrap-github-oidc.sh --repository myorg/myrepo
 **AWS OIDC**:
 
 - Creates OpenID Connect provider from GitHub
-- Creates IAM role: `github-actions-oidc-role`
+- Creates IAM role: `GitHubActionsTeamsMeetingFetcher` (configurable)
 - Sets up trust policy for your GitHub repository
 - Attaches policies for Lambda and infrastructure deployment
 

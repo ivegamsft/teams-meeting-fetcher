@@ -1,13 +1,15 @@
 #!/bin/bash
 set -e
 
-#  GitHub OIDC Bootstrap — Zero-Knowledge Authentication
+#  GitHub OIDC Bootstrap -- Zero-Knowledge Authentication
 #  Sets up OpenID Connect trust relationships between GitHub and AWS/Azure
 #  eliminating the need for long-lived credentials in GitHub Secrets.
 
 AZURE_ONLY=false
 AWS_ONLY=false
 REPOSITORY=""
+ROLE_NAME="GitHubActionsTeamsMeetingFetcher"
+SET_SECRETS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -15,13 +17,15 @@ while [[ $# -gt 0 ]]; do
         --azure-only) AZURE_ONLY=true; shift ;;
         --aws-only) AWS_ONLY=true; shift ;;
         --repository) REPOSITORY="$2"; shift 2 ;;
+        --role-name) ROLE_NAME="$2"; shift 2 ;;
+        --set-secrets) SET_SECRETS=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  GitHub OIDC Bootstrap — Zero-Knowledge Authentication         ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+echo "================================================================"
+echo "  GitHub OIDC Bootstrap -- Zero-Knowledge Authentication        "
+echo "================================================================"
 echo ""
 
 # Detect repository if not provided
@@ -33,12 +37,13 @@ if [ -z "$REPOSITORY" ]; then
     fi
     
     if [ -z "$REPOSITORY" ]; then
-        echo "❌ Could not detect repository. Run inside a git repo or specify --repository"
+        echo "[ERROR] Could not detect repository. Run inside a git repo or specify --repository"
         exit 1
     fi
 fi
 
-echo "📦 Repository: $REPOSITORY"
+echo "Repository: $REPOSITORY"
+echo "AWS Role Name: $ROLE_NAME"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -46,12 +51,12 @@ echo ""
 # ═══════════════════════════════════════════════════════════════════════════
 
 if [ "$AWS_ONLY" = false ]; then
-    echo "🔷 Setting up Azure OIDC..."
+    echo "[Azure] Setting up Azure OIDC..."
     echo ""
     
     # Check prerequisites
     if ! command -v az &> /dev/null; then
-        echo "❌ Azure CLI not installed"
+        echo "[ERROR] Azure CLI not installed"
         exit 1
     fi
     
@@ -69,12 +74,12 @@ if [ "$AWS_ONLY" = false ]; then
     
     if [ "$(echo "$EXISTING_SP" | jq -r '.id // empty')" != "" ]; then
         SP_APP_ID=$(echo "$EXISTING_SP" | jq -r '.appId')
-        echo "✅ Found existing SPN: $SPN_NAME"
+        echo "[PASS] Found existing SPN: $SPN_NAME"
     else
         echo "Creating new SPN: $SPN_NAME..."
         CREATE_RESULT=$(az ad sp create-for-rbac --name "$SPN_NAME" --output json)
         SP_APP_ID=$(echo "$CREATE_RESULT" | jq -r '.appId')
-        echo "✅ Created SPN: $SPN_NAME"
+        echo "[PASS] Created SPN: $SPN_NAME"
     fi
     
     echo "  App ID: $SP_APP_ID"
@@ -106,7 +111,7 @@ if [ "$AWS_ONLY" = false ]; then
             \"description\": \"GitHub Actions OIDC for $REPOSITORY (main branch)\"
         }" 2>/dev/null || true
     
-    echo "✅ Created federated credential"
+    echo "[PASS] Created federated credential"
     echo "  Subject: $SUBJECT"
     echo ""
     
@@ -119,16 +124,16 @@ if [ "$AWS_ONLY" = false ]; then
             --assignee "$SP_APP_ID" \
             --role "$role" \
             --scope "/subscriptions/$SUBSCRIPTION_ID" 2>/dev/null || true
-        echo "  ✅ Assigned: $role"
+        echo "  [PASS] Assigned: $role"
     done
     
     echo ""
-    echo "📝 Azure OIDC Configuration:"
+    echo "Azure OIDC Configuration:"
     echo "  Client ID: $SP_APP_ID"
     echo "  Tenant ID: $TENANT_ID"
     echo "  Subscription ID: $SUBSCRIPTION_ID"
     echo ""
-    echo "✅ Azure OIDC setup complete!"
+    echo "[PASS] Azure OIDC setup complete!"
     echo ""
 fi
 
@@ -137,17 +142,17 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════
 
 if [ "$AZURE_ONLY" = false ]; then
-    echo "🟠 Setting up AWS OIDC..."
+    echo "[AWS] Setting up AWS OIDC..."
     echo ""
     
     # Check prerequisites
     if ! command -v aws &> /dev/null; then
-        echo "❌ AWS CLI not installed"
+        echo "[ERROR] AWS CLI not installed"
         exit 1
     fi
     
     if ! aws sts get-caller-identity &>/dev/null; then
-        echo "❌ AWS CLI not configured"
+        echo "[ERROR] AWS CLI not configured"
         exit 1
     fi
     
@@ -166,7 +171,7 @@ if [ "$AZURE_ONLY" = false ]; then
     OIDC_PROVIDER_ARN="arn:aws:iam::$ACCOUNT_ID:oidc-provider/$OIDC_PROVIDER_NAME"
     
     if aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$OIDC_PROVIDER_ARN" 2>/dev/null; then
-        echo "✅ OIDC provider already exists"
+        echo "[PASS] OIDC provider already exists"
     else
         # Create new OIDC provider
         THUMBPRINT="6938fd4d98bab03faadb97b34396831e3780aea1"  # GitHub's OIDC thumbprint
@@ -176,7 +181,7 @@ if [ "$AZURE_ONLY" = false ]; then
             --client-id-list "sts.amazonaws.com" \
             --thumbprint-list "$THUMBPRINT" >/dev/null
         
-        echo "✅ Created OIDC provider"
+        echo "[PASS] Created OIDC provider"
     fi
     
     echo "  ARN: $OIDC_PROVIDER_ARN"
@@ -184,8 +189,6 @@ if [ "$AZURE_ONLY" = false ]; then
     
     # Create IAM role for GitHub Actions
     echo "Creating IAM role for GitHub Actions..."
-    
-    ROLE_NAME="github-actions-oidc-role"
     
     # Create trust policy
     cat > /tmp/trust-policy.json <<EOF
@@ -212,7 +215,7 @@ if [ "$AZURE_ONLY" = false ]; then
 EOF
     
     if aws iam get-role --role-name "$ROLE_NAME" 2>/dev/null; then
-        echo "✅ Role already exists"
+        echo "[PASS] Role already exists: $ROLE_NAME"
         
         # Update trust policy
         aws iam update-assume-role-policy \
@@ -226,7 +229,7 @@ EOF
             --assume-role-policy-document file:///tmp/trust-policy.json \
             --description "GitHub Actions OIDC role for $REPOSITORY" >/dev/null
         
-        echo "✅ Created role: $ROLE_NAME"
+        echo "[PASS] Created role: $ROLE_NAME"
     fi
     
     rm -f /tmp/trust-policy.json
@@ -236,17 +239,31 @@ EOF
     # Attach policies
     echo "Attaching policies..."
     
-    aws iam attach-role-policy \
-        --role-name "$ROLE_NAME" \
-        --policy-arn "arn:aws:iam::aws:policy/AdministratorAccess" 2>/dev/null || true
-    echo "  ✅ Attached: AdministratorAccess"
+    POLICIES=(
+        "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
+        "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        "arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator"
+        "arn:aws:iam::aws:policy/IAMFullAccess"
+        "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess"
+        "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+        "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+        "arn:aws:iam::aws:policy/CloudWatchFullAccessV2"
+    )
+
+    for policy in "${POLICIES[@]}"; do
+        aws iam attach-role-policy \
+            --role-name "$ROLE_NAME" \
+            --policy-arn "$policy" 2>/dev/null || true
+        echo "  [PASS] Attached: $policy"
+    done
     
     echo ""
-    echo "📝 AWS OIDC Configuration:"
+    echo "AWS OIDC Configuration:"
     echo "  Role ARN: arn:aws:iam::$ACCOUNT_ID:role/$ROLE_NAME"
     echo "  OIDC Provider: $OIDC_PROVIDER_ARN"
     echo ""
-    echo "✅ AWS OIDC setup complete!"
+    echo "[PASS] AWS OIDC setup complete!"
     echo ""
 fi
 
@@ -254,9 +271,9 @@ fi
 # GITHUB SECRETS
 # ═══════════════════════════════════════════════════════════════════════════
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📝 Update GitHub Secrets for Workflows"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------"
+echo "GitHub Secrets for Workflows"
+echo "----------------------------------------------------------------"
 echo ""
 
 if [ "$AWS_ONLY" = false ]; then
@@ -274,22 +291,37 @@ if [ "$AZURE_ONLY" = false ]; then
     echo "    gh secret set AWS_ROLE_ARN --body 'arn:aws:iam::$ACCOUNT_ID:role/$ROLE_NAME'"
     echo "    gh secret set AWS_REGION --body '$REGION'"
     echo ""
+
+    if [ "$SET_SECRETS" = true ]; then
+        echo "Setting GitHub secrets via gh CLI..."
+        if gh secret set AWS_ROLE_ARN --body "arn:aws:iam::$ACCOUNT_ID:role/$ROLE_NAME" 2>/dev/null; then
+            echo "  [PASS] Set AWS_ROLE_ARN"
+        else
+            echo "  [ERROR] Failed to set AWS_ROLE_ARN"
+        fi
+        if gh secret set AWS_REGION --body "$REGION" 2>/dev/null; then
+            echo "  [PASS] Set AWS_REGION"
+        else
+            echo "  [ERROR] Failed to set AWS_REGION"
+        fi
+        echo ""
+    fi
 fi
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔒 Benefits of OIDC Setup"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------"
+echo "Benefits of OIDC Setup"
+echo "----------------------------------------------------------------"
 echo ""
-echo "✅ No long-lived credentials stored in GitHub"
-echo "✅ Credentials are short-lived (expires after workflow)"
-echo "✅ Reduced attack surface and compliance risk"
-echo "✅ Easier credential rotation"
-echo "✅ Full audit trail in AWS/Azure"
+echo "[PASS] No long-lived credentials stored in GitHub"
+echo "[PASS] Credentials are short-lived (expires after workflow)"
+echo "[PASS] Reduced attack surface and compliance risk"
+echo "[PASS] Easier credential rotation"
+echo "[PASS] Full audit trail in AWS/Azure"
 echo ""
 
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║  ✅ GitHub OIDC Bootstrap Complete!                           ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
+echo "================================================================"
+echo "  GitHub OIDC Bootstrap Complete!                               "
+echo "================================================================"
 echo ""
 echo "Next steps:"
 echo "  1. Add secrets to GitHub (see commands above)"

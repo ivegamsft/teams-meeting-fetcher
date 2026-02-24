@@ -19,6 +19,12 @@
 .PARAMETER Repository
     GitHub repository in format 'owner/repo' (default: current git remote)
 
+.PARAMETER RoleName
+    AWS IAM role name for GitHub Actions (default: GitHubActionsTeamsMeetingFetcher)
+
+.PARAMETER SetSecrets
+    Automatically set GitHub secrets via gh CLI instead of just printing commands
+
 .PARAMETER SetupTerraformState
     Create S3/DynamoDB Terraform state backend and apply bucket policy
 
@@ -45,12 +51,17 @@
     
 .EXAMPLE
     .\bootstrap-github-oidc.ps1 -Repository "myorg/myrepo"
+
+.EXAMPLE
+    .\bootstrap-github-oidc.ps1 -AwsOnly -RoleName "MyCustomRole" -SetSecrets
 #>
 
 param(
     [switch]$AzureOnly,
     [switch]$AwsOnly,
     [string]$Repository,
+    [string]$RoleName = "GitHubActionsTeamsMeetingFetcher",
+    [switch]$SetSecrets,
     [switch]$SetupTerraformState,
     [string]$StateBucketName,
     [string]$StateLockTableName,
@@ -61,9 +72,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  GitHub OIDC Bootstrap — Zero-Knowledge Authentication         ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "  GitHub OIDC Bootstrap -- Zero-Knowledge Authentication        " -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Detect repository if not provided
@@ -75,12 +86,13 @@ if (-not $Repository) {
             $Repository = $Repository -replace "\.git$"
         }
     } catch {
-        Write-Host "❌ Could not detect repository. Run inside a git repo or specify -Repository" -ForegroundColor Red
+        Write-Host "[ERROR] Could not detect repository. Run inside a git repo or specify -Repository" -ForegroundColor Red
         exit 1
     }
 }
 
-Write-Host "📦 Repository: $Repository" -ForegroundColor Yellow
+Write-Host "Repository: $Repository" -ForegroundColor Yellow
+Write-Host "AWS Role Name: $RoleName" -ForegroundColor Yellow
 Write-Host ""
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -88,7 +100,7 @@ Write-Host ""
 # ═══════════════════════════════════════════════════════════════════════════
 
 if (-not $AwsOnly) {
-    Write-Host "🔷 Setting up Azure OIDC..." -ForegroundColor Cyan
+    Write-Host "[Azure] Setting up Azure OIDC..." -ForegroundColor Cyan
     Write-Host ""
     
     # Check prerequisites
@@ -96,7 +108,7 @@ if (-not $AwsOnly) {
         $null = az version 2>&1
     }
     catch {
-        Write-Host "❌ Azure CLI not installed" -ForegroundColor Red
+        Write-Host "[ERROR] Azure CLI not installed" -ForegroundColor Red
         exit 1
     }
     
@@ -114,12 +126,12 @@ if (-not $AwsOnly) {
     
     if ($existingSp.id) {
         $spAppId = $existingSp.appId
-        Write-Host "✅ Found existing SPN: $spnName" -ForegroundColor Green
+        Write-Host "[PASS] Found existing SPN: $spnName" -ForegroundColor Green
     } else {
         Write-Host "Creating new SPN: $spnName..." -ForegroundColor Yellow
         $createResult = az ad sp create-for-rbac --name $spnName --output json | ConvertFrom-Json
         $spAppId = $createResult.appId
-        Write-Host "✅ Created SPN: $spnName" -ForegroundColor Green
+        Write-Host "[PASS] Created SPN: $spnName" -ForegroundColor Green
     }
     
     Write-Host "  App ID: $spAppId" -ForegroundColor Gray
@@ -157,7 +169,7 @@ if (-not $AwsOnly) {
         --id $spAppId `
         --parameters $credentialParams 2>&1 | Out-Null
     
-    Write-Host "✅ Created federated credential" -ForegroundColor Green
+    Write-Host "[PASS] Created federated credential" -ForegroundColor Green
     Write-Host "  Subject: $subject" -ForegroundColor Gray
     Write-Host ""
     
@@ -174,19 +186,19 @@ if (-not $AwsOnly) {
                 --assignee $spAppId `
                 --role $role.name `
                 --scope $role.scope 2>&1 | Out-Null
-            Write-Host "  ✅ Assigned: $($role.name)" -ForegroundColor Green
+            Write-Host "  [PASS] Assigned: $($role.name)" -ForegroundColor Green
         } catch {
-            Write-Host "  ⚠️  $($role.name) may already be assigned" -ForegroundColor Gray
+            Write-Host "  [WARN] $($role.name) may already be assigned" -ForegroundColor Gray
         }
     }
     
     Write-Host ""
-    Write-Host "📝 Azure OIDC Configuration:" -ForegroundColor Cyan
+    Write-Host "Azure OIDC Configuration:" -ForegroundColor Cyan
     Write-Host "  Client ID: $spAppId" -ForegroundColor Yellow
     Write-Host "  Tenant ID: $tenantId" -ForegroundColor Yellow
     Write-Host "  Subscription ID: $subscriptionId" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "✅ Azure OIDC setup complete!" -ForegroundColor Green
+    Write-Host "[PASS] Azure OIDC setup complete!" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -195,7 +207,7 @@ if (-not $AwsOnly) {
 # ═══════════════════════════════════════════════════════════════════════════
 
 if (-not $AzureOnly) {
-    Write-Host "🟠 Setting up AWS OIDC..." -ForegroundColor Cyan
+    Write-Host "[AWS] Setting up AWS OIDC..." -ForegroundColor Cyan
     Write-Host ""
     
     # Check prerequisites
@@ -203,7 +215,7 @@ if (-not $AzureOnly) {
         $null = aws sts get-caller-identity 2>&1
     }
     catch {
-        Write-Host "❌ AWS CLI not configured" -ForegroundColor Red
+        Write-Host "[ERROR] AWS CLI not configured" -ForegroundColor Red
         exit 1
     }
     
@@ -227,7 +239,7 @@ if (-not $AzureOnly) {
     
     try {
         $existing = aws iam get-open-id-connect-provider --open-id-connect-provider-arn $oidcProviderArn 2>&1
-        Write-Host "✅ OIDC provider already exists" -ForegroundColor Green
+        Write-Host "[PASS] OIDC provider already exists" -ForegroundColor Green
     }
     catch {
         # Create new OIDC provider
@@ -238,7 +250,7 @@ if (-not $AzureOnly) {
             --client-id-list "sts.amazonaws.com" `
             --thumbprint-list $thumbprint | Out-Null
         
-        Write-Host "✅ Created OIDC provider" -ForegroundColor Green
+        Write-Host "[PASS] Created OIDC provider" -ForegroundColor Green
     }
     
     Write-Host "  ARN: $oidcProviderArn" -ForegroundColor Gray
@@ -247,7 +259,6 @@ if (-not $AzureOnly) {
     # Create IAM role for GitHub Actions
     Write-Host "Creating IAM role for GitHub Actions..." -ForegroundColor Yellow
     
-    $roleName = "github-actions-oidc-role"
     $assumeRolePolicyDocument = @{
         Version = "2012-10-17"
         Statement = @(
@@ -269,23 +280,23 @@ if (-not $AzureOnly) {
         )
     } | ConvertTo-Json -Depth 10
     
-    $existingRole = aws iam get-role --role-name $roleName --output json 2>$null
+    $existingRole = aws iam get-role --role-name $RoleName --output json 2>$null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Role already exists" -ForegroundColor Green
+        Write-Host "[PASS] Role already exists: $RoleName" -ForegroundColor Green
 
         # Update trust policy
         aws iam update-assume-role-policy `
-            --role-name $roleName `
+            --role-name $RoleName `
             --policy-document $assumeRolePolicyDocument | Out-Null
         Write-Host "  Updated trust policy" -ForegroundColor Gray
     } else {
         # Create new role
         aws iam create-role `
-            --role-name $roleName `
+            --role-name $RoleName `
             --assume-role-policy-document $assumeRolePolicyDocument `
             --description "GitHub Actions OIDC role for $Repository" | Out-Null
 
-        Write-Host "✅ Created role: $roleName" -ForegroundColor Green
+        Write-Host "[PASS] Created role: $RoleName" -ForegroundColor Green
     }
     
     Write-Host ""
@@ -294,27 +305,35 @@ if (-not $AzureOnly) {
     Write-Host "Attaching policies..." -ForegroundColor Yellow
     
     $policiesToAttach = @(
-        "arn:aws:iam::aws:policy/AdministratorAccess"  # For dev; use least-privilege in production
+        "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+        "arn:aws:iam::aws:policy/AWSLambda_FullAccess",
+        "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+        "arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator",
+        "arn:aws:iam::aws:policy/IAMFullAccess",
+        "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
+        "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+        "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+        "arn:aws:iam::aws:policy/CloudWatchFullAccessV2"
     )
     
     foreach ($policy in $policiesToAttach) {
         try {
             aws iam attach-role-policy `
-                --role-name $roleName `
+                --role-name $RoleName `
                 --policy-arn $policy 2>&1 | Out-Null
-            Write-Host "  ✅ Attached: $policy" -ForegroundColor Green
+            Write-Host "  [PASS] Attached: $policy" -ForegroundColor Green
         }
         catch {
-            Write-Host "  ⚠️  Policy may already be attached" -ForegroundColor Gray
+            Write-Host "  [WARN] Policy may already be attached: $policy" -ForegroundColor Gray
         }
     }
     
     Write-Host ""
-    Write-Host "📝 AWS OIDC Configuration:" -ForegroundColor Cyan
-    Write-Host "  Role ARN: arn:aws:iam::$accountId`:role/$roleName" -ForegroundColor Yellow
+    Write-Host "AWS OIDC Configuration:" -ForegroundColor Cyan
+    Write-Host "  Role ARN: arn:aws:iam::$accountId`:role/$RoleName" -ForegroundColor Yellow
     Write-Host "  OIDC Provider: $oidcProviderArn" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "✅ AWS OIDC setup complete!" -ForegroundColor Green
+    Write-Host "[PASS] AWS OIDC setup complete!" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -324,7 +343,7 @@ if (-not $AzureOnly) {
 
 if ($SetupTerraformState) {
         if ($AzureOnly) {
-                Write-Host "❌ Terraform state setup requires AWS access" -ForegroundColor Red
+                Write-Host "[ERROR] Terraform state setup requires AWS access" -ForegroundColor Red
                 exit 1
         }
 
@@ -333,11 +352,11 @@ if ($SetupTerraformState) {
                 [string]::IsNullOrWhiteSpace($StateKey) -or
                 [string]::IsNullOrWhiteSpace($StateRegion) -or
                 [string]::IsNullOrWhiteSpace($StateIpCidr)) {
-                Write-Host "❌ Missing state backend parameters. Provide -StateBucketName, -StateLockTableName, -StateKey, -StateRegion, -StateIpCidr" -ForegroundColor Red
+                Write-Host "[ERROR] Missing state backend parameters. Provide -StateBucketName, -StateLockTableName, -StateKey, -StateRegion, -StateIpCidr" -ForegroundColor Red
                 exit 1
         }
 
-        Write-Host "🧱 Setting up Terraform state backend..." -ForegroundColor Cyan
+        Write-Host "Setting up Terraform state backend..." -ForegroundColor Cyan
         Write-Host "  Bucket: $StateBucketName" -ForegroundColor Gray
         Write-Host "  Table:  $StateLockTableName" -ForegroundColor Gray
         Write-Host "  Key:    $StateKey" -ForegroundColor Gray
@@ -349,13 +368,12 @@ if ($SetupTerraformState) {
                 $null = aws sts get-caller-identity 2>&1
         }
         catch {
-                Write-Host "❌ AWS CLI not configured" -ForegroundColor Red
+                Write-Host "[ERROR] AWS CLI not configured" -ForegroundColor Red
                 exit 1
         }
 
         $accountId = aws sts get-caller-identity --query Account --output text
-        $roleName = "github-actions-oidc-role"
-        $roleArn = "arn:aws:iam::$accountId`:role/$roleName"
+        $roleArn = "arn:aws:iam::$accountId`:role/$RoleName"
 
         # Create bucket if needed
         $null = aws s3api head-bucket --bucket $StateBucketName 2>&1
@@ -427,7 +445,7 @@ if ($SetupTerraformState) {
         aws s3api put-bucket-policy --bucket $StateBucketName --policy file://$policyPath | Out-Null
         Remove-Item $policyPath -Force
 
-        Write-Host "✅ Terraform state backend ready" -ForegroundColor Green
+        Write-Host "[PASS] Terraform state backend ready" -ForegroundColor Green
         Write-Host ""
 }
 
@@ -435,9 +453,9 @@ if ($SetupTerraformState) {
 # GITHUB SECRETS
 # ═══════════════════════════════════════════════════════════════════════════
 
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "📝 Update GitHub Secrets for Workflows" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
+Write-Host "GitHub Secrets for Workflows" -ForegroundColor Cyan
+Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
 Write-Host ""
 
 if (-not $AwsOnly) {
@@ -452,13 +470,27 @@ if (-not $AwsOnly) {
 }
 
 if (-not $AzureOnly) {
+    $awsRoleArn = "arn:aws:iam::$accountId`:role/$RoleName"
     Write-Host "AWS Secrets (OIDC - no access key/secret needed):" -ForegroundColor Yellow
     Write-Host "  GitHub CLI:"
-    Write-Host "    gh secret set AWS_ROLE_ARN --body 'arn:aws:iam::$accountId`:role/$roleName'"
+    Write-Host "    gh secret set AWS_ROLE_ARN --body '$awsRoleArn'"
     Write-Host "    gh secret set AWS_REGION --body '$region'"
     Write-Host ""
     Write-Host "  GitHub UI: Settings > Secrets and variables > Actions"
     Write-Host ""
+
+    if ($SetSecrets) {
+        Write-Host "Setting GitHub secrets via gh CLI..." -ForegroundColor Yellow
+        try {
+            gh secret set AWS_ROLE_ARN --body $awsRoleArn
+            Write-Host "  [PASS] Set AWS_ROLE_ARN" -ForegroundColor Green
+            gh secret set AWS_REGION --body $region
+            Write-Host "  [PASS] Set AWS_REGION" -ForegroundColor Green
+        } catch {
+            Write-Host "  [ERROR] Failed to set secrets. Ensure gh CLI is authenticated." -ForegroundColor Red
+        }
+        Write-Host ""
+    }
 }
 
 if ($SetupTerraformState) {
@@ -477,20 +509,20 @@ if ($SetupTerraformState) {
     Write-Host ""
 }
 
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
-Write-Host "🔒 Benefits of OIDC Setup" -ForegroundColor Cyan
-Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Cyan
+Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
+Write-Host "Benefits of OIDC Setup" -ForegroundColor Cyan
+Write-Host "----------------------------------------------------------------" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "✅ No long-lived credentials stored in GitHub" -ForegroundColor Green
-Write-Host "✅ Credentials are short-lived (expires after workflow)" -ForegroundColor Green
-Write-Host "✅ Reduced attack surface and compliance risk" -ForegroundColor Green
-Write-Host "✅ Easier credential rotation" -ForegroundColor Green
-Write-Host "✅ Full audit trail in AWS/Azure" -ForegroundColor Green
+Write-Host "[PASS] No long-lived credentials stored in GitHub" -ForegroundColor Green
+Write-Host "[PASS] Credentials are short-lived (expires after workflow)" -ForegroundColor Green
+Write-Host "[PASS] Reduced attack surface and compliance risk" -ForegroundColor Green
+Write-Host "[PASS] Easier credential rotation" -ForegroundColor Green
+Write-Host "[PASS] Full audit trail in AWS/Azure" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  ✅ GitHub OIDC Bootstrap Complete!                           ║" -ForegroundColor Green
-Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
+Write-Host "  GitHub OIDC Bootstrap Complete!                               " -ForegroundColor Green
+Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  1. Add secrets to GitHub (see commands above)"

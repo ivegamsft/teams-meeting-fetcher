@@ -11,7 +11,32 @@
 
 ## Learnings
 
-### 2026-02-24: E2E Testing Architecture (Edie)
+### 2026-02-25: AWS OIDC Documentation Gaps Patched (Edie)
+
+**Work completed:**
+- Patched Gap 1: Added 3-sentence clarification after section 1.1 explaining one-time setup per account, shared OIDC for multiple repos, and repeat instructions for different accounts
+- Patched Gap 3: Created new section 1.3 "Verify the Bootstrap" with verification commands for:
+  - OIDC provider existence (`aws iam list-open-id-connect-providers`)
+  - IAM role and trust policy (`aws iam get-role`, `aws iam get-role-policy`)
+  - Attached policies (`aws iam list-attached-role-policies`)
+  - GitHub secret existence (`gh secret list`)
+  - Reference to verification script at `scripts/verify/verify-github-secrets.ps1` or `.sh`
+  - Expected output examples for each check
+- Added cross-reference from section 1.2 pointing to section 3 for `gh secret set` command
+- Skipped Gap 2 (policy list in section 1.2) per team decision — Fenster owns that update
+
+**Key points documented:**
+- One-time setup per AWS account with option to share OIDC provider across multiple repos
+- Multiple AWS accounts require separate OIDC provider and IAM role setup
+- 9 IAM policies now listed in expected output
+- Verification script location noted for operators
+- Clear expected output examples for troubleshooting
+
+**Citation:** DEPLOYMENT_PREREQUISITES.md sections 1.1, 1.3; cross-reference at 1.2 to section 3
+
+---
+
+
 
 **Decision:** Created comprehensive E2E test runbook documenting 3 human-in-the-loop test scenarios.
 
