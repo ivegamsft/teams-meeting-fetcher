@@ -7,14 +7,20 @@ name: Deploy Unified Infrastructure
 # AZURE_CLIENT_ID               - Azure App Registration client ID
 # AZURE_TENANT_ID               - Azure AD tenant ID
 # AZURE_SUBSCRIPTION_ID         - Azure subscription ID
+# CLIENT_STATE                  - Client state secret for Graph API webhooks
 #
 # REQUIRED GITHUB VARIABLES:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AWS_REGION                    - AWS deployment region (e.g., us-east-1)
+# AWS_ACCOUNT_ID                - AWS account ID (12 digits)
 # TF_STATE_BUCKET               - S3 bucket for Terraform state
 # TF_STATE_KEY                  - S3 key for Terraform state file
 # TF_STATE_REGION               - S3 bucket region
 # TF_STATE_LOCK_TABLE           - DynamoDB table for state locking
+# WEBHOOK_BUCKET_NAME           - S3 bucket name for webhook storage
+# TRANSCRIPT_BUCKET_NAME        - S3 bucket name for transcript storage
+# CHECKPOINT_BUCKET_NAME        - S3 bucket name for checkpoint storage
+# BOT_MESSAGING_ENDPOINT        - Teams bot messaging endpoint URL
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 on:
@@ -55,6 +61,7 @@ jobs:
   validate:
     name: Validate & Plan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       plan-exists: ${{ steps.plan.outputs.exists }}
     steps:
@@ -97,13 +104,19 @@ jobs:
         id: plan
         run: |
           cd iac
-          terraform plan -out=tfplan
+          terraform plan -input=false -out=tfplan
           echo "exists=true" >> $GITHUB_OUTPUT
         env:
           TF_VAR_use_oidc: "true"
           TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+          TF_VAR_webhook_bucket_name: ${{ vars.WEBHOOK_BUCKET_NAME }}
+          TF_VAR_transcript_bucket_name: ${{ vars.TRANSCRIPT_BUCKET_NAME }}
+          TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
+          TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
+          TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
 
       - name: Upload terraform plan
         if: steps.plan.outputs.exists == 'true'
@@ -191,12 +204,18 @@ jobs:
       - name: Terraform apply
         run: |
           cd iac
-          terraform apply -auto-approve tfplan
+          terraform apply -input=false -auto-approve tfplan
         env:
           TF_VAR_use_oidc: "true"
           TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+          TF_VAR_webhook_bucket_name: ${{ vars.WEBHOOK_BUCKET_NAME }}
+          TF_VAR_transcript_bucket_name: ${{ vars.TRANSCRIPT_BUCKET_NAME }}
+          TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
+          TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
+          TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
 
       - name: Get Terraform outputs
         id: tf-output

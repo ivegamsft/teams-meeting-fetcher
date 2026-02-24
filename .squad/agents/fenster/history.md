@@ -114,3 +114,11 @@
 - **References updated**: All non-historical docs, prompts, and agent files updated (14 files by Edie in prior session). Historical `.squad/` logs and decisions left as-is (they record what happened at that time).
 
 📌 Team update (2026-02-24T21:09): Unified workflow rename complete — Orchestration logs, session log, and decision merges finalized — decided by Scribe
+
+### 2026-02-25: Terraform Workflow Hang Fix
+
+- **Root cause**: `terraform plan` and `terraform apply` in `deploy-unified.yml` were missing `-input=false` flag AND six required Terraform variables were not passed as `TF_VAR_*` env vars. This caused Terraform to hang in CI waiting for interactive input for missing variables.
+- **Fix**: Added `-input=false` to both plan (line 100) and apply (line 194) commands. Added all 6 missing env vars to both steps: `TF_VAR_aws_account_id`, `TF_VAR_webhook_bucket_name`, `TF_VAR_transcript_bucket_name`, `TF_VAR_checkpoint_bucket_name`, `TF_VAR_bot_messaging_endpoint`, `TF_VAR_client_state`.
+- **Timeout protection**: Added `timeout-minutes: 30` to validate job to prevent infinite hangs in future.
+- **Documentation**: Updated workflow header comment blocks to list all required GitHub secrets (added CLIENT_STATE) and variables (added AWS_ACCOUNT_ID, WEBHOOK_BUCKET_NAME, TRANSCRIPT_BUCKET_NAME, CHECKPOINT_BUCKET_NAME, BOT_MESSAGING_ENDPOINT).
+- **CI/CD pattern**: ALWAYS use `-input=false` on all Terraform commands in non-interactive environments. Missing variables will fail fast instead of hanging.
