@@ -230,125 +230,6 @@
 
 ---
 
-## 2026-02-24: Documentation Audit & Quick Start Creation
-
-**By:** Edie (Documentation Specialist)
-
-**Decision:** Implement comprehensive documentation restructuring with focus on unified quick start guides and scenario clarity.
-
-**Audit Scope:**
-- Reviewed 25+ documentation files across all areas
-- Coverage: 100% of user-facing docs + infrastructure guides
-
-**Deliverables:**
-- Created QUICKSTART.md at root as unified entry point
-- Created scenarios/nobots-eventhub/QUICKSTART.md (Event Hub scenario guide)
-- Created scenarios/lambda/meeting-bot/QUICKSTART.md (Teams Bot scenario guide)
-
-**Critical Issues Identified (Fix Immediately):**
-1. README.md and DEPLOYMENT.md reference deprecated deployment paths (iac/azure, iac/aws)
-2. DEPLOYMENT.md uses wrong folder name (infra/ instead of iac/)
-3. Conflicting terminology for "scenarios" across documentation
-
-**Major Issues (Fix Soon):**
-4. Missing prerequisites checklist (now in QUICKSTART.md)
-5. CONFIGURATION.md missing scenario-specific environment variable mapping
-6. Broken cross-references to missing docs (ARCHITECTURE.md, TROUBLESHOOTING.md)
-
-**Minor Issues (Nice to Have):**
-7. Inconsistent file naming conventions
-8. Missing glossary for terminology clarity
-9. Cost estimates scattered across multiple documents
-10. Missing "What's Next" guidance after README
-
-**Quality Metrics:**
-- Overall documentation quality: 4/5 stars → 5/5 stars with fixes
-- Root guides completeness: 95% (improved from 85%)
-- Scenario guides completeness: 100%
-
-**Recommendations Priority:**
-- **Immediate (This Week):** Fix deprecated paths, remove outdated references, add QUICKSTART.md link to README
-- **Short-Term (This Sprint):** Create scenarios/README.md, add scenario-specific config mapping, fix cross-references, create GLOSSARY.md
-- **Long-Term (Future):** Create docs/ARCHITECTURE.md, TROUBLESHOOTING.md, add automated link checker
-- DEPLOYMENT.md incorrectly refers to `infra/` folder — should be `iac/`
-- Missing cross-references: ARCHITECTURE.md, TROUBLESHOOTING.md, GLOSSARY.md
-
-**Implementation notes:**
-- All new guides follow existing documentation style and structure
-- Cost estimates added for scenario comparison
-- Links validated across all 3 quick start guides
-
----
-
-## 2026-02-24: Test Infrastructure Fixes
-
-**By:** Hockney (Test Infrastructure)
-
-**Decision:** Update all import paths and Jest configuration to reflect code reorganization from `lambda/meeting-bot/` to `scenarios/lambda/meeting-bot/`.
-
-**Rationale:**
-- Code reorganization moved meeting-bot to new directory structure
-- Stale import paths broke unit tests
-- Jest modulePathsConfiguration must reflect actual package locations
-
-**Implementation:**
-- Fixed import paths in `test/unit/meeting-bot/graph-client.test.js` and `test/unit/meeting-bot/index.test.js`
-- Added `<rootDir>/apps/aws-lambda/node_modules` to Jest `modulePaths` for @aws-sdk resolution
-- Updated coverage paths to reflect `scenarios/lambda/meeting-bot/` structure
-- Implemented real assertions for Pester error handling tests
-
-**Status:**
-- ✅ All Jest tests passing (74 total)
-- ✅ Pester error handling tests passing
-- ⚠️ Pester positive tests require terraform mocking refinement (documented limitation)
-
----
-
-## 2026-02-24: E2E Test Structure and Human-in-the-Loop Pattern
-
-**By:** Redfoot (End-to-End Tester)
-
-**Decision:** E2E tests will use a human-in-the-loop pattern with Jest framework and native Node.js for AWS/Graph API interactions (no SDKs).
-
-**Rationale:**
-- Teams meeting creation and real transcript generation cannot be automated without complex Bot Framework infrastructure
-- Jest provides natural structure for test phases (pre-flight, setup, human action, validation, teardown)
-- Native Node.js (`child_process`, `https`) minimizes dependencies and maintenance burden
-
-**Test structure:**
-```
-test/e2e/
-├── helpers.js
-├── jest.config.js
-├── aws/
-│   ├── teams-bot-e2e.test.js
-│   ├── eventhub-e2e.test.js
-│   └── direct-graph-e2e.test.js
-└── azure/
-    └── placeholder.test.js
-```
-
-**Phase-based test flow:**
-1. Pre-flight checks — Verify infrastructure
-2. Setup — Acquire tokens, create subscriptions
-3. Human action prompt — Visual box with clear instructions
-4. Wait periods — Allow async processing
-5. Validation — Check logs, S3, DynamoDB
-6. Teardown — Clean up resources
-7. Summary — Results + troubleshooting
-
-**Benefits:**
-- Maintainable: No complex mocking infrastructure
-- Realistic: Tests actual Teams/Graph API integration
-- Debuggable: Rich logging shows exactly what's happening
-
-**Tradeoffs:**
-- Not CI/CD friendly: Requires human interaction
-- Slower: 3-10 minutes per test
-- Non-deterministic: Timing varies with Teams/Graph processing
-
----
-
 ## 2026-02-24: Deployment Prerequisites Documentation
 
 **By:** Fenster (DevOps/Infra)
@@ -449,3 +330,37 @@ Do NOT change settings unless public access is off completely — use specific I
 - Key Vault Contributor — Manage Key Vault network/firewall rules
 - Storage Account Contributor — Manage Storage Account network rules
 - Network Contributor — Only if using VNet-based rules
+
+---
+
+## 2026-02-25: GitHub Actions Workflow Consolidation
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** Delete squad-generated duplicate workflows; keep only squad-unique orchestration workflows.
+
+**Deleted (5 total):**
+- `squad-ci.yml` — duplicated `test-and-lint.yml` + `build-lambda-handler.yml` (prior session)
+- `squad-release.yml` — duplicated `release.yml` (prior session)
+- `squad-insider-release.yml` — no insider branch exists (prior session)
+- `squad-docs.yml` — placeholder with no build/deploy functionality
+- `squad-preview.yml` — Terraform check is no-op on stock runners (no terraform), manifest validation duplicated by `package-teams-app.yml`
+
+**Kept (7 squad-unique orchestration workflows):**
+- `squad-promote.yml` — branch promotion (dev → preview → main) with forbidden-path stripping
+- `squad-heartbeat.yml` — Ralph auto-triage on schedule/events
+- `squad-triage.yml` — keyword-based issue routing on `squad` label
+- `squad-issue-assign.yml` — member assignment on `squad:{member}` label
+- `squad-main-guard.yml` — blocks `.squad/` files from protected branches
+- `squad-label-enforce.yml` — label mutual exclusivity enforcement
+- `sync-squad-labels.yml` — syncs labels from team roster
+
+**Rationale:**
+- Squad init generates common CI/CD workflows, but this repo has well-tested originals
+- Keeping duplicates causes confusion (which runs? which is authoritative?) and wastes runner minutes
+- Squad orchestration workflows serve unique squad system purposes — no original equivalents exist
+
+**No further consolidation needed:**
+- All remaining workflows follow correct patterns (cache-dependency-path, app-specific npm ci, RBAC auth)
+- No fragile `cd && ... && cd` patterns exist
+- Total inventory: 25 workflows (down from 29)

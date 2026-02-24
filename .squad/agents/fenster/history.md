@@ -34,6 +34,16 @@
 - **AWS OIDC is a manual prereq**: The `deploy-lambda-*.yml` and `deploy-aws.yml` failures are NOT code bugs -- they require the user to register the GitHub Actions OIDC provider in their AWS account and create an IAM role with trust policy. Documented in DEPLOYMENT_PREREQUISITES.md section 1.
 - **squad-main-guard.yml is working as designed**: Fails when `.squad/` files are pushed to main. This is intentional enforcement. Documented in DEPLOYMENT_PREREQUISITES.md section 8.1.
 
+### 2026-02-25: Workflow Consolidation Audit (Round 4)
+
+- **Deleted `squad-docs.yml`**: Named "Build & Deploy" but only checked if 4 docs existed and listed files. No build, no deploy, no link checking — pure placeholder with zero value.
+- **Deleted `squad-preview.yml`**: Two checks, both redundant. Terraform fmt check used `command -v terraform` which fails on stock ubuntu runners (no terraform installed) — a no-op. Manifest JSON check duplicated by `package-teams-app.yml` which does full schema validation.
+- **Kept `squad-promote.yml`**: Unique branch promotion workflow (dev -> preview -> main) with forbidden-path stripping and CHANGELOG validation. No original equivalent.
+- **Kept all 6 squad orchestration workflows**: heartbeat, triage, sync-labels, issue-assign, main-guard, label-enforce — all unique to squad system.
+- **No fragile `cd && ... && cd ../..` patterns found**: All `cd` commands are within isolated `run:` blocks (each step is its own shell). Already clean from prior fix rounds.
+- **All `cache-dependency-path` entries correct**: Every `setup-node` with `cache: "npm"` has proper path. Fixed in Round 2.
+- **Final workflow count**: 25 files (down from 29 originally: deleted squad-ci.yml, squad-release.yml, squad-insider-release.yml in prior step, plus squad-docs.yml and squad-preview.yml in this round).
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ### 2026-02-25: Azure Firewall IP Management Pattern
@@ -46,3 +56,5 @@
 - **Reusable artifacts created**: Composite action at `.github/actions/azure-firewall-access/action.yml` and reusable workflow at `.github/workflows/azure-resource-access.yml` for other workflows needing firewalled access.
 - **deploy-azure.yml updated**: Deploy job now gets runner IP, adds to KV/Storage firewalls (from Terraform outputs), runs apply, then cleans up with `if: always()`.
 - **Required SPN roles for firewall management**: Key Vault Contributor (network rules) and Storage Account Contributor (network rules), in addition to existing data-plane roles.
+
+📌 Team update (2026-02-25T1552): Workflow consolidation complete — deleted 2 duplicate workflows (squad-docs.yml, squad-preview.yml), consolidated 29 workflows → 25, all squad orchestration workflows are unique — decided by Fenster
