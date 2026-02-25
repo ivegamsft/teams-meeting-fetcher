@@ -54,6 +54,61 @@
 - Troubleshooting tips in summary sections
 - No markdown files for planning/notes - tests are documentation
 
+### 2026-02-24: Post-Redeployment Infrastructure Smoke Tests (suffix 8akfpg)
+
+**Test Results Summary (16 tests):**
+
+| # | Test | Result | Details |
+|---|------|--------|---------|
+| 1 | Lambda: tmf-webhook-writer-dev | PASS | Active, nodejs20.x, 35MB |
+| 2 | Lambda: tmf-eventhub-processor-dev | PASS (exists) | Active, nodejs20.x, 16MB |
+| 3 | Lambda: tmf-meeting-bot-dev | PASS | Active, nodejs20.x, 15MB |
+| 4 | Lambda: tmf-webhook-authorizer-dev | PASS | Active, nodejs20.x, 6.5MB |
+| 5 | Lambda: tmf-subscription-renewal-dev | PASS | Active, python3.11, 1.9KB |
+| 6 | DynamoDB: eventhub-checkpoints | PASS | ACTIVE, 0 items (fresh) |
+| 7 | DynamoDB: graph-subscriptions | PASS | ACTIVE, 0 items (fresh) |
+| 8 | DynamoDB: meeting-bot-sessions-dev | PASS | ACTIVE, 0 items (fresh) |
+| 9 | S3: tmf-webhooks-eus-dev | PASS | Accessible, empty |
+| 10 | S3: tmf-checkpoints-eus-dev | PASS | Accessible |
+| 11 | S3: tmf-transcripts-eus-dev | PASS | Accessible |
+| 12 | API Gateway (new URL) | PASS | HTTP 401 (auth working) |
+| 13 | Bot Webhook (new URL) | PASS | HTTP 200 `{"ok":true}` |
+| 14 | EventHub Processor Invocation | FAIL | `consumer.subscribe(...).catch is not a function` |
+| 15 | Webhook Writer Invocation | PASS | Correctly echoes validation token |
+| 16 | Graph API Token + Subscription | PASS | Token acquired, active subscription for boldoriole@ibuyspy.net/events |
+
+**Azure Resources:**
+- EventHub Namespace: tmf-ehns-eus-8akfpg (Active, Standard, eastus)
+- EventHub: tmf-eh-eus-8akfpg (Active, 2 partitions, 1d retention)
+- Key Vault: tmf-kv-eus-8akfpg (Active, eastus)
+- Storage Account: tmfsteus8akfpg (available, StorageV2, eastus)
+
+**Critical Finding - EventHub Processor Code Bug:**
+- The "Cannot find module 'handler'" error is RESOLVED (real code deployed)
+- NEW ERROR: `consumer.subscribe(...).catch is not a function` at handler.js:207
+- Root cause: `EventHubConsumerClient.subscribe()` returns a `Subscription` object, not a Promise. Chaining `.catch()` on it fails.
+- File: `apps/aws-lambda-eventhub/handler.js` line 207
+- This means the EventHub processor Lambda will fail every invocation until this is fixed.
+
+**Consumer Group Mismatch:**
+- Terraform output `azure_eventhub_lambda_consumer_group` = `lambda-processor`
+- Lambda env var CONSUMER_GROUP = `$Default`
+- These should match for proper EventHub partition ownership.
+
+**EventBridge Rules (all ENABLED):**
+- `tmf-eventhub-poll-dev`: rate(1 minute)
+- `tmf-eventhub-processor-scheduler`: rate(5 minutes)
+- `tmf-renew-subscriptions-dev`: cron(0 2 * * ? *) — daily at 2am
+
+**Stale Config Fixed:**
+- Updated `.env.local.azure` with new API Gateway URL (45kg5tox6b), Bot Webhook URL (yfexrxjcak...), and Bot App ID (acc484fb...)
+
+**Meeting Bot Config Gaps:**
+- WATCHED_USER_IDS is empty — needs boldoriole@ibuyspy.net
+- CALLBACK_URL is empty
+- GRAPH_NOTIFICATION_URL is empty
+- TEAMS_CATALOG_APP_ID is empty
+
 ---
 
 ## Team Updates

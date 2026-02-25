@@ -773,3 +773,41 @@ Do NOT change settings unless public access is off completely — use specific I
 - All agents: Reference `scenarios/nobots-eventhub/.env` for current resource values
 - Keaton: Phase 3 (subscription creation) can proceed with new values
 - Hockney/Redfoot: E2E tests use new `8akfpg` resources
+
+# Decision: EventHub Processor subscribe() Bug Must Be Fixed
+
+**Author:** Redfoot (E2E Tester)
+**Date:** 2026-02-24
+**Status:** Needs Action
+**Assignee:** McManus/Verbal (Implementation)
+
+## Context
+
+During post-redeployment smoke testing (suffix 8akfpg), the EventHub processor Lambda (`tmf-eventhub-processor-dev`) was invoked and returned:
+
+```
+TypeError: consumer.subscribe(...).catch is not a function
+    at /var/task/handler.js:207:13
+```
+
+## Root Cause
+
+In `apps/aws-lambda-eventhub/handler.js` line 186-211, the code calls `consumer.subscribe({...}, {...}).catch(...)`. However, `EventHubConsumerClient.subscribe()` from `@azure/event-hubs` returns a `Subscription` object (with a `close()` method), NOT a Promise. Therefore `.catch()` is not a valid method on the return value.
+
+## Impact
+
+- Every invocation of the EventHub processor Lambda fails immediately
+- EventBridge is triggering this Lambda every 1 minute and every 5 minutes — generating continuous errors
+- No EventHub messages are being consumed
+- The Graph subscription IS active and sending events to EventHub, but nothing reads them
+
+## Recommendation
+
+Wrap the `consumer.subscribe()` call in a try/catch block instead of chaining `.catch()`. The subscribe method is synchronous and starts event processing via the callback handlers (`processEvents`, `processError`). Errors should be caught with try/catch, and cleanup should use `subscription.close()`.
+
+## Additional Finding: Consumer Group Mismatch
+
+- Terraform created consumer group: `lambda-processor`
+- Lambda env var CONSUMER_GROUP: `$Default`
+- Should align to `lambda-processor` for proper partition ownership
+
