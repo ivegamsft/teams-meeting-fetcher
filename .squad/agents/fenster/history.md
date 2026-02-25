@@ -194,3 +194,28 @@
 - **Terraform variable**: `TF_VAR_allowed_ip_addresses` in `deploy-unified.yml` now passes the CIDR (e.g., `["20.161.60.0/24"]`) instead of a single IP. Azure Key Vault and Storage Account `ip_rules` both support CIDR notation.
 - **Storage account**: Same `ip_rules` pattern as Key Vault — both use `var.allowed_ip_addresses` with `default_action = "Deny"`. Both fixed simultaneously via the CIDR change.
 - **Key pattern**: NEVER use a single `/32` IP for GitHub Actions runner firewall rules. Always use `/24` CIDR to account for multi-IP NAT on shared runners.
+
+### 2026-02-25: Admin App ECS Fargate Infrastructure
+
+- **New Terraform module**: `iac/aws/modules/admin-app/` — full ECS Fargate stack (VPC, 2 public + 2 private subnets, IGW, single NAT gateway, ECR, ECS cluster, task definition, service, ALB, security groups, IAM roles, CloudWatch log group, Secrets Manager).
+- **DynamoDB additions**: 3 new tables added to `iac/aws/modules/dynamodb/`: `tmf-meetings-{suffix}` (PK: meeting_id, SK: created_at, GSI: organizer_email+status), `tmf-transcripts-{suffix}` (PK: transcript_id, SK: meeting_id, GSI: meeting_id), `tmf-config-{suffix}` (PK: config_key). All use PAY_PER_REQUEST billing and point-in-time recovery.
+- **S3 addition**: `sanitized_transcripts` bucket added to the storage module's `for_each` map in `iac/aws/main.tf` (versioning enabled, encrypted, no public access — inherited from existing storage module).
+- **Suffix pattern**: New DynamoDB tables use `{base_name}-{resource_suffix}` naming (e.g., `tmf-meetings-8akfpg`). The suffix flows from `module.azure.deployment_suffix` through `iac/main.tf` into the AWS module.
+- **ECS architecture**: Single NAT gateway (cost optimization), private subnets for ECS tasks (outbound via NAT), public subnets for ALB. ALB listener on port 80 forwarding to container port 3000. Health check on `/health`.
+- **IAM least privilege**: Task role has scoped policies for DynamoDB (read/write on all TMF tables + indexes), S3 (read/write on all TMF buckets), Secrets Manager (read on admin app secret), CloudWatch Logs (write). Execution role has ECR pull + log write + secrets read.
+- **Secrets Manager**: Single secret `tmf/admin-app-{suffix}` stores GRAPH_CLIENT_SECRET, SESSION_SECRET, API_KEY, DASHBOARD_PASSWORD. ECS task definition uses `secrets` block to inject from Secrets Manager at container start.
+- **CI/CD workflows**: `build-admin-app.yml` (push to main + workflow_dispatch, builds Docker image, pushes to ECR with git SHA + latest tags), `deploy-admin-app.yml` (workflow_dispatch + after build succeeds, registers new task definition, updates ECS service, waits for stability).
+- **deploy-unified.yml updated**: Added path trigger for `apps/admin-app/**`, added 4 new TF_VAR env vars for admin app secrets and sanitized bucket name.
+- **New GitHub secrets needed**: ADMIN_APP_SESSION_SECRET, ADMIN_APP_API_KEY, ADMIN_APP_DASHBOARD_PASSWORD.
+- **New GitHub variable needed**: SANITIZED_TRANSCRIPT_BUCKET_NAME.
+
+### Entra ID App Registration for Admin App (OIDC Sign-In)
+
+- **New app registration**: `azuread_application.tmf_admin_app` in `iac/azure/modules/azure-ad/main.tf` — display name `tmf-admin-app-{suffix}`, single-tenant (`AzureADMyOrg`), web redirect URI configurable via variable (defaults to `http://localhost:3000/auth/callback`).
+- **Delegated permissions (Scope type, not Role)**: `openid`, `profile`, `email`, `User.Read` — standard OIDC user sign-in scopes. Uses hard-coded Microsoft Graph permission IDs (same pattern as existing app registrations).
+- **Service principal + client secret**: `azuread_service_principal.tmf_admin_app` and `azuread_application_password.tmf_admin_app` created, following same pattern as tmf_app and tmf_bot_app.
+- **Output chain**: `azure-ad/outputs.tf` -> `azure/outputs.tf` -> `iac/main.tf` (passes `admin_app_entra_*` to AWS module) -> `aws/main.tf` -> `aws/modules/admin-app/main.tf`.
+- **ECS environment variables added**: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_REDIRECT_URI` (auto-constructed from ALB DNS if not explicitly set).
+- **Secrets Manager updated**: `ENTRA_CLIENT_SECRET` added to the admin app Secrets Manager secret and injected via ECS `secrets` block.
+- **New root variable**: `admin_app_entra_redirect_uri` (optional, empty default — if empty, ECS constructs `http://{ALB_DNS}/auth/callback` at deploy time).
+- **Post-deploy step**: Admin must grant delegated consent for the new admin app registration's Graph permissions (same pattern as existing app registrations).

@@ -921,3 +921,143 @@ End-to-end latency: ~17 seconds from Graph event creation to S3 storage.
 - Transcript fetching still requires real Teams meetings with speech -- calendar events alone don't generate transcripts.
 - The pipeline is polling every 1 minute via EventBridge, processing both partitions.
 
+
+---
+
+### 2026-02-25T03:56Z: User directive
+**By:** ivegamsft (via Copilot)
+**What:** Admin app authentication must use Entra ID (Azure AD). App registration must be created in Terraform. No separate CLI configuration — all infrastructure and config MUST be in IaC and/or workflows.
+**Why:** User request — captured for team memory
+
+
+---
+
+# Decision: Admin App ECS Fargate Architecture
+
+**Date:** 2026-02-25
+**Author:** Fenster (DevOps/Infra)
+**Status:** Implemented
+
+## Context
+
+The admin app (Express/TypeScript, Docker) needs AWS hosting. The existing infra is fully serverless (Lambda, DynamoDB, S3) with no VPC, ECS, or ECR.
+
+## Decision
+
+Deploy admin app on ECS Fargate with a dedicated VPC, ALB, and ECR repository.
+
+### Key choices:
+1. **Single NAT gateway** (not one per AZ) — cost optimization for dev/staging. Can scale to per-AZ NAT for prod.
+2. **Private subnets for ECS tasks** — no direct internet exposure, outbound via NAT for Graph API calls.
+3. **ALB on port 80** — HTTPS (443) can be added when a domain + ACM cert is provisioned.
+4. **Secrets Manager** for sensitive env vars — Graph client secret, session secret, API key, dashboard password injected at container start via ECS secrets block.
+5. **Suffix from Azure module** (`module.azure.deployment_suffix`) used for all new resource names to maintain naming consistency.
+6. **ECR lifecycle policy** — keeps last 10 images, auto-expires older ones.
+7. **256 CPU / 512 MiB memory** — minimal Fargate sizing to start, adjustable via variables.
+
+### New resources:
+- 3 DynamoDB tables (meetings, transcripts, config)
+- 1 S3 bucket (sanitized transcripts)
+- Full VPC (2 public + 2 private subnets, IGW, NAT, route tables)
+- ECR repository, ECS cluster, task definition, service
+- ALB with target group
+- IAM task role + execution role
+- CloudWatch log group
+- Secrets Manager secret
+- 2 GitHub Actions workflows (build + deploy)
+
+## Impact
+
+- `deploy-unified.yml` now requires 3 new GitHub secrets and 1 new variable
+- First `terraform apply` after this change will create ~30 new AWS resources
+- Existing resources are untouched (no destructive changes)
+
+
+---
+
+# Decision: Admin App Entra ID App Registration in Terraform
+
+**Author:** Fenster (DevOps/Infra)
+**Date:** 2026-02-25
+**Status:** Implemented
+
+## Context
+
+The admin app needs Entra ID (Azure AD) authentication for user sign-in via OIDC, replacing session-based dashboard password auth. The directive requires all auth config to be in IaC — no manual CLI or portal setup.
+
+## Decision
+
+Added a third Azure AD app registration (`tmf_admin_app`) to the existing `azure-ad` Terraform module, following the exact same pattern as the Graph API and bot app registrations.
+
+Key choices:
+- **Single-tenant** (`AzureADMyOrg`) — this is an internal admin tool, not a multi-org app
+- **Delegated permissions** (Scope type) for `openid`, `profile`, `email`, `User.Read` — user sign-in flow, not daemon/service
+- **Client secret stored in AWS Secrets Manager** — same pattern as existing Graph client secret, injected via ECS `secrets` block
+- **Redirect URI auto-constructed from ALB DNS** if not explicitly provided — avoids chicken-and-egg where you need the ALB URL before deploying the ALB
+- **Display name**: `tmf-admin-app-{suffix}` — includes deployment suffix for environment isolation
+
+## Affected Files
+
+- `iac/azure/modules/azure-ad/main.tf` — new app registration, SPN, client secret
+- `iac/azure/modules/azure-ad/variables.tf` — admin_app_display_name, admin_app_redirect_uri
+- `iac/azure/modules/azure-ad/outputs.tf` — admin_app_client_id, admin_app_client_secret, admin_app_object_id
+- `iac/azure/main.tf` — passes display name + redirect URI to azure-ad module
+- `iac/azure/variables.tf` — admin_app_redirect_uri variable
+- `iac/azure/outputs.tf` — chains admin_app outputs through Azure module
+- `iac/aws/modules/admin-app/main.tf` — ENTRA_* env vars, ENTRA_CLIENT_SECRET in Secrets Manager
+- `iac/aws/modules/admin-app/variables.tf` — entra_* variables
+- `iac/aws/main.tf` — passes entra creds to admin_app module
+- `iac/aws/variables.tf` — admin_app_entra_* variables
+- `iac/main.tf` — wires module.azure outputs to module.aws inputs
+- `iac/variables.tf` — admin_app_entra_redirect_uri root variable
+
+## Post-Deploy
+
+Admin must grant delegated consent for the new app registration's Graph permissions.
+
+
+---
+
+# Decision: Admin App Auth Replaced with Entra ID OIDC
+
+**Date:** 2026-02-25
+**Author:** McManus (Backend Dev)
+**Status:** Implemented
+
+## What Changed
+- Removed `DASHBOARD_PASSWORD`-based login entirely from the admin app.
+- Dashboard authentication now uses Entra ID (Azure AD) OIDC via `passport` + `passport-azure-ad`.
+- Auth flow: `/auth/login` -> Entra sign-in -> `/auth/callback` -> session established -> redirect to `/`.
+- Logout clears local session and redirects to Entra's logout endpoint.
+
+## What's Preserved
+- **API key auth** (`x-api-key` header) still works for programmatic API access.
+- **Webhook bearer token auth** unchanged.
+- **Health check** (`/health`) still requires no auth.
+- **express-session** still used for OIDC session storage.
+
+## Required Env Vars (set by Terraform)
+- `ENTRA_TENANT_ID` - Azure AD tenant ID
+- `ENTRA_CLIENT_ID` - App registration client ID
+- `ENTRA_CLIENT_SECRET` - App registration client secret
+- `ENTRA_REDIRECT_URI` - OAuth callback URL (defaults to `http://localhost:{PORT}/auth/callback`)
+
+## Files Changed
+- `apps/admin-app/package.json` - Added `passport`, `passport-azure-ad`, types
+- `apps/admin-app/src/config/index.ts` - Added `entra` config section, removed `dashboardPassword`
+- `apps/admin-app/src/middleware/entraAuth.ts` - New: passport OIDC strategy configuration
+- `apps/admin-app/src/middleware/auth.ts` - Updated `dashboardAuth` to check `req.isAuthenticated()`
+- `apps/admin-app/src/routes/auth.ts` - Replaced password login with OIDC login/callback/logout
+- `apps/admin-app/src/app.ts` - Added passport init, mounted `/auth` routes at app level
+- `apps/admin-app/src/routes/index.ts` - Renamed import (no functional change)
+- `apps/admin-app/public/index.html` - Removed login form, added user info display
+- `apps/admin-app/public/js/app.js` - Redirect to `/auth/login` instead of showing password form
+- `apps/admin-app/public/js/api.js` - Removed password login/logout API methods
+- `apps/admin-app/.env.example` - Added Entra vars, removed DASHBOARD_PASSWORD
+- `apps/admin-app/.env.development` - Removed DASHBOARD_PASSWORD
+
+## Note for Fenster
+The app registration needs these redirect URIs configured:
+- `https://{ALB_DOMAIN}/auth/callback` (production)
+- `http://localhost:3000/auth/callback` (development)
+

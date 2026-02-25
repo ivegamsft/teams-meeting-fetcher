@@ -14,3 +14,9 @@
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+- Admin app auth now uses Entra ID (Azure AD) OIDC via `passport` + `passport-azure-ad` OIDCStrategy. Login is at `/auth/login`, callback at `/auth/callback`, logout at `/auth/logout`. Session-based via express-session.
+- API key auth (`x-api-key` header) is preserved for programmatic/webhook access alongside Entra sessions.
+- Auth routes are mounted at app level (`/auth/*`), not under `/api/auth/*`, because the OIDC flow uses browser redirects. The `/api/auth/status` endpoint remains for frontend status checks.
+- `passport-azure-ad` is deprecated upstream but still functional. If it breaks, replace with `@azure/msal-node` + custom passport strategy.
+- Entra config env vars: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_REDIRECT_URI`. All set by Terraform.
