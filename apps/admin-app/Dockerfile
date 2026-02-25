@@ -37,6 +37,6 @@ USER appuser
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider --no-check-certificate https://localhost:3000/health || exit 1
+  CMD node -e "const https=require('https');https.get({hostname:'localhost',port:3000,path:'/health',rejectUnauthorized:false},(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 
 CMD ["node", "dist/server.js"]
