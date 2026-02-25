@@ -1,0 +1,92 @@
+name: Build Admin App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/admin-app/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "apps/admin-app/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_VERSION: "1.14.3"
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY }}
+  TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+  TF_STATE_LOCK_TABLE: ${{ vars.TF_STATE_LOCK_TABLE }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      ecr_repo: ${{ steps.tf-output.outputs.ecr_repo }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Resolve ECR repository URL
+        id: tf-output
+        run: |
+          cd iac
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="region=$TF_STATE_REGION" \
+            -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
+            -backend-config="encrypt=true"
+          ECR_REPO=$(terraform output -raw admin_app_ecr_repository_url)
+          echo "ecr_repo=$ECR_REPO" >> $GITHUB_OUTPUT
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "image_tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${SHORT_SHA}"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.meta.outputs.image_tag }} \
+            -t ${{ steps.tf-output.outputs.ecr_repo }}:latest \
+            apps/admin-app
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.meta.outputs.image_tag }}
+          docker push ${{ steps.tf-output.outputs.ecr_repo }}:latest
+
+      - name: Build Summary
+        run: |
+          echo "Admin App image built and pushed"
+          echo "Repository: ${{ steps.tf-output.outputs.ecr_repo }}"
+          echo "Tags: ${{ steps.meta.outputs.image_tag }}, latest"

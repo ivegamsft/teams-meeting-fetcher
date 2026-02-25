@@ -75,3 +75,97 @@ resource "aws_dynamodb_table" "eventhub_checkpoints" {
 
   tags = var.tags
 }
+
+//=============================================================================
+// DYNAMODB TABLE - Meetings (admin app)
+//=============================================================================
+
+resource "aws_dynamodb_table" "meetings" {
+  name         = "${var.meetings_table_name}-${var.resource_suffix}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "meeting_id"
+  range_key    = "created_at"
+
+  attribute {
+    name = "meeting_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "created_at"
+    type = "S"
+  }
+
+  attribute {
+    name = "organizer_email"
+    type = "S"
+  }
+
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "organizer-status-index"
+    hash_key        = "organizer_email"
+    range_key       = "status"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = var.tags
+}
+
+//=============================================================================
+// DYNAMODB TABLE - Transcripts (admin app)
+//=============================================================================
+
+resource "aws_dynamodb_table" "transcripts" {
+  name         = "${var.transcripts_table_name}-${var.resource_suffix}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "transcript_id"
+  range_key    = "meeting_id"
+
+  attribute {
+    name = "transcript_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "meeting_id"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "meeting-id-index"
+    hash_key        = "meeting_id"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = var.tags
+}
+
+//=============================================================================
+// DYNAMODB TABLE - Config (admin app)
+//=============================================================================
+
+resource "aws_dynamodb_table" "config" {
+  name         = "${var.config_table_name}-${var.resource_suffix}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "config_key"
+
+  attribute {
+    name = "config_key"
+    type = "S"
+  }
+
+  tags = var.tags
+}

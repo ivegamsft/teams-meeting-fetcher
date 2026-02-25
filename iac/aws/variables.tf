@@ -29,6 +29,18 @@ variable "checkpoint_bucket_name" {
   type        = string
 }
 
+variable "sanitized_transcript_bucket_name" {
+  description = "S3 bucket name for sanitized transcript storage"
+  type        = string
+  default     = "tmf-sanitized-transcripts"
+}
+
+variable "resource_suffix" {
+  description = "Unique suffix for resource naming (e.g., 8akfpg)"
+  type        = string
+  default     = ""
+}
+
 variable "eventhub_checkpoints_table_name" {
   description = "DynamoDB table name for Event Hub checkpoints"
   type        = string
@@ -233,4 +245,55 @@ variable "graph_notification_client_state" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+//=============================================================================
+// ADMIN APP VARIABLES
+//=============================================================================
+
+variable "admin_app_session_secret" {
+  description = "Express session secret for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "admin_app_api_key" {
+  description = "API key for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "admin_app_dashboard_password" {
+  description = "Dashboard password for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+//=============================================================================
+// ADMIN APP ENTRA ID AUTH
+//=============================================================================
+
+variable "admin_app_entra_tenant_id" {
+  description = "Entra ID tenant ID for admin app OIDC sign-in"
+  type        = string
+}
+
+variable "admin_app_entra_client_id" {
+  description = "Entra ID client ID for admin app OIDC sign-in"
+  type        = string
+}
+
+variable "admin_app_entra_client_secret" {
+  description = "Entra ID client secret for admin app OIDC sign-in"
+  type        = string
+  sensitive   = true
+}
+
+variable "admin_app_entra_redirect_uri" {
+  description = "Entra ID OIDC redirect URI (optional, constructed from ALB DNS if empty)"
+  type        = string
+  default     = ""
 }

@@ -173,3 +173,76 @@ output "bot_callbacks_url" {
   description = "Bot callbacks URL"
   value       = module.bot_api_gateway.callbacks_url
 }
+
+//=============================================================================
+// ADMIN APP DYNAMO + S3 OUTPUTS
+//=============================================================================
+
+output "meetings_table_name" {
+  description = "Meetings DynamoDB table name"
+  value       = module.dynamodb.meetings_table_name
+}
+
+output "meetings_table_arn" {
+  description = "Meetings DynamoDB table ARN"
+  value       = module.dynamodb.meetings_table_arn
+}
+
+output "transcripts_table_name" {
+  description = "Transcripts DynamoDB table name"
+  value       = module.dynamodb.transcripts_table_name
+}
+
+output "transcripts_table_arn" {
+  description = "Transcripts DynamoDB table ARN"
+  value       = module.dynamodb.transcripts_table_arn
+}
+
+output "config_table_name" {
+  description = "Config DynamoDB table name"
+  value       = module.dynamodb.config_table_name
+}
+
+output "config_table_arn" {
+  description = "Config DynamoDB table ARN"
+  value       = module.dynamodb.config_table_arn
+}
+
+output "sanitized_transcript_bucket_name" {
+  description = "Sanitized transcripts S3 bucket name"
+  value       = module.storage.bucket_names["sanitized_transcripts"]
+}
+
+output "sanitized_transcript_bucket_arn" {
+  description = "Sanitized transcripts S3 bucket ARN"
+  value       = module.storage.bucket_arns["sanitized_transcripts"]
+}
+
+//=============================================================================
+// ADMIN APP OUTPUTS
+//=============================================================================
+
+output "admin_app_alb_dns_name" {
+  description = "Admin app ALB DNS name"
+  value       = module.admin_app.alb_dns_name
+}
+
+output "admin_app_ecr_repository_url" {
+  description = "Admin app ECR repository URL"
+  value       = module.admin_app.ecr_repository_url
+}
+
+output "admin_app_ecs_cluster_name" {
+  description = "Admin app ECS cluster name"
+  value       = module.admin_app.ecs_cluster_name
+}
+
+output "admin_app_ecs_service_name" {
+  description = "Admin app ECS service name"
+  value       = module.admin_app.ecs_service_name
+}
+
+output "admin_app_task_definition_arn" {
+  description = "Admin app ECS task definition ARN"
+  value       = module.admin_app.task_definition_arn
+}

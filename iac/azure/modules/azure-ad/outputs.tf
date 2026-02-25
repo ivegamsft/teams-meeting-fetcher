@@ -60,6 +60,26 @@ output "lambda_service_principal_object_id" {
   value       = azuread_service_principal.tmf_lambda_app.object_id
 }
 
+//=============================================================================
+// ADMIN APP OUTPUTS (Entra ID OIDC)
+//=============================================================================
+
+output "admin_app_client_id" {
+  description = "Admin app application (client) ID for OIDC sign-in"
+  value       = azuread_application.tmf_admin_app.client_id
+}
+
+output "admin_app_object_id" {
+  description = "Admin app application object ID"
+  value       = azuread_application.tmf_admin_app.object_id
+}
+
+output "admin_app_client_secret" {
+  description = "Admin app client secret for OIDC sign-in"
+  value       = azuread_application_password.tmf_admin_app.value
+  sensitive   = true
+}
+
 output "admin_group_id" {
   description = "Admin group object ID"
   value       = azuread_group.admins.object_id

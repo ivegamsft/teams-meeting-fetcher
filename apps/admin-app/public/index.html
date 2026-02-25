@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teams Meeting Fetcher</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="dashboard" class="hidden">
+      <nav class="sidebar">
+        <div class="sidebar-header">
+          <h2>TMF</h2>
+          <span class="subtitle">Teams Meeting Fetcher</span>
+        </div>
+        <ul class="nav-links">
+          <li><a href="#" data-page="overview" class="nav-link active">Overview</a></li>
+          <li><a href="#" data-page="subscriptions" class="nav-link">Subscriptions</a></li>
+          <li><a href="#" data-page="meetings" class="nav-link">Meetings</a></li>
+          <li><a href="#" data-page="transcripts" class="nav-link">Transcripts</a></li>
+          <li><a href="#" data-page="settings" class="nav-link">Settings</a></li>
+        </ul>
+        <div class="sidebar-footer">
+          <div id="user-info" class="user-info"></div>
+          <a href="/auth/logout" id="logout-btn" class="btn btn-outline btn-sm">Logout</a>
+        </div>
+      </nav>
+
+      <main class="content">
+        <div id="page-overview" class="page-content">
+          <h1>Dashboard Overview</h1>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="stat-subscriptions">--</div>
+              <div class="stat-label">Active Subscriptions</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-meetings">--</div>
+              <div class="stat-label">Total Meetings</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-transcripts">--</div>
+              <div class="stat-label">Transcripts Processed</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="stat-pending">--</div>
+              <div class="stat-label">Pending</div>
+            </div>
+          </div>
+          <div class="card mt-4">
+            <h2>System Health</h2>
+            <div id="health-status" class="health-grid"></div>
+          </div>
+          <div class="card mt-4">
+            <h2>Recent Meetings</h2>
+            <div id="recent-meetings"></div>
+          </div>
+        </div>
+
+        <div id="page-subscriptions" class="page-content hidden">
+          <div class="page-header">
+            <h1>Subscriptions</h1>
+            <div class="page-actions">
+              <button id="sync-group-btn" class="btn btn-secondary">Sync Group Members</button>
+              <button id="new-subscription-btn" class="btn btn-primary">New Subscription</button>
+            </div>
+          </div>
+          <div class="card">
+            <table class="data-table" id="subscriptions-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Email</th>
+                  <th>Resource</th>
+                  <th>Status</th>
+                  <th>Expires</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subscriptions-tbody"></tbody>
+            </table>
+            <div id="subscriptions-empty" class="empty-state hidden">No subscriptions found</div>
+          </div>
+        </div>
+
+        <div id="page-meetings" class="page-content hidden">
+          <div class="page-header">
+            <h1>Meetings</h1>
+          </div>
+          <div class="filters-bar">
+            <select id="filter-status" class="form-input">
+              <option value="">All Statuses</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="recording">Recording</option>
+              <option value="transcript_pending">Transcript Pending</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <input type="date" id="filter-from" class="form-input" placeholder="From">
+            <input type="date" id="filter-to" class="form-input" placeholder="To">
+            <button id="apply-filters-btn" class="btn btn-secondary">Apply</button>
+          </div>
+          <div class="card">
+            <table class="data-table" id="meetings-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Organizer</th>
+                  <th>Start Time</th>
+                  <th>Status</th>
+                  <th>Transcript</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="meetings-tbody"></tbody>
+            </table>
+            <div id="meetings-empty" class="empty-state hidden">No meetings found</div>
+            <div id="meetings-pagination" class="pagination"></div>
+          </div>
+        </div>
+
+        <div id="page-transcripts" class="page-content hidden">
+          <div class="page-header">
+            <h1>Transcripts</h1>
+          </div>
+          <div class="card">
+            <table class="data-table" id="transcripts-table">
+              <thead>
+                <tr>
+                  <th>Meeting ID</th>
+                  <th>Status</th>
+                  <th>Language</th>
+                  <th>Created</th>
+                  <th>Processed</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="transcripts-tbody"></tbody>
+            </table>
+            <div id="transcripts-empty" class="empty-state hidden">No transcripts found</div>
+          </div>
+        </div>
+
+        <div id="page-settings" class="page-content hidden">
+          <h1>Settings</h1>
+          <div class="card">
+            <h2>Configuration</h2>
+            <form id="settings-form">
+              <div class="form-group">
+                <label for="setting-group-id">Entra Group ID</label>
+                <input type="text" id="setting-group-id" class="form-input" placeholder="Enter Entra Group ID">
+              </div>
+              <div class="form-group">
+                <label>Webhook URL</label>
+                <div class="readonly-field" id="setting-webhook-url">--</div>
+              </div>
+              <div class="form-group">
+                <label>Tenant ID</label>
+                <div class="readonly-field" id="setting-tenant-id">--</div>
+              </div>
+              <button type="submit" class="btn btn-primary">Save Settings</button>
+            </form>
+          </div>
+          <div class="card mt-4">
+            <h2>Connection Status</h2>
+            <div id="connection-status"></div>
+          </div>
+          <div class="card mt-4">
+            <h2>Statistics</h2>
+            <div id="config-stats"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay hidden">
+      <div class="modal" id="modal-content"></div>
+    </div>
+
+    <div id="transcript-viewer" class="modal-overlay hidden">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <h2>Transcript Viewer</h2>
+          <button class="btn btn-sm" id="close-viewer">&times;</button>
+        </div>
+        <div class="transcript-tabs">
+          <button class="tab-btn active" data-tab="sanitized">Sanitized</button>
+          <button class="tab-btn" data-tab="raw">Raw</button>
+        </div>
+        <div class="transcript-content" id="transcript-text"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="download-transcript-btn">Download</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

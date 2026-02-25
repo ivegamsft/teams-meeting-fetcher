@@ -13,6 +13,17 @@ variable "bot_app_display_name" {
   type        = string
 }
 
+variable "admin_app_display_name" {
+  description = "Display name for the admin app Entra ID registration (OIDC sign-in)"
+  type        = string
+}
+
+variable "admin_app_redirect_uri" {
+  description = "OAuth2 redirect URI for admin app (ALB DNS + /auth/callback)"
+  type        = string
+  default     = "http://localhost:3000/auth/callback"
+}
+
 variable "admin_group_display_name" {
   description = "Display name for the monitored meetings group"
   type        = string

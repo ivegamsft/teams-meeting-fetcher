@@ -1,0 +1,136 @@
+name: Deploy Admin App
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docker image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+        type: string
+  workflow_run:
+    workflows: ["Build Admin App"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_VERSION: "1.14.3"
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_STATE_KEY: ${{ vars.TF_STATE_KEY }}
+  TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+  TF_STATE_LOCK_TABLE: ${{ vars.TF_STATE_LOCK_TABLE }}
+
+jobs:
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Resolve ECS resources from Terraform state
+        id: tf-output
+        run: |
+          cd iac
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=$TF_STATE_KEY" \
+            -backend-config="region=$TF_STATE_REGION" \
+            -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
+            -backend-config="encrypt=true"
+          echo "ecr_repo=$(terraform output -raw admin_app_ecr_repository_url)" >> $GITHUB_OUTPUT
+          echo "cluster_name=$(terraform output -raw admin_app_ecs_cluster_name)" >> $GITHUB_OUTPUT
+          echo "service_name=$(terraform output -raw admin_app_ecs_service_name)" >> $GITHUB_OUTPUT
+          echo "task_family=$(terraform output -json admin_app_task_definition_arn | jq -r 'split("/")[1] | split(":")[0]')" >> $GITHUB_OUTPUT
+
+      - name: Determine image tag
+        id: image
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            TAG="${SHA:0:7}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Image tag: ${TAG}"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get current task definition
+        id: task-def
+        run: |
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition "${{ steps.tf-output.outputs.task_family }}" \
+            --query 'taskDefinition' \
+            --output json)
+
+          # Update the image in the container definition
+          ECR_REPO="${{ steps.tf-output.outputs.ecr_repo }}"
+          IMAGE_TAG="${{ steps.image.outputs.tag }}"
+          NEW_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
+
+          echo "$TASK_DEF" | jq \
+            --arg image "$NEW_IMAGE" \
+            '.containerDefinitions[0].image = $image |
+             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            > /tmp/task-def.json
+
+          echo "Registering new task definition with image: ${NEW_IMAGE}"
+
+      - name: Register new task definition
+        id: register
+        run: |
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_def_arn=${NEW_TASK_DEF}" >> $GITHUB_OUTPUT
+          echo "Registered: ${NEW_TASK_DEF}"
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.tf-output.outputs.cluster_name }}" \
+            --service "${{ steps.tf-output.outputs.service_name }}" \
+            --task-definition "${{ steps.register.outputs.task_def_arn }}" \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for service stability
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster "${{ steps.tf-output.outputs.cluster_name }}" \
+            --services "${{ steps.tf-output.outputs.service_name }}" \
+            --region ${{ env.AWS_REGION }} || echo "::warning::Service did not stabilize within timeout"
+
+      - name: Deployment Summary
+        run: |
+          echo "Admin App deployed to ECS"
+          echo "Cluster: ${{ steps.tf-output.outputs.cluster_name }}"
+          echo "Service: ${{ steps.tf-output.outputs.service_name }}"
+          echo "Task Definition: ${{ steps.register.outputs.task_def_arn }}"
+          echo "Image: ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.image.outputs.tag }}"

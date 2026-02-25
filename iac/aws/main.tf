@@ -39,6 +39,10 @@ module "storage" {
       name              = var.checkpoint_bucket_name
       enable_versioning = false
     }
+    sanitized_transcripts = {
+      name              = var.sanitized_transcript_bucket_name
+      enable_versioning = true
+    }
   }
 
   tags = local.common_tags
@@ -53,6 +57,7 @@ module "dynamodb" {
 
   subscriptions_table_name        = var.subscriptions_table_name
   eventhub_checkpoints_table_name = var.eventhub_checkpoints_table_name
+  resource_suffix                 = var.resource_suffix
 
   tags = local.common_tags
 }
@@ -286,6 +291,59 @@ module "bot_api_gateway" {
   authorizer_invoke_arn    = module.authorizer.invoke_arn
   authorizer_function_name = module.authorizer.function_name
   stage_name               = var.environment
+
+  tags = local.common_tags
+}
+
+//=============================================================================
+// ADMIN APP MODULE - ECS Fargate (VPC, ALB, ECR, Secrets Manager)
+//=============================================================================
+
+module "admin_app" {
+  source = "./modules/admin-app"
+
+  resource_suffix = var.resource_suffix
+  environment     = var.environment
+  aws_region      = var.aws_region
+
+  # DynamoDB tables
+  subscriptions_table_name        = module.dynamodb.subscriptions_table_name
+  subscriptions_table_arn         = module.dynamodb.subscriptions_table_arn
+  meetings_table_name             = module.dynamodb.meetings_table_name
+  meetings_table_arn              = module.dynamodb.meetings_table_arn
+  transcripts_table_name          = module.dynamodb.transcripts_table_name
+  transcripts_table_arn           = module.dynamodb.transcripts_table_arn
+  config_table_name               = module.dynamodb.config_table_name
+  config_table_arn                = module.dynamodb.config_table_arn
+  eventhub_checkpoints_table_name = module.dynamodb.eventhub_checkpoints_table_name
+  eventhub_checkpoints_table_arn  = module.dynamodb.eventhub_checkpoints_table_arn
+
+  # S3 buckets
+  webhook_bucket_name              = module.storage.bucket_names["webhooks"]
+  webhook_bucket_arn               = module.storage.bucket_arns["webhooks"]
+  transcript_bucket_name           = module.storage.bucket_names["transcripts"]
+  transcript_bucket_arn            = module.storage.bucket_arns["transcripts"]
+  sanitized_transcript_bucket_name = module.storage.bucket_names["sanitized_transcripts"]
+  sanitized_transcript_bucket_arn  = module.storage.bucket_arns["sanitized_transcripts"]
+  checkpoint_bucket_name           = module.storage.bucket_names["checkpoints"]
+  checkpoint_bucket_arn            = module.storage.bucket_arns["checkpoints"]
+
+  # Graph API credentials
+  graph_tenant_id     = var.azure_graph_tenant_id
+  graph_client_id     = var.azure_graph_client_id
+  graph_client_secret = var.azure_graph_client_secret
+  entra_group_id      = var.azure_allowed_group_id
+
+  # App secrets
+  session_secret     = var.admin_app_session_secret
+  api_key            = var.admin_app_api_key
+  dashboard_password = var.admin_app_dashboard_password
+
+  # Entra ID OIDC auth
+  entra_tenant_id     = var.admin_app_entra_tenant_id
+  entra_client_id     = var.admin_app_entra_client_id
+  entra_client_secret = var.admin_app_entra_client_secret
+  entra_redirect_uri  = var.admin_app_entra_redirect_uri
 
   tags = local.common_tags
 }

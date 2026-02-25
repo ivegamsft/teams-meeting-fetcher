@@ -123,6 +123,26 @@ output "test_user_password" {
 # }
 
 //=============================================================================
+// ADMIN APP ENTRA ID OUTPUTS (OIDC sign-in)
+//=============================================================================
+
+output "admin_app_client_id" {
+  description = "Admin app Entra ID client ID for OIDC sign-in"
+  value       = module.azure_ad.admin_app_client_id
+}
+
+output "admin_app_client_secret" {
+  description = "Admin app Entra ID client secret"
+  value       = module.azure_ad.admin_app_client_secret
+  sensitive   = true
+}
+
+output "admin_app_object_id" {
+  description = "Admin app Entra ID object ID"
+  value       = module.azure_ad.admin_app_object_id
+}
+
+//=============================================================================
 // KEY VAULT OUTPUTS
 //=============================================================================
 

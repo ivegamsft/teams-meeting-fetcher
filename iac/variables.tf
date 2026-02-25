@@ -261,3 +261,40 @@ variable "eventhub_namespace" {
   type        = string
   default     = ""
 }
+
+//=============================================================================
+// ADMIN APP VARIABLES
+//=============================================================================
+
+variable "sanitized_transcript_bucket_name" {
+  description = "S3 bucket name for sanitized transcripts"
+  type        = string
+  default     = "tmf-sanitized-transcripts"
+}
+
+variable "admin_app_session_secret" {
+  description = "Express session secret for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "admin_app_api_key" {
+  description = "API key for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "admin_app_dashboard_password" {
+  description = "Dashboard password for admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "admin_app_entra_redirect_uri" {
+  description = "Entra ID OIDC redirect URI for admin app (ALB DNS + /auth/callback). If empty, constructed from ALB DNS at deploy time."
+  type        = string
+  default     = ""
+}

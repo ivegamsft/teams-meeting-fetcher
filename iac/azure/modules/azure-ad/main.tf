@@ -135,6 +135,52 @@ resource "azuread_application_password" "tmf_lambda_app" {
   application_id = azuread_application.tmf_lambda_app.id
 }
 
+//=============================================================================
+// ADMIN APP - Entra ID OIDC (user sign-in, delegated permissions)
+//=============================================================================
+
+resource "azuread_application" "tmf_admin_app" {
+  display_name     = var.admin_app_display_name
+  sign_in_audience = "AzureADMyOrg"
+
+  web {
+    redirect_uris = [var.admin_app_redirect_uri]
+  }
+
+  required_resource_access {
+    resource_app_id = local.graph_client_id
+
+    // openid (delegated)
+    resource_access {
+      id   = "37f7f235-527c-4136-accd-4a02d197296e"
+      type = "Scope"
+    }
+    // profile (delegated)
+    resource_access {
+      id   = "14dad69e-099b-42c9-810b-d002981feec1"
+      type = "Scope"
+    }
+    // email (delegated)
+    resource_access {
+      id   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
+      type = "Scope"
+    }
+    // User.Read (delegated)
+    resource_access {
+      id   = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
+      type = "Scope"
+    }
+  }
+}
+
+resource "azuread_service_principal" "tmf_admin_app" {
+  client_id = azuread_application.tmf_admin_app.client_id
+}
+
+resource "azuread_application_password" "tmf_admin_app" {
+  application_id = azuread_application.tmf_admin_app.id
+}
+
 // NOTE: App role assignments commented out - requires Directory.Read.All to get Graph SPN object ID
 // These will be granted via admin consent URL or Azure Portal instead
 // resource "azuread_app_role_assignment" "graph_app_roles" {

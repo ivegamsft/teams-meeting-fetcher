@@ -89,6 +89,7 @@ module "azure" {
   allowed_ip_addresses        = var.allowed_ip_addresses
   current_user_object_id      = var.current_user_object_id
   eventhub_local_auth_enabled = var.eventhub_local_auth_enabled
+  admin_app_redirect_uri      = var.admin_app_entra_redirect_uri
 }
 
 //=============================================================================
@@ -158,4 +159,17 @@ module "aws" {
   eventhub_poll_window_minutes      = var.eventhub_poll_window_minutes
   eventhub_max_events               = var.eventhub_max_events
   eventhub_checkpoints_table_name   = var.eventhub_checkpoints_table_name
+
+  # Admin app configuration
+  resource_suffix                  = module.azure.deployment_suffix
+  sanitized_transcript_bucket_name = var.sanitized_transcript_bucket_name
+  admin_app_session_secret         = var.admin_app_session_secret
+  admin_app_api_key                = var.admin_app_api_key
+  admin_app_dashboard_password     = var.admin_app_dashboard_password
+
+  # Admin app Entra ID OIDC auth (from Azure module outputs)
+  admin_app_entra_tenant_id     = module.azure.app_tenant_id
+  admin_app_entra_client_id     = module.azure.admin_app_client_id
+  admin_app_entra_client_secret = module.azure.admin_app_client_secret
+  admin_app_entra_redirect_uri  = var.admin_app_entra_redirect_uri
 }

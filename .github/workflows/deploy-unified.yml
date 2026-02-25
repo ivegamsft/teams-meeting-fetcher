@@ -8,6 +8,9 @@ name: Deploy Unified Infrastructure
 # AZURE_TENANT_ID               - Azure AD tenant ID
 # AZURE_SUBSCRIPTION_ID         - Azure subscription ID
 # CLIENT_STATE                  - Client state secret for Graph API webhooks
+# ADMIN_APP_SESSION_SECRET      - Express session secret for admin app
+# ADMIN_APP_API_KEY             - API key for admin app
+# ADMIN_APP_DASHBOARD_PASSWORD  - Dashboard password for admin app
 #
 # REQUIRED GITHUB VARIABLES:
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -23,6 +26,7 @@ name: Deploy Unified Infrastructure
 # BOT_MESSAGING_ENDPOINT        - Teams bot messaging endpoint URL
 # KEY_VAULT_NAME                - Azure Key Vault name for firewall management
 # RESOURCE_GROUP_NAME           - Azure resource group name
+# SANITIZED_TRANSCRIPT_BUCKET_NAME - S3 bucket name for sanitized transcripts
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 on:
@@ -31,6 +35,7 @@ on:
       - main
     paths:
       - "apps/aws-lambda/**"
+      - "apps/admin-app/**"
       - "iac/*.tf"
       - "iac/aws/**"
       - "iac/azure/**"
@@ -190,6 +195,10 @@ jobs:
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
           TF_VAR_allowed_ip_addresses: '["${{ steps.firewall_prep.outputs.cidr }}"]'
+          TF_VAR_admin_app_session_secret: ${{ secrets.ADMIN_APP_SESSION_SECRET }}
+          TF_VAR_admin_app_api_key: ${{ secrets.ADMIN_APP_API_KEY }}
+          TF_VAR_admin_app_dashboard_password: ${{ secrets.ADMIN_APP_DASHBOARD_PASSWORD }}
+          TF_VAR_sanitized_transcript_bucket_name: ${{ vars.SANITIZED_TRANSCRIPT_BUCKET_NAME }}
 
       - name: Terraform apply
         if: github.event.inputs.mode == 'apply'

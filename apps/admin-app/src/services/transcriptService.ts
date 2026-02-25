@@ -1,0 +1,123 @@
+import { v4 as uuidv4 } from 'uuid';
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getGraphClient } from '../config/graph';
+import { config } from '../config';
+import { s3Client } from '../config/s3';
+import { Meeting, Transcript } from '../models';
+import { transcriptStore } from './transcriptStore';
+import { meetingStore } from './meetingStore';
+import { configStore } from './configStore';
+import { sanitizationService } from './sanitizationService';
+
+export const transcriptService = {
+  async fetchAndStore(meeting: Meeting, graphTranscriptId: string): Promise<Transcript> {
+    const transcriptId = uuidv4();
+    const now = new Date().toISOString();
+
+    const transcript: Transcript = {
+      id: transcriptId,
+      meetingId: meeting.id,
+      status: 'fetching',
+      language: 'en',
+      graphTranscriptId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await transcriptStore.put(transcript);
+    await meetingStore.setTranscriptionId(meeting.id, transcriptId);
+    await configStore.incrementCounter('transcriptionsPending', 1);
+
+    try {
+      const client = getGraphClient();
+      const contentResponse = await client
+        .api(`/communications/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`)
+        .responseType('text' as any)
+        .get();
+
+      const rawContent = typeof contentResponse === 'string' ? contentResponse : JSON.stringify(contentResponse);
+
+      const rawKey = `raw/${meeting.id}/${transcriptId}.vtt`;
+      await s3Client.send(new PutObjectCommand({
+        Bucket: config.aws.s3.rawBucket,
+        Key: rawKey,
+        Body: rawContent,
+        ContentType: 'text/vtt',
+      }));
+
+      await transcriptStore.updateS3Paths(transcriptId, `s3://${config.aws.s3.rawBucket}/${rawKey}`);
+      await transcriptStore.updateStatus(transcriptId, 'raw_stored');
+
+      if (config.sanitization.enabled) {
+        await this.sanitizeTranscript(transcriptId, rawContent, meeting.id);
+      } else {
+        await transcriptStore.updateStatus(transcriptId, 'completed');
+        await meetingStore.updateStatus(meeting.id, 'completed');
+        await configStore.incrementCounter('transcriptionsProcessed', 1);
+        await configStore.incrementCounter('transcriptionsPending', -1);
+      }
+
+      return (await transcriptStore.get(transcriptId))!;
+    } catch (err: any) {
+      console.error(`Failed to fetch transcript ${graphTranscriptId}:`, err.message);
+      await transcriptStore.updateStatus(transcriptId, 'failed', err.message);
+      await meetingStore.updateStatus(meeting.id, 'failed');
+      throw err;
+    }
+  },
+
+  async sanitizeTranscript(transcriptId: string, rawContent: string, meetingId: string): Promise<void> {
+    await transcriptStore.updateStatus(transcriptId, 'sanitizing');
+
+    try {
+      const sanitizedContent = await sanitizationService.sanitize(rawContent);
+
+      const sanitizedKey = `sanitized/${meetingId}/${transcriptId}.vtt`;
+      await s3Client.send(new PutObjectCommand({
+        Bucket: config.aws.s3.sanitizedBucket,
+        Key: sanitizedKey,
+        Body: sanitizedContent,
+        ContentType: 'text/vtt',
+      }));
+
+      await transcriptStore.updateS3Paths(transcriptId, undefined, `s3://${config.aws.s3.sanitizedBucket}/${sanitizedKey}`);
+      await transcriptStore.updateStatus(transcriptId, 'completed');
+      await meetingStore.updateStatus(meetingId, 'completed');
+      await configStore.incrementCounter('transcriptionsProcessed', 1);
+      await configStore.incrementCounter('transcriptionsPending', -1);
+    } catch (err: any) {
+      console.error(`Sanitization failed for transcript ${transcriptId}:`, err.message);
+      await transcriptStore.updateStatus(transcriptId, 'failed', `Sanitization failed: ${err.message}`);
+    }
+  },
+
+  async getTranscript(id: string): Promise<Transcript | null> {
+    return transcriptStore.get(id);
+  },
+
+  async getTranscriptByMeetingId(meetingId: string): Promise<Transcript | null> {
+    return transcriptStore.getByMeetingId(meetingId);
+  },
+
+  async getTranscriptContent(transcript: Transcript, type: 'raw' | 'sanitized' = 'sanitized'): Promise<string | null> {
+    const s3Path = type === 'raw' ? transcript.rawS3Path : transcript.sanitizedS3Path;
+    if (!s3Path) return null;
+
+    const match = s3Path.match(/s3:\/\/([^/]+)\/(.+)/);
+    if (!match) return null;
+
+    const [, bucket, key] = match;
+
+    try {
+      const response = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return await response.Body?.transformToString() || null;
+    } catch (err: any) {
+      console.error(`Failed to fetch transcript content from ${s3Path}:`, err.message);
+      return null;
+    }
+  },
+
+  async listTranscripts(filters?: { status?: string }): Promise<Transcript[]> {
+    return transcriptStore.listAll(filters);
+  },
+};

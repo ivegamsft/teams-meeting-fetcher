@@ -114,6 +114,8 @@ module "azure_ad" {
   app_display_name         = var.app_display_name
   bot_app_display_name     = var.bot_app_display_name
   admin_group_display_name = var.admin_group_display_name
+  admin_app_display_name   = "${var.base_name}-admin-app-${local.suffix}"
+  admin_app_redirect_uri   = var.admin_app_redirect_uri
 
   // Test user configuration
   create_test_user         = var.create_test_user

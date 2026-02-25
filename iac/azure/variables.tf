@@ -102,6 +102,12 @@ variable "eventhub_local_auth_enabled" {
   default     = false
 }
 
+variable "admin_app_redirect_uri" {
+  description = "OAuth2 redirect URI for admin app Entra ID OIDC sign-in (ALB DNS + /auth/callback)"
+  type        = string
+  default     = "http://localhost:3000/auth/callback"
+}
+
 variable "domain_name_suffix" {
   description = "Override for default domain name suffix (e.g., 'contoso.com'). If empty, the default verified domain from Azure AD will be used. Useful for sovereign clouds."
   type        = string

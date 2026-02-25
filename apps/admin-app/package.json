@@ -1,0 +1,47 @@
+{
+  "name": "teams-meeting-fetcher-backend",
+  "version": "1.0.0",
+  "description": "Express.js/TypeScript backend for Teams Meeting Fetcher",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "tsc --noEmit",
+    "test": "echo \"No tests configured yet\" && exit 0"
+  },
+  "keywords": ["teams", "meeting", "fetcher", "transcript"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "@azure/identity": "^4.0.0",
+    "@microsoft/microsoft-graph-client": "^3.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "express-session": "^1.17.0",
+    "passport": "^0.7.0",
+    "passport-azure-ad": "^4.3.0",
+    "helmet": "^7.0.0",
+    "isomorphic-fetch": "^3.0.0",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.18.2",
+    "@types/passport": "^1.0.17",
+    "@types/passport-azure-ad": "^4.3.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.3.0",
+    "@types/uuid": "^10.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}
