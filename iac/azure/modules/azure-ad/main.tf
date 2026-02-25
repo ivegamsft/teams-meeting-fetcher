@@ -144,7 +144,7 @@ resource "azuread_application" "tmf_admin_app" {
   sign_in_audience = "AzureADMyOrg"
 
   web {
-    redirect_uris = [var.admin_app_redirect_uri]
+    redirect_uris = var.admin_app_redirect_uri != "" ? [var.admin_app_redirect_uri] : []
   }
 
   required_resource_access {
