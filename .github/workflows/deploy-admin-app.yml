@@ -18,6 +18,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  actions: write
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
@@ -127,71 +128,12 @@ jobs:
             --services "${{ steps.tf-output.outputs.service_name }}" \
             --region ${{ env.AWS_REGION }} || echo "::warning::Service did not stabilize within timeout"
 
-      - name: Update Entra redirect URI with new task IP
+      - name: Sync Entra redirect URI via Terraform
         env:
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          CLUSTER="${{ steps.tf-output.outputs.cluster_name }}"
-          SERVICE="${{ steps.tf-output.outputs.service_name }}"
-
-          # Discover the new task's public IP
-          for i in $(seq 1 18); do
-            TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" \
-              --query 'taskArns[0]' --output text 2>/dev/null || echo "None")
-            if [ "$TASK_ARN" != "None" ] && [ -n "$TASK_ARN" ]; then
-              STATUS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
-                --query 'tasks[0].lastStatus' --output text 2>/dev/null || echo "")
-              if [ "$STATUS" = "RUNNING" ]; then
-                ENI_ID=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
-                  --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
-                PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI_ID" \
-                  --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
-                if [ -n "$PUBLIC_IP" ] && [ "$PUBLIC_IP" != "None" ]; then
-                  echo "Task IP: $PUBLIC_IP"
-                  REDIRECT_URI="http://${PUBLIC_IP}:3000/auth/callback"
-
-                  # Update Entra app redirect URI via Terraform
-                  cd iac
-                  terraform init \
-                    -backend-config="bucket=$TF_STATE_BUCKET" \
-                    -backend-config="key=$TF_STATE_KEY" \
-                    -backend-config="region=$TF_STATE_REGION" \
-                    -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
-                    -backend-config="encrypt=true"
-
-                  # Import current redirect URIs and check if update needed
-                  CURRENT=$(terraform state show 'azuread_application_redirect_uris.admin_app' 2>/dev/null | grep -o 'http://[^"]*' || echo "")
-                  if [ "$CURRENT" = "$REDIRECT_URI" ]; then
-                    echo "Redirect URI already correct"
-                  else
-                    echo "Updating Entra redirect URI to: $REDIRECT_URI"
-                    terraform apply -auto-approve \
-                      -target='azuread_application_redirect_uris.admin_app' \
-                      -var="use_oidc=true" \
-                      -var="azure_subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-                      -var="azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-                      -var="azure_client_id=${{ secrets.AZURE_CLIENT_ID }}" \
-                      -var="aws_account_id=${{ vars.AWS_ACCOUNT_ID }}" \
-                      -var="webhook_bucket_name=${{ vars.WEBHOOK_BUCKET_NAME }}" \
-                      -var="transcript_bucket_name=${{ vars.TRANSCRIPT_BUCKET_NAME }}" \
-                      -var="checkpoint_bucket_name=${{ vars.CHECKPOINT_BUCKET_NAME }}" \
-                      -var="bot_messaging_endpoint=${{ vars.BOT_MESSAGING_ENDPOINT }}" \
-                      -var='client_state=${{ secrets.CLIENT_STATE }}' \
-                      -var='admin_app_session_secret=${{ secrets.ADMIN_APP_SESSION_SECRET }}' \
-                      -var='admin_app_api_key=${{ secrets.ADMIN_APP_API_KEY }}' \
-                      -var='admin_app_dashboard_password=${{ secrets.ADMIN_APP_DASHBOARD_PASSWORD }}' \
-                      -var="sanitized_transcript_bucket_name=${{ vars.SANITIZED_TRANSCRIPT_BUCKET_NAME }}"
-                  fi
-                  exit 0
-                fi
-              fi
-            fi
-            echo "Waiting for task... ($i/18)"
-            sleep 10
-          done
-          echo "::warning::Could not discover task IP for redirect URI update"
+          echo "Triggering deploy-unified to update Entra redirect URI with new task IP..."
+          gh workflow run deploy-unified.yml --repo "${{ github.repository }}" -f mode=apply
 
       - name: Deployment Summary
         run: |
