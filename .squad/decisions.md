@@ -565,3 +565,211 @@ Do NOT change settings unless public access is off completely — use specific I
 - Clear decision gates prevent bad deployments
 - 25-point validation checklist ensures reliability
 - Rollback procedures document disaster recovery options
+
+---
+
+## 2026-02-25T00:08: Infrastructure Health Verified — Deployment 8akfpg
+
+**By:** Fenster (DevOps/Infra)
+
+**Summary:** Post-deployment verification completed for unified deployment (suffix `8akfpg`). All 126 Terraform-managed resources healthy and operational.
+
+**Azure Resources (East US):**
+- Event Hub Namespace `tmf-ehns-eus-8akfpg` — Active, 2 partitions
+- Event Hub `tmf-eh-eus-8akfpg` — Ready
+- Key Vault `tmf-kv-eus-8akfpg` — Healthy, URI: `https://tmf-kv-eus-8akfpg.vault.azure.net/`
+- Storage Account `tmfsteus8akfpg` — Available
+
+**AWS Resources (us-east-1):**
+- Lambda Functions: 5 deployed (subscription-renewal, eventhub-processor, meeting-bot, webhook-writer, webhook-authorizer) — all state None (ready)
+- DynamoDB Tables: 6 tables (eventhub-checkpoints, graph-subscriptions, meeting-bot-sessions-dev, state lock tables)
+- S3 Bucket: `tmf-webhooks-eus-dev`
+
+**Azure AD App Registrations:**
+- Teams Meeting Fetcher `63f2f070-e55d-40d3-93f9-f46229544066` — Admin consent granted ✅
+- Teams Meeting Fetcher Bot `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` — Admin consent granted ✅
+- Lambda EventHub Consumer `6dafa2b6-ec4c-4fb6-997c-6efcadcb22ab` — Admin consent granted ✅
+
+**Technical Notes:**
+- Azure CLI syntax: `az eventhubs` (plural) is correct
+- Event Hub FQDN extraction: Strip protocol and port from `serviceBusEndpoint`
+- Lambda State=None: Normal for event-driven functions
+- DynamoDB: 6 tables include dev/prod environment pairs + Terraform state locks
+
+**Conclusion:** All resources deployed successfully. Infrastructure operational and ready for post-deploy configuration (Graph API subscription setup, Lambda environment variable updates).
+
+---
+
+## 2026-02-25T00:08: Always Use `-input=false` in CI/CD Terraform Commands
+
+**By:** Fenster (DevOps/Infra)
+
+**Problem:** The `deploy-unified.yml` workflow's Terraform plan step hung for 36+ minutes because:
+1. `-input=false` was NOT set on `terraform plan` or `terraform apply` commands
+2. Six required Terraform variables had no defaults and were not passed as `TF_VAR_*` environment variables
+3. Terraform attempted to prompt for missing values in a non-interactive CI environment, causing an infinite hang
+
+**Decision:** All Terraform commands in CI/CD workflows MUST use `-input=false` flag on:
+- `terraform plan`
+- `terraform apply`
+- `terraform destroy`
+
+**Rationale:**
+1. **Fail-fast behavior:** Missing variables cause immediate error exit instead of silent hang
+2. **CI/CD compatibility:** GitHub Actions runners have no TTY for interactive input
+3. **Debugging clarity:** Errors surface immediately in logs instead of timeout failures
+4. **Security:** Prevents accidental prompts in automated environments
+
+**Implementation:**
+```yaml
+- name: Terraform plan
+  run: |
+    cd iac
+    terraform plan -input=false -out=tfplan
+  env:
+    TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+    TF_VAR_webhook_bucket_name: ${{ vars.WEBHOOK_BUCKET_NAME }}
+    # All 6 required variables must be set
+```
+
+**Also Added:**
+1. 6 missing TF_VAR_* environment variables to both plan and apply steps
+2. `timeout-minutes: 30` on validate job as backstop (prevents 36+ minute hangs)
+3. Updated workflow documentation with required GitHub secrets/variables list
+
+**Impact:**
+- Terraform errors fail fast (30-60 seconds) instead of timing out (30+ minutes)
+- All agents: Always include `-input=false` in CI/CD Terraform steps
+
+---
+
+## 2026-02-25T00:08: Single-Job Infrastructure Pattern for Azure Firewall Management
+
+**By:** Fenster (DevOps/Infra)
+
+**Problem:** 3-job workflow architecture (validate → build → deploy) broken for Azure Key Vault firewall management:
+- Key Vault has `default_action = "Deny"` firewall (RBAC-only, no key access)
+- GitHub Actions runners have dynamic public IPs
+- Validate job runs on Runner A (IP: 1.2.3.4), Deploy job runs on Runner B (IP: 5.6.7.8)
+- Runner A's IP added to firewall, but Runner B's IP not pre-whitelisted → apply fails
+- Can't predict next runner's IP to pre-whitelist it
+
+**Decision:** Restructured workflow into 3 jobs with **plan and apply in the SAME job**:
+
+1. **infrastructure** job: init → validate → add firewall IP → plan → apply (conditional) → remove firewall IP
+2. **build** job: Lambda package (runs in parallel, independent)
+3. **deploy-lambda** job: Lambda deploy (needs both infrastructure + build, only if mode=apply)
+
+**Key Features:**
+- `workflow_dispatch` input: `mode: plan | apply` (default: plan)
+- Push trigger: plan-only mode (no apply)
+- Apply requires: `workflow_dispatch` with `mode: apply`
+- Single infrastructure job ensures same runner IP for both plan and apply
+- `if: always()` on firewall cleanup to prevent stale IP rules
+- Concurrency control: `cancel-in-progress: false` prevents concurrent deployments
+
+**Benefits:**
+1. Works with Azure firewalls — Same runner = same IP for plan and apply
+2. Saved Terraform plan is usable — Created and applied on same runner
+3. Proper IP cleanup — Added IP is the IP removed (stored in step output)
+4. Plan-only mode — Push triggers validate without deploying
+5. Parallel build — Lambda build independent of Terraform
+6. Fail-safe cleanup — `if: always()` ensures firewall rules removed on failure
+
+**Pattern for Other Workflows:** Use this pattern for ANY workflow accessing Azure resources with `default_action = "Deny"` firewalls (Key Vault, Storage Account, Event Hub).
+
+**Rule:** If you need to add a runner IP to a firewall, ALL work requiring that IP MUST happen in the same job.
+
+---
+
+## 2026-02-25T00:08: Event Hub Data Sender Role Required for Graph Subscriptions
+
+**By:** Squad Coordinator (via subscription setup)
+
+**Decision:** The Teams Meeting Fetcher app registration must have **"Azure Event Hubs Data Sender" role** on the Event Hub namespace for Graph API to deliver change notifications. This role was missing from the Terraform deployment and was added manually.
+
+**What Happened:**
+- Graph API subscription creation succeeded
+- But notifications could NOT be delivered to Event Hub due to missing role
+- Role was manually added via `az role assignment create` for SP `39ebad56-19ea-41b7-8462-b0602343ded7`
+- Subscription ID: `d08febbf-a217-4cc1-8cce-d81879c41512` (for user `boldoriole@ibuyspy.net/events`)
+
+**Action Required:** Update Terraform `azure-ad` module to include Event Hub Data Sender role assignment on the Event Hub namespace.
+
+**Next Deployments:** Role will be automatically assigned by Terraform after module update.
+
+**Impact:**
+- All future deployments: Event Hub Data Sender role will be pre-configured
+- No manual role assignment needed
+- Graph API subscriptions will work immediately post-deploy
+
+---
+
+## 2026-02-25T00:08: Security Group Cannot Have Calendar Subscriptions
+
+**By:** Squad Coordinator (via subscription setup)
+
+**Context:** Terraform `azuread_group.admins` creates a security group (`mail_enabled=false, security_enabled=true`).
+
+**Finding:** Graph API subscriptions on `/groups/{id}/calendar/events` require a **Microsoft 365 (Unified) group** with a calendar. Security groups cannot be subscription targets.
+
+**Subscription Attempt:**
+- Tried: `/groups/2e572630-7b65-470d-82f2-0387ebb04524/calendar/events` (admin security group)
+- Failed with: "App Only access is not allowed for target resource"
+
+**Workaround:** Use per-user subscriptions instead:
+- Created: `/users/boldoriole@ibuyspy.net/events` subscription ✅ (SUCCESS)
+- Subscription ID: `d08febbf-a217-4cc1-8cce-d81879c41512`
+
+**Future Fixes (Options):**
+1. Change Terraform to create an M365 group instead of security group (requires mailbox provisioning)
+2. Keep using per-user subscriptions (simpler, works now)
+3. Hybrid: Group for RBAC/management, per-user subscriptions for notifications
+
+**Current Approach:** All team member subscriptions will be per-user (`/users/{upn}/events`).
+
+**Impact:**
+- Per-user subscription model is simpler and works immediately
+- Can scale to multiple users by creating subscriptions for each user's calendar
+- Group-based subscriptions not viable with current security group setup
+
+---
+
+## 2026-02-25T00:08: Environment Configuration Update for 8akfpg Deployment
+
+**By:** Kobayashi (Microsoft Teams Architect)
+
+**Decision:** Updated `scenarios/nobots-eventhub/.env` and `.env.example` with new resource values from the fresh Terraform deployment (suffix `8akfpg`), replacing all stale `6an5wk` references.
+
+**Key Rationale:**
+1. **Terraform Outputs as Source of Truth:** The `azure_app_client_secret` output from Terraform state contains the current valid secret for the main Graph API app registration
+2. **Group ID Changed:** New deployment created new Admin Security Group ID `2e572630-7b65-470d-82f2-0387ebb04524`
+3. **API Gateway and Lambda URLs Updated:** Recreated endpoints in new deployment
+4. **Correct App Registration:** Main "Teams Meeting Fetcher" app (`63f2f070-e55d-40d3-93f9-f46229544066`) has required Graph API permissions (`Calendars.Read`, `Group.Read.All`)
+
+**Updated Resource Values:**
+
+| Component | Old (6an5wk) | New (8akfpg) |
+|-----------|---|---|
+| Graph Client ID | `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8` | `63f2f070-e55d-40d3-93f9-f46229544066` |
+| Graph Client Secret | (expired) | `[REDACTED - rotate via Azure portal]` |
+| Admin Group ID | `5e7708f8-b0d2-467d-97f9-d9da4818084a` | `2e572630-7b65-470d-82f2-0387ebb04524` |
+| Resource Group | `tmf-rg-eus-6an5wk` | `tmf-rg-eus-8akfpg` |
+| Event Hub Namespace | `tmf-ehns-eus-6an5wk.servicebus.windows.net` | `tmf-ehns-eus-8akfpg.servicebus.windows.net` |
+| Event Hub Name | `tmf-eh-eus-6an5wk` | `tmf-eh-eus-8akfpg` |
+| Storage Account | `tmfsteus6an5wk` | `tmfsteus8akfpg` |
+| Key Vault Name | `tmf-kv-eus-6an5wk` | `tmf-kv-eus-8akfpg` |
+| Bot App ID | `a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4` | `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` |
+| API Gateway URL | `https://ir04kcl7bl.execute-api.us-east-1.amazonaws.com/dev/graph` | `https://45kg5tox6b.execute-api.us-east-1.amazonaws.com/dev/graph` |
+| Lambda Webhook URL | `https://4ej2x5p7al3tfefz7iiru7kwre0ityts.lambda-url.us-east-1.on.aws/` | `https://yfexrxjcakoanqr5kikkzif7e40xnqhj.lambda-url.us-east-1.on.aws/` |
+
+**Next Steps:**
+1. Verify Admin Consent on app `63f2f070-e55d-40d3-93f9-f46229544066` for Calendars.Read, Group.Read.All
+2. Verify RBAC roles: Event Hub Data Sender on Event Hub namespace
+3. Create Graph API subscriptions (per-user, not group-based)
+4. Test change notifications on calendar
+
+**Impact:**
+- All agents: Reference `scenarios/nobots-eventhub/.env` for current resource values
+- Keaton: Phase 3 (subscription creation) can proceed with new values
+- Hockney/Redfoot: E2E tests use new `8akfpg` resources

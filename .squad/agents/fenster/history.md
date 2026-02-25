@@ -122,3 +122,38 @@
 - **Timeout protection**: Added `timeout-minutes: 30` to validate job to prevent infinite hangs in future.
 - **Documentation**: Updated workflow header comment blocks to list all required GitHub secrets (added CLIENT_STATE) and variables (added AWS_ACCOUNT_ID, WEBHOOK_BUCKET_NAME, TRANSCRIPT_BUCKET_NAME, CHECKPOINT_BUCKET_NAME, BOT_MESSAGING_ENDPOINT).
 - **CI/CD pattern**: ALWAYS use `-input=false` on all Terraform commands in non-interactive environments. Missing variables will fail fast instead of hanging.
+
+### 2026-02-25: Deploy-Unified Workflow Restructure (Single-Job Infrastructure Pattern)
+
+- **Problem**: 3-job architecture (validate → build → deploy) was fundamentally broken. Plan ran on one runner, apply on a different runner with different IP. This made Key Vault firewall management impossible (add IP on runner A, apply runs on runner B with different IP, fails on Key Vault access, cleanup tries to remove runner A's IP from runner B).
+- **Solution**: Consolidated validate + deploy into a single "infrastructure" job where plan and apply run on the SAME runner with the SAME IP. The saved plan (`-out=tfplan`) works because apply runs on the same machine that created it.
+- **Architecture**: 3 jobs now: (1) `infrastructure` — init, validate, firewall add, plan, apply (conditional on mode), firewall remove, outputs; (2) `build` — Lambda build (parallel with infrastructure); (3) `deploy-lambda` — Lambda code deployment (needs both infrastructure + build, only if mode=apply).
+- **Mode input**: Added `workflow_dispatch` input `mode: plan | apply` (default: plan). Push trigger runs plan-only (no apply on push). Apply requires `workflow_dispatch` with `mode: apply`.
+- **Concurrency control**: Added `concurrency: group: deploy-${{ github.ref }}, cancel-in-progress: false` at top level to prevent concurrent deployments on the same branch.
+- **Firewall management pattern**: (1) Get runner IP with error handling (`set -euo pipefail`, empty check, stored in step output), (2) Add IP to Key Vault firewall with `az keyvault network-rule add`, (3) Wait 30s for propagation, (4) Run plan, (5) Run apply (if mode=apply) using saved plan from same runner, (6) Cleanup: remove IP with `if: always()` and check IP not empty.
+- **Environment protection**: `environment: aws-dev` only applies when mode=apply (for OIDC federated credential subject). Plan-only runs don't need environment.
+- **Saved plan behavior**: `terraform plan -out=tfplan` saves the plan. `terraform apply -auto-approve tfplan` applies the saved plan without needing to re-pass TF_VAR env vars (plan is self-contained).
+- **Build job independence**: Lambda build job runs in parallel with infrastructure job (no dependency) since it only needs Node.js and npm — completely independent of Terraform operations.
+- **Key Vault firewall cleanup**: Uses `${{ steps.firewall_prep.outputs.ip }}` from the stored step output, ensuring the same IP that was added is the one removed. Condition checks: `always()` (runs even on failure), `vars.KEY_VAULT_NAME != ''` (only if KV configured), `steps.firewall_prep.outputs.ip != ''` (only if IP was detected).
+
+📌 **Key Learning**: When Azure Key Vault has `default_action = "Deny"` firewall, ALL operations that need KV access (including Terraform plan/apply reading secrets) MUST run in a single job. Split jobs = split runners = split IPs = firewall access failure.
+
+### 2026-02-25: Infrastructure Health Verification (Deployment 8akfpg)
+
+- **Deployment suffix**: `8akfpg` — fresh unified deployment via `deploy-unified.yml`
+- **Azure resources (all HEALTHY)**:
+  - Event Hub namespace: `tmf-ehns-eus-8akfpg` (Succeeded, FQDN: `https://tmf-ehns-eus-8akfpg.servicebus.windows.net:443/`)
+  - Event Hub: `tmf-eh-eus-8akfpg` (Active, 2 partitions)
+  - Key Vault: `tmf-kv-eus-8akfpg` (URI: `https://tmf-kv-eus-8akfpg.vault.azure.net/`)
+  - Storage Account: `tmfsteus8akfpg` (available)
+- **AWS resources (all HEALTHY)**:
+  - Lambda functions: 5 deployed (`tmf-subscription-renewal-dev`, `tmf-eventhub-processor-dev`, `tmf-meeting-bot-dev`, `tmf-webhook-writer-dev`, `tmf-webhook-authorizer-dev`) — All runtime OK, State None (not actively executing)
+  - DynamoDB tables: 6 tables exist (`eventhub-checkpoints`, `eventhub-checkpoints-dev`, `graph-subscriptions`, `meeting-bot-sessions-dev`, `tmf-terraform-state-lock`, `tmf-terraform-state-lock-dev`)
+  - S3 bucket: `tmf-webhooks-eus-dev` (exists, us-east-1)
+- **Azure AD app registration verified**: `63f2f070-e55d-40d3-93f9-f46229544066` (Teams Meeting Fetcher) — Admin consent granted by user
+- **Resource values for .env**:
+  - Event Hub namespace FQDN: `tmf-ehns-eus-8akfpg.servicebus.windows.net` (extracted from full URL)
+  - Event Hub name: `tmf-eh-eus-8akfpg`
+  - Storage account: `tmfsteus8akfpg`
+  - Key Vault: `tmf-kv-eus-8akfpg`
+- **Azure CLI correction**: `az eventhub` is invalid — correct syntax is `az eventhubs` (plural) for both namespace and eventhub subcommands
