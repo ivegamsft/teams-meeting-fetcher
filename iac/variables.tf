@@ -294,7 +294,7 @@ variable "admin_app_dashboard_password" {
 }
 
 variable "admin_app_entra_redirect_uri" {
-  description = "Entra ID OIDC redirect URI for admin app (ALB DNS + /auth/callback). If empty, constructed from ALB DNS at deploy time."
+  description = "Entra ID OIDC redirect URI for admin app (http://<ECS_PUBLIC_IP>:3000/auth/callback). Auto-discovered by deploy-unified workflow."
   type        = string
   default     = ""
 }

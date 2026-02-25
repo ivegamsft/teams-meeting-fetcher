@@ -228,6 +228,66 @@ jobs:
           gh variable set RESOURCE_GROUP_NAME --body "${RG_NAME}" --repo "${{ github.repository }}" || \
             echo "::warning::Could not export RESOURCE_GROUP_NAME. Set manually: gh variable set RESOURCE_GROUP_NAME --body ${RG_NAME}"
 
+      - name: Update admin app Entra redirect URI
+        if: github.event.inputs.mode == 'apply'
+        env:
+          TF_VAR_use_oidc: "true"
+          TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+          TF_VAR_webhook_bucket_name: ${{ vars.WEBHOOK_BUCKET_NAME }}
+          TF_VAR_transcript_bucket_name: ${{ vars.TRANSCRIPT_BUCKET_NAME }}
+          TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
+          TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
+          TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
+          TF_VAR_allowed_ip_addresses: '["${{ steps.firewall_prep.outputs.cidr }}"]'
+          TF_VAR_admin_app_session_secret: ${{ secrets.ADMIN_APP_SESSION_SECRET }}
+          TF_VAR_admin_app_api_key: ${{ secrets.ADMIN_APP_API_KEY }}
+          TF_VAR_admin_app_dashboard_password: ${{ secrets.ADMIN_APP_DASHBOARD_PASSWORD }}
+          TF_VAR_sanitized_transcript_bucket_name: ${{ vars.SANITIZED_TRANSCRIPT_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          # Discover ECS admin app public IP
+          CLUSTER="$(terraform output -raw admin_app_ecs_cluster_name 2>/dev/null || echo '')"
+          SERVICE="$(terraform output -raw admin_app_ecs_service_name 2>/dev/null || echo '')"
+          if [ -z "$CLUSTER" ] || [ -z "$SERVICE" ]; then
+            echo "::warning::Admin app ECS outputs not found, skipping redirect URI update"
+            exit 0
+          fi
+
+          TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" \
+            --query 'taskArns[0]' --output text 2>/dev/null || echo "None")
+          if [ "$TASK_ARN" = "None" ] || [ -z "$TASK_ARN" ]; then
+            echo "::warning::No running ECS tasks found, skipping redirect URI update"
+            exit 0
+          fi
+
+          ENI_ID=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+          PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI_ID" \
+            --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+
+          if [ -z "$PUBLIC_IP" ] || [ "$PUBLIC_IP" = "None" ]; then
+            echo "::warning::No public IP found for ECS task, skipping redirect URI update"
+            exit 0
+          fi
+
+          REDIRECT_URI="http://${PUBLIC_IP}:3000/auth/callback"
+          echo "Discovered admin app at ${PUBLIC_IP}, setting redirect URI: ${REDIRECT_URI}"
+
+          # Check current redirect URI in state
+          CURRENT_URI="${TF_VAR_admin_app_entra_redirect_uri:-}"
+          if [ "$CURRENT_URI" = "$REDIRECT_URI" ]; then
+            echo "Redirect URI already set correctly, skipping"
+            exit 0
+          fi
+
+          export TF_VAR_admin_app_entra_redirect_uri="$REDIRECT_URI"
+          terraform plan -input=false -out=tfplan-redirect
+          terraform apply -auto-approve tfplan-redirect
+
       - name: Remove runner CIDR from Key Vault firewall
         if: always() && vars.KEY_VAULT_NAME != '' && steps.firewall_prep.outputs.cidr != ''
         working-directory: ${{ github.workspace }}
