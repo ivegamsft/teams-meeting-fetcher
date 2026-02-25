@@ -156,6 +156,54 @@ Graph API (Create Event) ──PASS──> Graph Subscription ──PASS──> 
 - Event ID: AAMkADE2ZWVhN2My... (boldoriole@ibuyspy.net calendar)
 - Online Teams meeting with join URL
 
+### 2026-02-25: Post-Fix Full Pipeline Re-Validation (ALL PASS)
+
+**Context:** deploy-unified completed with handler.js subscribe bug fix (try-catch replacing .catch()) and CONSUMER_GROUP env var updated from `$Default` to `lambda-processor`. Lambda code redeployed.
+
+**Test Method:** Created a live calendar event via Graph API and traced the notification through every pipeline stage.
+
+**Pipeline Results:**
+
+| Step | Component | Result | Details |
+|------|-----------|--------|---------|
+| 1 | Lambda Config Check | PASS | CONSUMER_GROUP=`lambda-processor` (confirmed via get-function-configuration). Active, nodejs20.x, last modified 02:27:54Z. |
+| 2 | Graph API: Create Meeting | PASS | Created Teams meeting "E2E Pipeline Retest - Redfoot 2026-02-24 21:35" for boldoriole@ibuyspy.net. Online meeting with join URL. |
+| 3 | Graph Subscription | PASS | Active subscription d08febbf... watching /users/boldoriole@ibuyspy.net/events, routed to EventHub. Expires 2026-02-27. |
+| 4 | EventHub: Notification Delivery | PASS | 3 notifications enqueued (1 "created" + 2 "updated") within 1-4 seconds of event creation. Partition 0: seq 12-13, Partition 1: seq 16. |
+| 5 | Lambda: EventHub Processor | PASS | Running every 1 min via EventBridge. No errors. Consumes from both partitions using `lambda-processor` consumer group. ~10s per invocation. |
+| 6 | DynamoDB: Checkpoints | PASS | 2 checkpoint records (partition 0: seq 14, partition 1: seq 16). Consumer group = `lambda-processor`. Updated at 02:36-02:38Z. |
+| 7 | S3: Event Storage | PASS | 18 files in `eventhub/` prefix in tmf-webhooks-eus-dev. File at 02:36:15Z (4644 bytes) contains all 3 Graph notifications with correct event ID, subscription ID, and tenant ID. |
+
+**Pipeline Diagram (ALL GREEN):**
+```
+Graph API (Create Event) --PASS--> Graph Subscription --PASS--> EventHub (3 msgs in ~1s)
+                                                                      |
+                                                                      v
+                                                            Lambda Processor --PASS-->
+                                                            (no errors, 10s/run)
+                                                                      |
+                                                              +-------+-------+
+                                                              v               v
+                                                        DynamoDB (PASS)  S3 (PASS)
+                                                        2 checkpoints    18 event files
+```
+
+**Previously Broken Items Now Fixed:**
+1. `consumer.subscribe(...).catch is not a function` at handler.js:207 -- RESOLVED (try-catch in place)
+2. CONSUMER_GROUP mismatch (`$Default` vs `lambda-processor`) -- RESOLVED (env var now `lambda-processor`)
+3. `Cannot find module 'handler'` -- RESOLVED (confirmed in earlier redeployment)
+
+**Latency Observations:**
+- Event created at 02:35:58Z, first EventHub notification enqueued at 02:35:59Z (1 second!)
+- Lambda consumed the notification at 02:36:15Z (17 seconds after creation)
+- End-to-end: Graph event creation to S3 storage in ~17 seconds
+
+**Remaining Empty (Expected):**
+- graph-subscriptions DynamoDB: 0 items (not used by EventHub flow)
+- meeting-bot-sessions-dev DynamoDB: 0 items (different scenario)
+- tmf-checkpoints-eus-dev S3: empty (not used by EventHub flow)
+- tmf-transcripts-eus-dev S3: empty (no actual transcripts -- would need a real Teams meeting with speech)
+
 ---
 
 ## Team Updates
