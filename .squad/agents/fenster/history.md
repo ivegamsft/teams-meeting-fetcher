@@ -185,3 +185,12 @@
   - Consumer group output chain: `monitoring/outputs.tf` -> `azure/outputs.tf` -> `iac/outputs.tf`
   - Consumer group consumed: `iac/main.tf` (line 142) -> `iac/aws/main.tf` (line 232) -> `iac/aws/modules/eventhub-processor/main.tf` (line 98, `CONSUMER_GROUP` env var)
   - Lambda handler: `apps/aws-lambda-eventhub/handler.js` (line 219, `requireEnv('CONSUMER_GROUP')`)
+
+### 2026-02-25: Azure Firewall CIDR Fix for Multi-IP Runners
+
+- **Root cause**: GitHub Actions runners have multiple outbound IPs in the same subnet. `api.ipify.org` returned `20.161.60.20`, but Azure API calls used `20.161.60.19`. The `/32` firewall rule only covered one IP, causing `ForbiddenByFirewall` on Key Vault access during Terraform plan.
+- **Fix**: Changed all firewall rule management from single IP `/32` to `/24` CIDR range derived from the detected IP (e.g., `20.161.60.20` -> `20.161.60.0/24`). This covers all 256 IPs in the runner's subnet.
+- **Files fixed (4)**: `deploy-unified.yml`, `deploy-azure.yml`, `azure-resource-access.yml`, `azure-firewall-access/action.yml`. All use the same pattern: detect IP via ipify, derive `/24` CIDR with `sed 's/\.[0-9]*$/.0\/24/'`, use CIDR for add/remove rules.
+- **Terraform variable**: `TF_VAR_allowed_ip_addresses` in `deploy-unified.yml` now passes the CIDR (e.g., `["20.161.60.0/24"]`) instead of a single IP. Azure Key Vault and Storage Account `ip_rules` both support CIDR notation.
+- **Storage account**: Same `ip_rules` pattern as Key Vault — both use `var.allowed_ip_addresses` with `default_action = "Deny"`. Both fixed simultaneously via the CIDR change.
+- **Key pattern**: NEVER use a single `/32` IP for GitHub Actions runner firewall rules. Always use `/24` CIDR to account for multi-IP NAT on shared runners.
