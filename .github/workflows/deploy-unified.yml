@@ -35,7 +35,6 @@ on:
       - main
     paths:
       - "apps/aws-lambda/**"
-      - "apps/admin-app/**"
       - "iac/*.tf"
       - "iac/aws/**"
       - "iac/azure/**"
