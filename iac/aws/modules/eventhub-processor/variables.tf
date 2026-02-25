@@ -65,7 +65,7 @@ variable "eventhub_name" {
 variable "eventhub_consumer_group" {
   description = "Event Hub consumer group"
   type        = string
-  default     = "$Default"
+  default     = "lambda-processor"
 }
 
 variable "eventhub_max_events" {

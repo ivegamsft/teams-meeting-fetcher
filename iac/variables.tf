@@ -160,9 +160,9 @@ variable "notification_email" {
 //=============================================================================
 
 variable "eventhub_consumer_group" {
-  description = "Event Hub consumer group"
+  description = "Event Hub consumer group (unused in unified deployment — flows from Azure module output)"
   type        = string
-  default     = "$Default"
+  default     = "lambda-processor"
 }
 
 variable "eventhub_poll_schedule_expression" {

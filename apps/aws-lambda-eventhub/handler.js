@@ -183,8 +183,8 @@ async function receivePartitionEvents(
       resolve(events);
     }, 5000);
 
-    consumer
-      .subscribe(
+    try {
+      consumer.subscribe(
         {
           processEvents: async (receivedEvents, context) => {
             events.push(...receivedEvents);
@@ -203,12 +203,12 @@ async function receivePartitionEvents(
           startPosition,
           maxWaitTimeInSeconds: 5,
         }
-      )
-      .catch((err) => {
-        console.error(`Failed to subscribe to partition ${partitionId}:`, err);
-        clearTimeout(timeout);
-        reject(err);
-      });
+      );
+    } catch (err) {
+      console.error(`Failed to subscribe to partition ${partitionId}:`, err);
+      clearTimeout(timeout);
+      reject(err);
+    }
   });
 }
 

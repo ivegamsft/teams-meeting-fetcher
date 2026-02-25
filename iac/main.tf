@@ -139,7 +139,7 @@ module "aws" {
   # Event Hub from Azure module outputs
   eventhub_namespace      = module.azure.eventhub_namespace_name
   eventhub_name           = module.azure.eventhub_name
-  eventhub_consumer_group = var.eventhub_consumer_group
+  eventhub_consumer_group = module.azure.eventhub_lambda_consumer_group
   message_processing_mode = var.message_processing_mode
 
   # Bot configuration
