@@ -172,38 +172,54 @@ async function receivePartitionEvents(
   let startPosition = earliestEventPosition;
 
   if (checkpoint && Number.isFinite(checkpoint.sequence_number)) {
-    startPosition = { sequenceNumber: checkpoint.sequence_number + 1 };
+    startPosition = { sequenceNumber: checkpoint.sequence_number, isInclusive: false };
   } else if (pollWindowMinutes > 0) {
     startPosition = { enqueuedOn: new Date(Date.now() - pollWindowMinutes * 60 * 1000) };
   }
 
   const events = [];
+  let subscription = null;
+
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
+      if (subscription) {
+        await subscription.close().catch((err) => {
+          console.error(`Error closing subscription for partition ${partitionId}:`, err);
+        });
+      }
       resolve(events);
     }, 5000);
 
-    try {
-      consumer.subscribe(
-        {
-          processEvents: async (receivedEvents, context) => {
-            events.push(...receivedEvents);
-            if (events.length >= maxEvents) {
-              clearTimeout(timeout);
-              resolve(events);
-            }
-          },
-          processError: async (err, context) => {
-            console.error(`Error processing partition ${partitionId}:`, err);
-            clearTimeout(timeout);
-            reject(err);
-          },
-        },
-        {
-          startPosition,
-          maxWaitTimeInSeconds: 5,
+    const subscriptionHandler = {
+      processEvents: async (receivedEvents, context) => {
+        events.push(...receivedEvents);
+        if (events.length >= maxEvents) {
+          clearTimeout(timeout);
+          if (subscription) {
+            await subscription.close().catch((err) => {
+              console.error(`Error closing subscription for partition ${partitionId}:`, err);
+            });
+          }
+          resolve(events);
         }
-      );
+      },
+      processError: async (err, context) => {
+        console.error(`Error processing partition ${partitionId}:`, err);
+        clearTimeout(timeout);
+        if (subscription) {
+          await subscription.close().catch((closeErr) => {
+            console.error(`Error closing subscription for partition ${partitionId}:`, closeErr);
+          });
+        }
+        reject(err);
+      },
+    };
+
+    try {
+      subscription = consumer.subscribe(partitionId, subscriptionHandler, {
+        startPosition,
+        maxWaitTimeInSeconds: 5,
+      });
     } catch (err) {
       console.error(`Failed to subscribe to partition ${partitionId}:`, err);
       clearTimeout(timeout);
