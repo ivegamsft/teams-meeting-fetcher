@@ -175,29 +175,8 @@ module "aws" {
 }
 
 //=============================================================================
-// ADMIN APP REDIRECT URI (depends on ECS being deployed, then sets Entra URI)
-// Uses data "external" to discover the Fargate task's public IP, then
-// azuread_application_redirect_uris to register it on the Entra app.
+// ADMIN APP REDIRECT URI
+// Managed by the deploy-admin-app workflow directly (az ad app update)
+// after ECS task stabilizes and IP is known. Not in Terraform to avoid
+// timing issues with dynamic Fargate IPs.
 //=============================================================================
-
-data "external" "admin_app_ip" {
-  depends_on = [module.aws]
-
-  program = ["bash", "${path.module}/scripts/get-ecs-task-ip.sh"]
-
-  query = {
-    cluster = module.aws.admin_app_ecs_cluster_name
-    service = module.aws.admin_app_ecs_service_name
-  }
-}
-
-resource "azuread_application_redirect_uris" "admin_app" {
-  application_id = "/applications/${module.azure.admin_app_object_id}"
-  type           = "Web"
-
-  redirect_uris = data.external.admin_app_ip.result.ip != "" ? [
-    "https://${data.external.admin_app_ip.result.ip}:3000/auth/callback"
-  ] : [
-    "https://localhost:3000/auth/callback"
-  ]
-}

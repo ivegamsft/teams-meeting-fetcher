@@ -159,3 +159,8 @@ output "admin_app_task_definition_arn" {
   description = "Admin app ECS task definition ARN"
   value       = module.aws.admin_app_task_definition_arn
 }
+
+output "admin_app_entra_client_id" {
+  description = "Admin app Entra app registration client ID"
+  value       = module.azure.admin_app_client_id
+}

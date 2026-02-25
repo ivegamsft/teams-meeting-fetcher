@@ -18,7 +18,6 @@ on:
 permissions:
   contents: read
   id-token: write
-  actions: write
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
@@ -128,12 +127,41 @@ jobs:
             --services "${{ steps.tf-output.outputs.service_name }}" \
             --region ${{ env.AWS_REGION }} || echo "::warning::Service did not stabilize within timeout"
 
-      - name: Sync Entra redirect URI via Terraform
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Discover new task IP
+        id: task-ip
         run: |
-          echo "Triggering deploy-unified to update Entra redirect URI with new task IP..."
-          gh workflow run deploy-unified.yml --repo "${{ github.repository }}" -f mode=apply
+          CLUSTER="${{ steps.tf-output.outputs.cluster_name }}"
+          SERVICE="${{ steps.tf-output.outputs.service_name }}"
+
+          TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" \
+            --query 'taskArns[0]' --output text)
+          ENI=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+          IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI" \
+            --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+
+          echo "ip=${IP}" >> $GITHUB_OUTPUT
+          echo "Task public IP: ${IP}"
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Entra redirect URI
+        run: |
+          IP="${{ steps.task-ip.outputs.ip }}"
+          APP_ID=$(cd iac && terraform output -raw admin_app_entra_client_id)
+          NEW_URI="https://${IP}:3000/auth/callback"
+
+          echo "Setting redirect URI to: ${NEW_URI}"
+          OBJECT_ID=$(az ad app show --id "$APP_ID" --query id -o tsv)
+          az rest --method PATCH \
+            --uri "https://graph.microsoft.com/v1.0/applications/${OBJECT_ID}" \
+            --body "{\"web\":{\"redirectUris\":[\"${NEW_URI}\"]}}"
+          echo "Entra redirect URI updated successfully"
 
       - name: Deployment Summary
         run: |
