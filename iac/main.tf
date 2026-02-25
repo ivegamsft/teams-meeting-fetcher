@@ -89,7 +89,7 @@ module "azure" {
   allowed_ip_addresses        = var.allowed_ip_addresses
   current_user_object_id      = var.current_user_object_id
   eventhub_local_auth_enabled = var.eventhub_local_auth_enabled
-  admin_app_redirect_uri      = var.admin_app_entra_redirect_uri
+  admin_app_redirect_uri      = ""
 }
 
 //=============================================================================
@@ -171,5 +171,33 @@ module "aws" {
   admin_app_entra_tenant_id     = module.azure.app_tenant_id
   admin_app_entra_client_id     = module.azure.admin_app_client_id
   admin_app_entra_client_secret = module.azure.admin_app_client_secret
-  admin_app_entra_redirect_uri  = var.admin_app_entra_redirect_uri
+  admin_app_entra_redirect_uri  = ""
+}
+
+//=============================================================================
+// ADMIN APP REDIRECT URI (depends on ECS being deployed, then sets Entra URI)
+// Uses data "external" to discover the Fargate task's public IP, then
+// azuread_application_redirect_uris to register it on the Entra app.
+//=============================================================================
+
+data "external" "admin_app_ip" {
+  depends_on = [module.aws]
+
+  program = ["bash", "${path.module}/scripts/get-ecs-task-ip.sh"]
+
+  query = {
+    cluster = module.aws.admin_app_ecs_cluster_name
+    service = module.aws.admin_app_ecs_service_name
+  }
+}
+
+resource "azuread_application_redirect_uris" "admin_app" {
+  count = data.external.admin_app_ip.result.ip != "" ? 1 : 0
+
+  application_id = "/applications/${module.azure.admin_app_object_id}"
+  type           = "Web"
+
+  redirect_uris = [
+    "http://${data.external.admin_app_ip.result.ip}:3000/auth/callback"
+  ]
 }

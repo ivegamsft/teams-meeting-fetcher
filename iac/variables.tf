@@ -292,9 +292,3 @@ variable "admin_app_dashboard_password" {
   sensitive   = true
   default     = ""
 }
-
-variable "admin_app_entra_redirect_uri" {
-  description = "Entra ID OIDC redirect URI for admin app (http://<ECS_PUBLIC_IP>:3000/auth/callback). Auto-discovered by deploy-unified workflow."
-  type        = string
-  default     = ""
-}

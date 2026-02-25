@@ -17,34 +17,36 @@ export function initializeEntraAuth(): void {
     return;
   }
 
-  const resolvedRedirectUri = redirectUri || `http://localhost:${config.port}/auth/callback`;
+  // Auto-discover public IP for redirect URI when not explicitly configured
+  discoverRedirectUri(redirectUri, config.port).then((resolvedRedirectUri) => {
+    const options: IOIDCStrategyOptionWithRequest = {
+      identityMetadata: `https://login.microsoftonline.com/${tenantId}/.well-known/openid-configuration`,
+      clientID: clientId,
+      clientSecret: clientSecret,
+      responseType: 'code',
+      responseMode: 'form_post',
+      redirectUrl: resolvedRedirectUri,
+      allowHttpForRedirectUrl: config.nodeEnv !== 'production',
+      scope: ['openid', 'profile', 'email'],
+      passReqToCallback: true,
+    };
 
-  const options: IOIDCStrategyOptionWithRequest = {
-    identityMetadata: `https://login.microsoftonline.com/${tenantId}/.well-known/openid-configuration`,
-    clientID: clientId,
-    clientSecret: clientSecret,
-    responseType: 'code',
-    responseMode: 'form_post',
-    redirectUrl: resolvedRedirectUri,
-    allowHttpForRedirectUrl: config.nodeEnv !== 'production',
-    scope: ['openid', 'profile', 'email'],
-    passReqToCallback: true,
-  };
+    const strategy = new OIDCStrategy(
+      options,
+      (req: any, iss: string, sub: string, profile: IProfile, accessToken: string, refreshToken: string, done: Function) => {
+        const user: EntraUser = {
+          oid: profile.oid || sub,
+          displayName: profile.displayName || '',
+          email: (profile._json?.email as string) || (profile._json?.preferred_username as string) || '',
+          upn: (profile.upn as string) || (profile._json?.preferred_username as string) || '',
+        };
+        return done(null, user);
+      }
+    );
 
-  const strategy = new OIDCStrategy(
-    options,
-    (req: any, iss: string, sub: string, profile: IProfile, accessToken: string, refreshToken: string, done: Function) => {
-      const user: EntraUser = {
-        oid: profile.oid || sub,
-        displayName: profile.displayName || '',
-        email: (profile._json?.email as string) || (profile._json?.preferred_username as string) || '',
-        upn: (profile.upn as string) || (profile._json?.preferred_username as string) || '',
-      };
-      return done(null, user);
-    }
-  );
-
-  passport.use(strategy);
+    passport.use(strategy);
+    console.log(`Entra ID OIDC authentication configured (redirect: ${resolvedRedirectUri})`);
+  });
 
   passport.serializeUser((user: any, done: Function) => {
     done(null, user);
@@ -53,8 +55,21 @@ export function initializeEntraAuth(): void {
   passport.deserializeUser((user: any, done: Function) => {
     done(null, user);
   });
+}
 
-  console.log('Entra ID OIDC authentication configured');
+async function discoverRedirectUri(configuredUri: string, port: number): Promise<string> {
+  if (configuredUri) return configuredUri;
+
+  try {
+    const response = await fetch('http://checkip.amazonaws.com');
+    const ip = (await response.text()).trim();
+    if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+      return `http://${ip}:${port}/auth/callback`;
+    }
+  } catch {
+    // Fall through to default
+  }
+  return `http://localhost:${port}/auth/callback`;
 }
 
 export function isEntraConfigured(): boolean {
