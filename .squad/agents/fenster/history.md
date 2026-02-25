@@ -172,3 +172,16 @@
   - Meeting Bot: `index.handler` -> `scenarios/lambda/meeting-bot/index.js` exports `handler`
   - Renewal: `renewal-function.lambda_handler` -> `scenarios/lambda/renewal-function.py` (Python)
 - **CI pattern**: ALL workflows using Terraform to read state MUST use the same Terraform version that created the state. Pin TF_VERSION consistently across all workflows.
+
+### 2026-02-25: EventHub Consumer Group Wiring Fix
+
+- **Root cause**: `iac/main.tf` line 142 passed `var.eventhub_consumer_group` (root variable default `$Default`) to the AWS module, instead of `module.azure.eventhub_lambda_consumer_group` (the actual consumer group name `lambda-processor` created by Azure). The Lambda received `CONSUMER_GROUP=$Default` env var, but the Azure consumer group is `lambda-processor`.
+- **Fix applied (Terraform wiring)**: Changed `iac/main.tf` to use `module.azure.eventhub_lambda_consumer_group` — the Azure module output becomes the source of truth. Updated variable defaults in `iac/variables.tf`, `iac/aws/modules/eventhub-processor/variables.tf`, and `iac/aws/terraform.tfvars.example` from `$Default` to `lambda-processor`.
+- **Fix applied (Lambda code)**: `apps/aws-lambda-eventhub/handler.js` had `consumer.subscribe({...}).catch()` — but `EventHubConsumerClient.subscribe()` returns a `Subscription` object (synchronous), not a Promise. The `.catch()` would throw `TypeError`. Replaced with try-catch block.
+- **Deployment status**: Lambda code deployed (deploy-lambda-eventhub.yml run #22378526646, success). Terraform plan triggered (deploy-unified.yml run #22378526654, plan-only on push). **To activate the env var fix, user must manually trigger deploy-unified.yml with mode=apply.**
+- **Cross-cloud wiring pattern**: When Azure creates a resource (consumer group, namespace, etc.) and AWS consumes it, ALWAYS wire using `module.azure.<output>` in `iac/main.tf`, never `var.<name>`. Variables with manual defaults create sync drift.
+- **Key files**:
+  - Consumer group created: `iac/azure/modules/monitoring/main.tf` (line 65, `azurerm_eventhub_consumer_group.lambda`)
+  - Consumer group output chain: `monitoring/outputs.tf` -> `azure/outputs.tf` -> `iac/outputs.tf`
+  - Consumer group consumed: `iac/main.tf` (line 142) -> `iac/aws/main.tf` (line 232) -> `iac/aws/modules/eventhub-processor/main.tf` (line 98, `CONSUMER_GROUP` env var)
+  - Lambda handler: `apps/aws-lambda-eventhub/handler.js` (line 219, `requireEnv('CONSUMER_GROUP')`)
