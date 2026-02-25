@@ -192,12 +192,12 @@ data "external" "admin_app_ip" {
 }
 
 resource "azuread_application_redirect_uris" "admin_app" {
-  count = data.external.admin_app_ip.result.ip != "" ? 1 : 0
-
   application_id = "/applications/${module.azure.admin_app_object_id}"
   type           = "Web"
 
-  redirect_uris = [
+  redirect_uris = data.external.admin_app_ip.result.ip != "" ? [
     "http://${data.external.admin_app_ip.result.ip}:3000/auth/callback"
+  ] : [
+    "http://localhost:3000/auth/callback"
   ]
 }
