@@ -6,17 +6,33 @@ import { Subscription } from '../models';
 const TABLE = config.aws.dynamodb.subscriptionsTable;
 
 export const subscriptionStore = {
+  async _resolveKey(subscriptionId: string): Promise<{ subscription_id: string; created_at: string } | null> {
+    const result = await dynamoDb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'subscription_id = :pk',
+      ExpressionAttributeValues: { ':pk': subscriptionId },
+      Limit: 1,
+    }));
+    if (!result.Items || result.Items.length === 0) return null;
+    return { subscription_id: result.Items[0].subscription_id, created_at: result.Items[0].created_at };
+  },
+
   async put(subscription: Subscription): Promise<void> {
     await dynamoDb.send(new PutCommand({
       TableName: TABLE,
-      Item: subscription,
+      Item: {
+        ...subscription,
+        created_at: subscription.createdAt,
+      },
     }));
   },
 
   async get(id: string): Promise<Subscription | null> {
+    const key = await this._resolveKey(id);
+    if (!key) return null;
     const result = await dynamoDb.send(new GetCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
     }));
     return (result.Item as Subscription) || null;
   },
@@ -53,6 +69,9 @@ export const subscriptionStore = {
   },
 
   async updateStatus(id: string, status: string, errorMessage?: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Subscription ${id} not found`);
+
     const updateExpr = errorMessage
       ? 'SET #status = :status, updatedAt = :now, errorMessage = :err'
       : 'SET #status = :status, updatedAt = :now';
@@ -64,7 +83,7 @@ export const subscriptionStore = {
 
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: updateExpr,
       ExpressionAttributeNames: { '#status': 'status' },
       ExpressionAttributeValues: exprValues,
@@ -72,9 +91,12 @@ export const subscriptionStore = {
   },
 
   async updateExpiry(id: string, expirationDateTime: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Subscription ${id} not found`);
+
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: 'SET expirationDateTime = :exp, lastRenewalAt = :now, updatedAt = :now',
       ExpressionAttributeValues: {
         ':exp': expirationDateTime,
@@ -84,9 +106,12 @@ export const subscriptionStore = {
   },
 
   async updateLastNotification(id: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) return;
+
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: 'SET lastNotificationAt = :now, updatedAt = :now',
       ExpressionAttributeValues: {
         ':now': new Date().toISOString(),
@@ -95,9 +120,12 @@ export const subscriptionStore = {
   },
 
   async delete(id: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) return;
+
     await dynamoDb.send(new DeleteCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
     }));
   },
 };

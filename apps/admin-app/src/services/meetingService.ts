@@ -13,7 +13,7 @@ export const meetingService = {
     if (changeType === 'deleted') {
       const existingMeeting = await this.findMeetingByResource(resource);
       if (existingMeeting) {
-        await meetingStore.updateStatus(existingMeeting.id, 'cancelled');
+        await meetingStore.updateStatus(existingMeeting.meeting_id, 'cancelled');
       }
       return;
     }
@@ -39,7 +39,7 @@ export const meetingService = {
   async createMeeting(eventData: any, subscriptionId: string, resource: string): Promise<Meeting> {
     const now = new Date().toISOString();
     const meeting: Meeting = {
-      id: eventData.id || uuidv4(),
+      meeting_id: eventData.id || uuidv4(),
       tenantId: config.graph.tenantId,
       subject: eventData.subject || 'Untitled Meeting',
       description: eventData.bodyPreview || '',
@@ -68,7 +68,7 @@ export const meetingService = {
 
     if (eventData.isOnlineMeeting && eventData.onlineMeetingId) {
       this.checkForTranscript(meeting).catch(err =>
-        console.error(`Transcript check failed for meeting ${meeting.id}:`, err.message)
+        console.error(`Transcript check failed for meeting ${meeting.meeting_id}:`, err.message)
       );
     }
 
@@ -77,7 +77,7 @@ export const meetingService = {
 
   async updateMeeting(existing: Meeting, eventData: any): Promise<void> {
     if (eventData.isCancelled) {
-      await meetingStore.updateStatus(existing.id, 'cancelled');
+      await meetingStore.updateStatus(existing.meeting_id, 'cancelled');
       return;
     }
 
@@ -100,7 +100,7 @@ export const meetingService = {
 
     if (eventData.isOnlineMeeting && !existing.transcriptionId) {
       this.checkForTranscript(updated).catch(err =>
-        console.error(`Transcript check failed for meeting ${updated.id}:`, err.message)
+        console.error(`Transcript check failed for meeting ${updated.meeting_id}:`, err.message)
       );
     }
   },
@@ -121,7 +121,7 @@ export const meetingService = {
       }
     } catch (err: any) {
       if (err.statusCode !== 404) {
-        console.error(`Failed to check transcripts for meeting ${meeting.id}:`, err.message);
+        console.error(`Failed to check transcripts for meeting ${meeting.meeting_id}:`, err.message);
       }
     }
   },

@@ -6,17 +6,33 @@ import { Meeting } from '../models';
 const TABLE = config.aws.dynamodb.meetingsTable;
 
 export const meetingStore = {
+  async _resolveKey(meetingId: string): Promise<{ meeting_id: string; created_at: string } | null> {
+    const result = await dynamoDb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'meeting_id = :pk',
+      ExpressionAttributeValues: { ':pk': meetingId },
+      Limit: 1,
+    }));
+    if (!result.Items || result.Items.length === 0) return null;
+    return { meeting_id: result.Items[0].meeting_id, created_at: result.Items[0].created_at };
+  },
+
   async put(meeting: Meeting): Promise<void> {
     await dynamoDb.send(new PutCommand({
       TableName: TABLE,
-      Item: meeting,
+      Item: {
+        ...meeting,
+        created_at: meeting.createdAt,
+      },
     }));
   },
 
   async get(id: string): Promise<Meeting | null> {
+    const key = await this._resolveKey(id);
+    if (!key) return null;
     const result = await dynamoDb.send(new GetCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
     }));
     return (result.Item as Meeting) || null;
   },
@@ -74,9 +90,12 @@ export const meetingStore = {
   },
 
   async updateStatus(id: string, status: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Meeting ${id} not found`);
+
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: 'SET #status = :status, updatedAt = :now',
       ExpressionAttributeNames: { '#status': 'status' },
       ExpressionAttributeValues: {
@@ -87,9 +106,12 @@ export const meetingStore = {
   },
 
   async setTranscriptionId(id: string, transcriptionId: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Meeting ${id} not found`);
+
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: 'SET transcriptionId = :tid, #status = :status, updatedAt = :now',
       ExpressionAttributeNames: { '#status': 'status' },
       ExpressionAttributeValues: {

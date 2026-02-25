@@ -1,5 +1,5 @@
 export interface Subscription {
-  id: string;
+  subscription_id: string;
   userId: string;
   userEmail: string;
   userDisplayName: string;

@@ -1,5 +1,5 @@
 export interface Transcript {
-  id: string;
+  transcript_id: string;
   meetingId: string;
   status: 'pending' | 'fetching' | 'raw_stored' | 'sanitizing' | 'completed' | 'failed';
   rawContent?: string;

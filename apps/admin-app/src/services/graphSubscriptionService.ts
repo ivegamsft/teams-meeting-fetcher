@@ -28,7 +28,7 @@ export const graphSubscriptionService = {
     renewalReminder.setDate(renewalReminder.getDate() - 1);
 
     const subscription: Subscription = {
-      id: graphSubscription.id,
+      subscription_id: graphSubscription.id,
       userId: request.userId,
       userEmail: request.userEmail,
       userDisplayName: request.userDisplayName,
@@ -147,7 +147,7 @@ export const graphSubscriptionService = {
     for (const sub of existingSubscriptions) {
       if (!memberIds.has(sub.userId)) {
         try {
-          await this.deleteSubscription(sub.id);
+          await this.deleteSubscription(sub.subscription_id);
           removed.push(sub.userId);
         } catch (err: any) {
           console.error(`Failed to remove subscription for ${sub.userEmail}:`, err.message);

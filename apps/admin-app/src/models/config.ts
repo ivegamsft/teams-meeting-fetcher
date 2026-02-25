@@ -1,5 +1,5 @@
 export interface AppConfig {
-  id: string;
+  config_key: string;
   tenantId: string;
   entraGroupId: string;
   webhookUrl: string;

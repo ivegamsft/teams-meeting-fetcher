@@ -7,7 +7,7 @@ export interface Attendee {
 }
 
 export interface Meeting {
-  id: string;
+  meeting_id: string;
   tenantId: string;
   subject: string;
   description: string;

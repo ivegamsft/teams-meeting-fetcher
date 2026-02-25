@@ -107,8 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="status-badge status-${s.status}">${s.status}</span></td>
           <td>${formatDate(s.expirationDateTime)}</td>
           <td>
-            <button class="btn btn-sm btn-secondary" onclick="renewSubscription('${s.id}')">Renew</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteSubscription('${s.id}')">Delete</button>
+            <button class="btn btn-sm btn-secondary" onclick="renewSubscription('${s.subscription_id}')">Renew</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSubscription('${s.subscription_id}')">Delete</button>
           </td>
         </tr>
       `).join('');
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="status-badge status-${m.status}">${m.status}</span></td>
           <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '--'}</td>
           <td>
-            ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.id}')">View</button>` : ''}
+            ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.meeting_id}')">View</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${formatDate(t.createdAt)}</td>
           <td>${t.processedAt ? formatDate(t.processedAt) : '--'}</td>
           <td>
-            ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.id}', '${t.meetingId}')">View</button>` : ''}
+            ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
           </td>
         </tr>
       `).join('');

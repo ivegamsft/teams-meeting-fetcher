@@ -1,4 +1,4 @@
-import { PutCommand, GetCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, GetCommand, ScanCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { dynamoDb } from '../config/dynamodb';
 import { config } from '../config';
 import { Transcript } from '../models';
@@ -6,17 +6,33 @@ import { Transcript } from '../models';
 const TABLE = config.aws.dynamodb.transcriptsTable;
 
 export const transcriptStore = {
+  async _resolveKey(transcriptId: string): Promise<{ transcript_id: string; meeting_id: string } | null> {
+    const result = await dynamoDb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'transcript_id = :pk',
+      ExpressionAttributeValues: { ':pk': transcriptId },
+      Limit: 1,
+    }));
+    if (!result.Items || result.Items.length === 0) return null;
+    return { transcript_id: result.Items[0].transcript_id, meeting_id: result.Items[0].meeting_id };
+  },
+
   async put(transcript: Transcript): Promise<void> {
     await dynamoDb.send(new PutCommand({
       TableName: TABLE,
-      Item: transcript,
+      Item: {
+        ...transcript,
+        meeting_id: transcript.meetingId,
+      },
     }));
   },
 
   async get(id: string): Promise<Transcript | null> {
+    const key = await this._resolveKey(id);
+    if (!key) return null;
     const result = await dynamoDb.send(new GetCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
     }));
     return (result.Item as Transcript) || null;
   },
@@ -45,6 +61,9 @@ export const transcriptStore = {
   },
 
   async updateStatus(id: string, status: string, errorMessage?: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Transcript ${id} not found`);
+
     let updateExpr = 'SET #status = :status, updatedAt = :now';
     const exprValues: Record<string, unknown> = {
       ':status': status,
@@ -61,7 +80,7 @@ export const transcriptStore = {
 
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: updateExpr,
       ExpressionAttributeNames: { '#status': 'status' },
       ExpressionAttributeValues: exprValues,
@@ -69,6 +88,9 @@ export const transcriptStore = {
   },
 
   async updateS3Paths(id: string, rawS3Path?: string, sanitizedS3Path?: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Transcript ${id} not found`);
+
     const updates: string[] = ['updatedAt = :now'];
     const exprValues: Record<string, unknown> = { ':now': new Date().toISOString() };
 
@@ -83,7 +105,7 @@ export const transcriptStore = {
 
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id },
+      Key: key,
       UpdateExpression: 'SET ' + updates.join(', '),
       ExpressionAttributeValues: exprValues,
     }));

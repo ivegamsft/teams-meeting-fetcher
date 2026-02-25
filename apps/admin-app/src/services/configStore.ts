@@ -10,7 +10,7 @@ export const configStore = {
   async get(): Promise<AppConfig | null> {
     const result = await dynamoDb.send(new GetCommand({
       TableName: TABLE,
-      Key: { id: CONFIG_ID },
+      Key: { config_key: CONFIG_ID },
     }));
     return (result.Item as AppConfig) || null;
   },
@@ -20,7 +20,7 @@ export const configStore = {
     await dynamoDb.send(new PutCommand({
       TableName: TABLE,
       Item: {
-        id: CONFIG_ID,
+        config_key: CONFIG_ID,
         tenantId: config.graph.tenantId,
         entraGroupId: config.graph.entraGroupId,
         webhookUrl: config.webhook.notificationUrl,
@@ -37,7 +37,7 @@ export const configStore = {
   async updateEntraGroupId(entraGroupId: string): Promise<void> {
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id: CONFIG_ID },
+      Key: { config_key: CONFIG_ID },
       UpdateExpression: 'SET entraGroupId = :gid, updatedAt = :now',
       ExpressionAttributeValues: {
         ':gid': entraGroupId,
@@ -49,7 +49,7 @@ export const configStore = {
   async incrementCounter(field: 'monitoredMeetingsCount' | 'transcriptionsProcessed' | 'transcriptionsPending', delta: number): Promise<void> {
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id: CONFIG_ID },
+      Key: { config_key: CONFIG_ID },
       UpdateExpression: `SET ${field} = if_not_exists(${field}, :zero) + :delta, updatedAt = :now`,
       ExpressionAttributeValues: {
         ':delta': delta,
@@ -62,7 +62,7 @@ export const configStore = {
   async updateLastWebhook(): Promise<void> {
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
-      Key: { id: CONFIG_ID },
+      Key: { config_key: CONFIG_ID },
       UpdateExpression: 'SET lastWebhookReceived = :now, updatedAt = :now',
       ExpressionAttributeValues: {
         ':now': new Date().toISOString(),

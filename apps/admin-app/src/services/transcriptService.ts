@@ -15,8 +15,8 @@ export const transcriptService = {
     const now = new Date().toISOString();
 
     const transcript: Transcript = {
-      id: transcriptId,
-      meetingId: meeting.id,
+      transcript_id: transcriptId,
+      meetingId: meeting.meeting_id,
       status: 'fetching',
       language: 'en',
       graphTranscriptId,
@@ -25,7 +25,7 @@ export const transcriptService = {
     };
 
     await transcriptStore.put(transcript);
-    await meetingStore.setTranscriptionId(meeting.id, transcriptId);
+    await meetingStore.setTranscriptionId(meeting.meeting_id, transcriptId);
     await configStore.incrementCounter('transcriptionsPending', 1);
 
     try {
@@ -37,7 +37,7 @@ export const transcriptService = {
 
       const rawContent = typeof contentResponse === 'string' ? contentResponse : JSON.stringify(contentResponse);
 
-      const rawKey = `raw/${meeting.id}/${transcriptId}.vtt`;
+      const rawKey = `raw/${meeting.meeting_id}/${transcriptId}.vtt`;
       await s3Client.send(new PutObjectCommand({
         Bucket: config.aws.s3.rawBucket,
         Key: rawKey,
@@ -49,10 +49,10 @@ export const transcriptService = {
       await transcriptStore.updateStatus(transcriptId, 'raw_stored');
 
       if (config.sanitization.enabled) {
-        await this.sanitizeTranscript(transcriptId, rawContent, meeting.id);
+        await this.sanitizeTranscript(transcriptId, rawContent, meeting.meeting_id);
       } else {
         await transcriptStore.updateStatus(transcriptId, 'completed');
-        await meetingStore.updateStatus(meeting.id, 'completed');
+        await meetingStore.updateStatus(meeting.meeting_id, 'completed');
         await configStore.incrementCounter('transcriptionsProcessed', 1);
         await configStore.incrementCounter('transcriptionsPending', -1);
       }
@@ -61,7 +61,7 @@ export const transcriptService = {
     } catch (err: any) {
       console.error(`Failed to fetch transcript ${graphTranscriptId}:`, err.message);
       await transcriptStore.updateStatus(transcriptId, 'failed', err.message);
-      await meetingStore.updateStatus(meeting.id, 'failed');
+      await meetingStore.updateStatus(meeting.meeting_id, 'failed');
       throw err;
     }
   },
