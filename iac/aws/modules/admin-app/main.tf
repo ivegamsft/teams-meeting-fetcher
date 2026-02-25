@@ -362,11 +362,11 @@ resource "aws_ecs_task_definition" "admin_app" {
     }]
 
     healthCheck = {
-      command     = ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${var.container_port}/health || exit 1"]
+      command     = ["CMD-SHELL", "node -e \"const https=require('https');https.get({hostname:'localhost',port:${var.container_port},path:'/health',rejectUnauthorized:false},(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))\""]
       interval    = 30
       timeout     = 10
       retries     = 3
-      startPeriod = 10
+      startPeriod = 15
     }
 
     environment = [
