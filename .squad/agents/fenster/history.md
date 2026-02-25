@@ -157,3 +157,18 @@
   - Storage account: `tmfsteus8akfpg`
   - Key Vault: `tmf-kv-eus-8akfpg`
 - **Azure CLI correction**: `az eventhub` is invalid — correct syntax is `az eventhubs` (plural) for both namespace and eventhub subcommands
+
+### 2026-02-25: Lambda Code Redeployment (Post-Infrastructure Rebuild)
+
+- **Root cause of "Cannot find module 'handler'"**: After infrastructure was rebuilt (suffix 8akfpg), Terraform deployed Lambda functions with placeholder zips. The real application code was never pushed because the deploy-lambda-* workflows had never succeeded.
+- **Terraform version mismatch**: All 5 `deploy-lambda-*.yml` workflows plus `deploy-azure.yml` and `terraform-validate.yml` were pinned to Terraform `1.5.0`, but `deploy-unified.yml` used `1.14.3`. The state file created by 1.14.3 uses `checkable object kind "var"` which is incompatible with 1.5.0, causing `Error refreshing state: unsupported checkable object kind "var"` on `terraform init`.
+- **Fix applied**: Updated TF_VERSION from `1.5.0` to `1.14.3` in all 7 affected workflow files to match deploy-unified.yml.
+- **All 5 deploy-lambda workflows succeeded**: handler, eventhub, authorizer, meeting-bot, renewal — all deployed real code to the 8akfpg Lambda functions.
+- **Secret redaction**: Previous session committed an Azure AD Application Secret in `.squad/agents/kobayashi/history.md` and `.squad/decisions.md`. Redacted to `[REDACTED - rotate via Azure portal]` before push. The secret should be rotated.
+- **Lambda handler mapping (verified correct)**:
+  - Handler: `handler.handler` -> `apps/aws-lambda/handler.js` exports `handler`
+  - EventHub: `handler.handler` -> `apps/aws-lambda-eventhub/handler.js` exports `handler`
+  - Authorizer: `authorizer.handler` -> `apps/aws-lambda-authorizer/authorizer.js` exports `handler`
+  - Meeting Bot: `index.handler` -> `scenarios/lambda/meeting-bot/index.js` exports `handler`
+  - Renewal: `renewal-function.lambda_handler` -> `scenarios/lambda/renewal-function.py` (Python)
+- **CI pattern**: ALL workflows using Terraform to read state MUST use the same Terraform version that created the state. Pin TF_VERSION consistently across all workflows.
