@@ -8,9 +8,15 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit",
-    "test": "echo \"No tests configured yet\" && exit 0"
+    "test": "jest --coverage",
+    "test:integration": "jest --testPathPatterns=integration --verbose --no-coverage"
   },
-  "keywords": ["teams", "meeting", "fetcher", "transcript"],
+  "keywords": [
+    "teams",
+    "meeting",
+    "fetcher",
+    "transcript"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -25,22 +31,27 @@
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "express-session": "^1.17.0",
-    "passport": "^0.7.0",
-    "passport-azure-ad": "^4.3.0",
     "helmet": "^7.0.0",
     "isomorphic-fetch": "^3.0.0",
     "morgan": "^1.10.0",
+    "passport": "^0.7.0",
+    "passport-azure-ad": "^4.3.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.18.2",
-    "@types/passport": "^1.0.17",
-    "@types/passport-azure-ad": "^4.3.6",
+    "@types/jest": "^30.0.0",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.3.0",
+    "@types/passport": "^1.0.17",
+    "@types/passport-azure-ad": "^4.3.6",
+    "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }

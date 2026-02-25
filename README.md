@@ -233,6 +233,12 @@ curl -X POST http://localhost:3000/api/webhooks/graph \
 ```
 teams-meeting-fetcher/
 ├── apps/
+│   ├── admin-app/             # Admin dashboard (Express.js/TypeScript)
+│   │   ├── src/                # Routes, services, stores, middleware
+│   │   ├── test/               # Unit (193) + integration (64) tests
+│   │   ├── TESTING.md          # Testing guide
+│   │   ├── README.md           # Admin app documentation
+│   │   └── Dockerfile          # Multi-stage Docker build
 │   ├── aws-lambda/            # AWS Lambda webhook processor
 │   │   ├── handler.js          # Lambda handler (S3 writer)
 │   │   ├── test-event.json     # Local test event
@@ -310,6 +316,7 @@ teams-meeting-fetcher/
 │   └── README.md                 # Teams app setup
 │
 ├── docs/
+│   ├── ADMIN_APP_ARCHITECTURE.md  # Admin app architecture & data flow
 │   ├── ARCHITECTURE.md           # Detailed architecture diagrams (TBD)
 │   └── TROUBLESHOOTING.md        # Common issues & solutions (TBD)
 │
@@ -318,6 +325,48 @@ teams-meeting-fetcher/
         ├── test.yml              # Run tests on PR
         └── build.yml             # Build on release
 ```
+
+---
+
+## Admin App
+
+The admin app (`apps/admin-app/`) is an Express.js/TypeScript backend that provides a web dashboard and REST API for managing the Teams Meeting Fetcher pipeline.
+
+### What It Does
+
+- Manages Graph webhook subscriptions (create, renew, delete, sync Entra group)
+- Displays meetings and their transcripts (raw and PII-sanitized)
+- Receives and processes Graph change notifications in real time
+- Provides application health monitoring and configuration management
+- Authenticates users via Entra ID OIDC or API key
+
+### Deployment
+
+Deployed to **AWS ECS Fargate** as a Docker container (public IP on port 3000, no ALB). Resources use the suffix `8akfpg`:
+
+- ECR repository: `tmf-admin-app-8akfpg`
+- ECS cluster/service: `tmf-admin-app-8akfpg`
+
+### Running Admin App Tests
+
+```bash
+cd apps/admin-app
+
+# All tests with coverage (193 unit + 64 integration)
+npm test
+
+# Unit tests only
+npx jest --testPathPattern=unit
+
+# Integration tests only
+npx jest --testPathPattern=integration
+```
+
+### Documentation
+
+- **[Admin App README](./apps/admin-app/README.md)** -- Setup, API reference, configuration
+- **[Testing Guide](./apps/admin-app/TESTING.md)** -- Test strategy, coverage, mocking, how to add tests
+- **[Architecture](./docs/ADMIN_APP_ARCHITECTURE.md)** -- Components, auth flow, data flow, deployment model
 
 ---
 
@@ -765,6 +814,8 @@ server {
 - **[Webhook Specification](./specs/docs/webhook-specification.md)** - Webhook implementation
 - **[Usage Examples](./specs/docs/usage-examples.md)** - Code samples
 - **[Architecture](./docs/ARCHITECTURE.md)** - Component diagrams (TBD)
+- **[Admin App Architecture](./docs/ADMIN_APP_ARCHITECTURE.md)** - Admin dashboard architecture and data flow
+- **[Admin App Testing](./apps/admin-app/TESTING.md)** - Test strategy and coverage
 - **[Troubleshooting](./docs/TROUBLESHOOTING.md)** - Common issues (TBD)
 
 ### Environment Generation (IaC)
