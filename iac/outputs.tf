@@ -132,7 +132,6 @@ output "deployment_summary" {
     bot_webhook            = module.aws.meeting_bot_webhook_url
     eventhub_processor     = module.aws.eventhub_processor_function_name
     checkpoint_table       = module.aws.eventhub_checkpoints_table_name
-    admin_app_url          = module.aws.admin_app_alb_dns_name
     admin_app_ecr          = module.aws.admin_app_ecr_repository_url
   }
 }
@@ -140,11 +139,6 @@ output "deployment_summary" {
 //=============================================================================
 // ADMIN APP OUTPUTS
 //=============================================================================
-
-output "admin_app_alb_dns_name" {
-  description = "Admin app ALB DNS name"
-  value       = module.aws.admin_app_alb_dns_name
-}
 
 output "admin_app_ecr_repository_url" {
   description = "Admin app ECR repository URL"

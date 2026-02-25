@@ -222,11 +222,6 @@ output "sanitized_transcript_bucket_arn" {
 // ADMIN APP OUTPUTS
 //=============================================================================
 
-output "admin_app_alb_dns_name" {
-  description = "Admin app ALB DNS name"
-  value       = module.admin_app.alb_dns_name
-}
-
 output "admin_app_ecr_repository_url" {
   description = "Admin app ECR repository URL"
   value       = module.admin_app.ecr_repository_url

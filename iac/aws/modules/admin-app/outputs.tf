@@ -1,15 +1,5 @@
 // Outputs for admin-app ECS Fargate module
 
-output "alb_dns_name" {
-  description = "DNS name of the Application Load Balancer"
-  value       = aws_lb.admin_app.dns_name
-}
-
-output "alb_arn" {
-  description = "ARN of the Application Load Balancer"
-  value       = aws_lb.admin_app.arn
-}
-
 output "ecr_repository_url" {
   description = "URL of the ECR repository"
   value       = aws_ecr_repository.admin_app.repository_url
