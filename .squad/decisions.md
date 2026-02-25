@@ -811,3 +811,58 @@ Wrap the `consumer.subscribe()` call in a try/catch block instead of chaining `.
 - Lambda env var CONSUMER_GROUP: `$Default`
 - Should align to `lambda-processor` for proper partition ownership
 
+
+---
+
+### ## 2026-02-25: Cross-Cloud Resource Wiring Must Use Module Outputs
+
+**By:** Fenster (DevOps/Infra)
+
+**Decision:** When `iac/main.tf` passes Azure-created resource names to the AWS module, always use `module.azure.<output_name>`, never `var.<variable_name>` with manual defaults.
+
+**Rationale:**
+- The EventHub consumer group mismatch was caused by `iac/main.tf` passing `var.eventhub_consumer_group` (default `$Default`) instead of `module.azure.eventhub_lambda_consumer_group` (`lambda-processor`). The Lambda couldn't read messages because it was using the wrong consumer group.
+- Variables with hardcoded defaults create silent drift between what Azure provisions and what AWS consumes. Module outputs are always in sync with the actual deployed state.
+- This pattern already works correctly for `eventhub_namespace` and `eventhub_name` (lines 140-141 in main.tf use `module.azure.*`). The consumer group was the only one using a variable instead.
+
+**Implementation:**
+- `iac/main.tf` line 142: Changed from `var.eventhub_consumer_group` to `module.azure.eventhub_lambda_consumer_group`
+- Updated all variable defaults from `$Default` to `lambda-processor` for standalone AWS usage
+- Lambda code fix: replaced `.subscribe().catch()` with try-catch (subscribe returns Subscription, not Promise)
+
+**Action Required:** Manually trigger `deploy-unified.yml` with `mode: apply` to push the env var change to the deployed Lambda function.
+
+---
+
+---
+
+### # Decision: EventHub Processor Pipeline Break — handler.js Fix Required
+
+**Author:** Redfoot (E2E Tester)
+**Date:** 2026-02-25
+**Status:** Proposed
+**Priority:** P0 — Pipeline is fully blocked
+
+## Context
+
+Full E2E pipeline test confirmed that the data flow from Graph API through EventHub is working correctly (3 notifications delivered for a test meeting creation). However, the Lambda EventHub processor crashes on every invocation before reading any messages.
+
+## Findings
+
+1. **handler.js:207** — `consumer.subscribe(...).catch()` is invalid. `EventHubConsumerClient.subscribe()` returns a `Subscription` object, not a Promise. The `.catch()` chain throws `TypeError`.
+2. **Consumer group mismatch** — Lambda uses `$Default` but Terraform provisioned `lambda-processor` consumer group.
+
+## Proposed Fix
+
+1. In `apps/aws-lambda-eventhub/handler.js` line ~206-211: Replace `.catch()` chain with `try/catch` around the `consumer.subscribe()` call.
+2. Update Lambda environment variable `CONSUMER_GROUP` from `$Default` to `lambda-processor`.
+3. Redeploy the Lambda function.
+
+## Impact
+
+Until fixed, no data flows past EventHub. All DynamoDB tables and S3 buckets remain empty. The Lambda is being triggered every minute by EventBridge and failing every time (wasting compute).
+
+## Verification
+
+After fix, re-run E2E pipeline test: create meeting → verify EventHub notification → verify Lambda reads messages → verify DynamoDB/S3 populated.
+

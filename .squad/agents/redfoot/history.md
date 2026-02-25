@@ -109,6 +109,53 @@
 - GRAPH_NOTIFICATION_URL is empty
 - TEAMS_CATALOG_APP_ID is empty
 
+### 2026-02-25: Full E2E Pipeline Validation (Live Test)
+
+**Test Method:** Created a real calendar event via Graph API and traced the notification through every pipeline stage.
+
+**Pipeline Results:**
+
+| Step | Component | Result | Details |
+|------|-----------|--------|---------|
+| 1 | Graph API: Create Meeting | PASS | Created online Teams meeting for boldoriole@ibuyspy.net via client credentials flow |
+| 2 | Graph Subscription | PASS | Active subscription (d08febbf...) watching /users/boldoriole@ibuyspy.net/events, expires in ~46hrs, routes to EventHub |
+| 3 | EventHub: Notification Delivery | PASS | 3 incoming messages at 01:40Z (~2 min after meeting creation). Graph notifications flowing correctly. |
+| 4 | Lambda: EventHub Processor | FAIL | Triggered every 1min by EventBridge, crashes immediately: `consumer.subscribe(...).catch is not a function` at handler.js:207 |
+| 5 | Storage: DynamoDB/S3 | EMPTY | All 3 DynamoDB tables (0 items), all 3 S3 buckets (0 objects). No data reaches storage. |
+
+**Pipeline Break Point:** Step 4 — EventHub Processor Lambda (`tmf-eventhub-processor-dev`)
+
+**Root Cause Analysis:**
+1. **Primary Bug (handler.js:207):** `EventHubConsumerClient.subscribe()` returns a `Subscription` object, not a Promise. Chaining `.catch()` on it causes `TypeError`. Fix: wrap in try/catch instead.
+2. **Consumer Group Mismatch:** Lambda env `CONSUMER_GROUP=$Default`, Terraform created `lambda-processor` consumer group. Should use `lambda-processor` for proper partition ownership.
+3. **Outgoing Messages: 0** — Lambda never successfully reads from EventHub, so no outgoing message count despite 3 incoming.
+
+**Pipeline Diagram:**
+```
+Graph API (Create Event) ──PASS──> Graph Subscription ──PASS──> EventHub (3 msgs)
+                                                                      │
+                                                                      ▼
+                                                            Lambda Processor ──FAIL──X
+                                                            (handler.js:207 crash)
+                                                                      │
+                                                                  [BLOCKED]
+                                                                      │
+                                                          ┌───────────┴───────────┐
+                                                          ▼                       ▼
+                                                    DynamoDB (empty)        S3 (empty)
+```
+
+**What Needs Fixing (Priority Order):**
+1. Fix handler.js:207 — replace `.catch()` chain with try/catch around `consumer.subscribe()`
+2. Update Lambda env CONSUMER_GROUP from `$Default` to `lambda-processor`
+3. Redeploy Lambda with fixed code
+4. Re-run this E2E test to verify full pipeline flow
+
+**Meeting Created for Test:**
+- Subject: "E2E Pipeline Test - Redfoot 2026-02-24 20:38"
+- Event ID: AAMkADE2ZWVhN2My... (boldoriole@ibuyspy.net calendar)
+- Online Teams meeting with join URL
+
 ---
 
 ## Team Updates
