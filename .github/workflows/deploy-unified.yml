@@ -128,15 +128,19 @@ jobs:
             echo "Failed to detect runner IP"
             exit 1
           fi
-          echo "Detected runner IP: $CURRENT_IP"
+          # GitHub Actions runners can have multiple outbound IPs in the same
+          # subnet. Use a /24 CIDR to cover all of them instead of a single /32.
+          CIDR=$(echo "$CURRENT_IP" | sed 's/\.[0-9]*$/.0\/24/')
+          echo "Detected runner IP: $CURRENT_IP — using CIDR: $CIDR"
           echo "ip=${CURRENT_IP}" >> "${GITHUB_OUTPUT}"
+          echo "cidr=${CIDR}" >> "${GITHUB_OUTPUT}"
 
-      - name: Enable Key Vault public access and add runner IP
+      - name: Enable Key Vault public access and add runner CIDR
         id: kv_firewall
         if: vars.KEY_VAULT_NAME != ''
         run: |
           set -euo pipefail
-          RUNNER_IP="${{ steps.firewall_prep.outputs.ip }}"
+          RUNNER_CIDR="${{ steps.firewall_prep.outputs.cidr }}"
 
           echo "Enabling public network access on Key Vault..."
           az keyvault update \
@@ -145,11 +149,11 @@ jobs:
             --public-network-access Enabled \
             --only-show-errors
 
-          echo "Adding runner IP ${RUNNER_IP} to Key Vault firewall..."
+          echo "Adding runner CIDR ${RUNNER_CIDR} to Key Vault firewall..."
           az keyvault network-rule add \
             --name "${{ vars.KEY_VAULT_NAME }}" \
             --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
-            --ip-address "${RUNNER_IP}/32" \
+            --ip-address "${RUNNER_CIDR}" \
             --only-show-errors || true
         working-directory: ${{ github.workspace }}
 
@@ -185,7 +189,7 @@ jobs:
           TF_VAR_checkpoint_bucket_name: ${{ vars.CHECKPOINT_BUCKET_NAME }}
           TF_VAR_bot_messaging_endpoint: ${{ vars.BOT_MESSAGING_ENDPOINT }}
           TF_VAR_client_state: ${{ secrets.CLIENT_STATE }}
-          TF_VAR_allowed_ip_addresses: '["${{ steps.firewall_prep.outputs.ip }}"]'
+          TF_VAR_allowed_ip_addresses: '["${{ steps.firewall_prep.outputs.cidr }}"]'
 
       - name: Terraform apply
         if: github.event.inputs.mode == 'apply'
@@ -215,14 +219,14 @@ jobs:
           gh variable set RESOURCE_GROUP_NAME --body "${RG_NAME}" --repo "${{ github.repository }}" || \
             echo "::warning::Could not export RESOURCE_GROUP_NAME. Set manually: gh variable set RESOURCE_GROUP_NAME --body ${RG_NAME}"
 
-      - name: Remove runner IP from Key Vault firewall
-        if: always() && vars.KEY_VAULT_NAME != '' && steps.firewall_prep.outputs.ip != ''
+      - name: Remove runner CIDR from Key Vault firewall
+        if: always() && vars.KEY_VAULT_NAME != '' && steps.firewall_prep.outputs.cidr != ''
         working-directory: ${{ github.workspace }}
         run: |
           az keyvault network-rule remove \
             --name "${{ vars.KEY_VAULT_NAME }}" \
             --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
-            --ip-address "${{ steps.firewall_prep.outputs.ip }}/32" \
+            --ip-address "${{ steps.firewall_prep.outputs.cidr }}" \
             --only-show-errors || true
 
   build:

@@ -24,15 +24,19 @@ runs:
       shell: bash
       run: |
         RUNNER_IP=$(curl -s https://api.ipify.org)
+        # GitHub Actions runners can have multiple outbound IPs in the same
+        # subnet. Use a /24 CIDR to cover all of them instead of a single /32.
+        RUNNER_CIDR=$(echo "$RUNNER_IP" | sed 's/\.[0-9]*$/.0\/24/')
         echo "runner_ip=$RUNNER_IP" >> $GITHUB_OUTPUT
-        echo "Runner IP: $RUNNER_IP"
+        echo "runner_cidr=$RUNNER_CIDR" >> $GITHUB_OUTPUT
+        echo "Runner IP: $RUNNER_IP — using CIDR: $RUNNER_CIDR"
 
     - name: Manage Key Vault firewall rule
       if: inputs.resource-type == 'keyvault'
       shell: bash
       run: |
         NAME="${{ inputs.resource-name }}"
-        IP="${{ steps.ip.outputs.runner_ip }}"
+        CIDR="${{ steps.ip.outputs.runner_cidr }}"
         ACTION="${{ inputs.action }}"
 
         # Check if the default action is Deny (firewall is enabled)
@@ -44,15 +48,15 @@ runs:
         fi
 
         if [ "$ACTION" == "add" ]; then
-          echo "Adding runner IP $IP/32 to Key Vault '$NAME' firewall..."
-          az keyvault network-rule add --name "$NAME" --ip-address "$IP/32" --only-show-errors
+          echo "Adding runner CIDR $CIDR to Key Vault '$NAME' firewall..."
+          az keyvault network-rule add --name "$NAME" --ip-address "$CIDR" --only-show-errors
           echo "Waiting 10s for firewall rule propagation..."
           sleep 10
-          echo "Successfully added $IP/32 to Key Vault '$NAME' firewall."
+          echo "Successfully added $CIDR to Key Vault '$NAME' firewall."
         elif [ "$ACTION" == "remove" ]; then
-          echo "Removing runner IP $IP/32 from Key Vault '$NAME' firewall..."
-          az keyvault network-rule remove --name "$NAME" --ip-address "$IP/32" --only-show-errors || true
-          echo "Successfully removed $IP/32 from Key Vault '$NAME' firewall."
+          echo "Removing runner CIDR $CIDR from Key Vault '$NAME' firewall..."
+          az keyvault network-rule remove --name "$NAME" --ip-address "$CIDR" --only-show-errors || true
+          echo "Successfully removed $CIDR from Key Vault '$NAME' firewall."
         else
           echo "Unknown action: $ACTION. Use 'add' or 'remove'."
           exit 1
@@ -64,7 +68,7 @@ runs:
       run: |
         NAME="${{ inputs.resource-name }}"
         RG="${{ inputs.resource-group }}"
-        IP="${{ steps.ip.outputs.runner_ip }}"
+        CIDR="${{ steps.ip.outputs.runner_cidr }}"
         ACTION="${{ inputs.action }}"
 
         if [ -z "$RG" ]; then
@@ -81,15 +85,15 @@ runs:
         fi
 
         if [ "$ACTION" == "add" ]; then
-          echo "Adding runner IP $IP to Storage Account '$NAME' firewall..."
-          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors
+          echo "Adding runner CIDR $CIDR to Storage Account '$NAME' firewall..."
+          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$CIDR" --only-show-errors
           echo "Waiting 10s for firewall rule propagation..."
           sleep 10
-          echo "Successfully added $IP to Storage Account '$NAME' firewall."
+          echo "Successfully added $CIDR to Storage Account '$NAME' firewall."
         elif [ "$ACTION" == "remove" ]; then
-          echo "Removing runner IP $IP from Storage Account '$NAME' firewall..."
-          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors || true
-          echo "Successfully removed $IP from Storage Account '$NAME' firewall."
+          echo "Removing runner CIDR $CIDR from Storage Account '$NAME' firewall..."
+          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$CIDR" --only-show-errors || true
+          echo "Successfully removed $CIDR from Storage Account '$NAME' firewall."
         else
           echo "Unknown action: $ACTION. Use 'add' or 'remove'."
           exit 1

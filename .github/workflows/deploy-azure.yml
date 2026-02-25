@@ -141,8 +141,12 @@ jobs:
         id: runner-ip
         run: |
           RUNNER_IP=$(curl -s https://api.ipify.org)
+          # GitHub Actions runners can have multiple outbound IPs in the same
+          # subnet. Use a /24 CIDR to cover all of them instead of a single /32.
+          RUNNER_CIDR=$(echo "$RUNNER_IP" | sed 's/\.[0-9]*$/.0\/24/')
           echo "runner_ip=$RUNNER_IP" >> $GITHUB_OUTPUT
-          echo "Runner IP: $RUNNER_IP"
+          echo "runner_cidr=$RUNNER_CIDR" >> $GITHUB_OUTPUT
+          echo "Runner IP: $RUNNER_IP — using CIDR: $RUNNER_CIDR"
 
       - name: Get resource names from Terraform output
         id: resources
@@ -164,11 +168,11 @@ jobs:
           ARM_USE_OIDC: true
           TF_VAR_use_oidc: "true"
 
-      - name: Add runner IP to Key Vault firewall
+      - name: Add runner CIDR to Key Vault firewall
         if: steps.resources.outputs.kv_name != ''
         run: |
           NAME="${{ steps.resources.outputs.kv_name }}"
-          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+          CIDR="${{ steps.runner-ip.outputs.runner_cidr }}"
 
           DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
           if [ "$DEFAULT_ACTION" != "Deny" ]; then
@@ -176,16 +180,16 @@ jobs:
             exit 0
           fi
 
-          echo "Adding runner IP $IP/32 to Key Vault '$NAME' firewall..."
-          az keyvault network-rule add --name "$NAME" --ip-address "$IP/32" --only-show-errors
-          echo "Successfully added $IP/32 to Key Vault '$NAME'."
+          echo "Adding runner CIDR $CIDR to Key Vault '$NAME' firewall..."
+          az keyvault network-rule add --name "$NAME" --ip-address "$CIDR" --only-show-errors
+          echo "Successfully added $CIDR to Key Vault '$NAME'."
 
-      - name: Add runner IP to Storage Account firewall
+      - name: Add runner CIDR to Storage Account firewall
         if: steps.resources.outputs.storage_name != '' && steps.resources.outputs.rg_name != ''
         run: |
           NAME="${{ steps.resources.outputs.storage_name }}"
           RG="${{ steps.resources.outputs.rg_name }}"
-          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+          CIDR="${{ steps.runner-ip.outputs.runner_cidr }}"
 
           DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
           if [ "$DEFAULT_ACTION" != "Deny" ]; then
@@ -193,9 +197,9 @@ jobs:
             exit 0
           fi
 
-          echo "Adding runner IP $IP to Storage Account '$NAME' firewall..."
-          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors
-          echo "Successfully added $IP to Storage Account '$NAME'."
+          echo "Adding runner CIDR $CIDR to Storage Account '$NAME' firewall..."
+          az storage account network-rule add -n "$NAME" -g "$RG" --ip-address "$CIDR" --only-show-errors
+          echo "Successfully added $CIDR to Storage Account '$NAME'."
 
       - name: Wait for firewall propagation
         if: steps.resources.outputs.kv_name != '' || steps.resources.outputs.storage_name != ''
@@ -256,11 +260,11 @@ jobs:
 
       # --- Cleanup: always remove runner IP from firewalls ---
 
-      - name: Remove runner IP from Key Vault firewall
+      - name: Remove runner CIDR from Key Vault firewall
         if: always() && steps.resources.outputs.kv_name != ''
         run: |
           NAME="${{ steps.resources.outputs.kv_name }}"
-          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+          CIDR="${{ steps.runner-ip.outputs.runner_cidr }}"
 
           DEFAULT_ACTION=$(az keyvault show -n "$NAME" --query "properties.networkAcls.defaultAction" -o tsv 2>/dev/null || echo "unknown")
           if [ "$DEFAULT_ACTION" != "Deny" ]; then
@@ -268,16 +272,16 @@ jobs:
             exit 0
           fi
 
-          echo "Removing runner IP $IP/32 from Key Vault '$NAME' firewall..."
-          az keyvault network-rule remove --name "$NAME" --ip-address "$IP/32" --only-show-errors || true
-          echo "Successfully removed $IP/32 from Key Vault '$NAME'."
+          echo "Removing runner CIDR $CIDR from Key Vault '$NAME' firewall..."
+          az keyvault network-rule remove --name "$NAME" --ip-address "$CIDR" --only-show-errors || true
+          echo "Successfully removed $CIDR from Key Vault '$NAME'."
 
-      - name: Remove runner IP from Storage Account firewall
+      - name: Remove runner CIDR from Storage Account firewall
         if: always() && steps.resources.outputs.storage_name != '' && steps.resources.outputs.rg_name != ''
         run: |
           NAME="${{ steps.resources.outputs.storage_name }}"
           RG="${{ steps.resources.outputs.rg_name }}"
-          IP="${{ steps.runner-ip.outputs.runner_ip }}"
+          CIDR="${{ steps.runner-ip.outputs.runner_cidr }}"
 
           DEFAULT_ACTION=$(az storage account show -n "$NAME" -g "$RG" --query "networkRuleSet.defaultAction" -o tsv 2>/dev/null || echo "unknown")
           if [ "$DEFAULT_ACTION" != "Deny" ]; then
@@ -285,6 +289,6 @@ jobs:
             exit 0
           fi
 
-          echo "Removing runner IP $IP from Storage Account '$NAME' firewall..."
-          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$IP" --only-show-errors || true
-          echo "Successfully removed $IP from Storage Account '$NAME'."
+          echo "Removing runner CIDR $CIDR from Storage Account '$NAME' firewall..."
+          az storage account network-rule remove -n "$NAME" -g "$RG" --ip-address "$CIDR" --only-show-errors || true
+          echo "Successfully removed $CIDR from Storage Account '$NAME'."
