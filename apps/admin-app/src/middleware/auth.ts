@@ -35,7 +35,7 @@ export function dashboardAuth(req: Request, res: Response, next: NextFunction): 
     return;
   }
 
-  if (req.isAuthenticated && req.isAuthenticated()) {
+  if ((req.session as any)?.user) {
     next();
     return;
   }
@@ -49,7 +49,7 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
     (req as any).authenticated = true;
   }
 
-  if (req.isAuthenticated && req.isAuthenticated()) {
+  if ((req.session as any)?.user) {
     (req as any).authenticated = true;
   }
 

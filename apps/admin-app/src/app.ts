@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import session from 'express-session';
-import passport from 'passport';
 import path from 'path';
 import { config } from './config';
 import apiRoutes from './routes';
@@ -24,15 +23,14 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: config.nodeEnv === 'production',
+    secure: false,
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
 
-initializeEntraAuth();
-app.use(passport.initialize());
-app.use(passport.session());
+// MSAL init is async but non-blocking — routes handle the "not configured" case
+initializeEntraAuth().catch(err => console.error('Entra auth init failed:', err));
 
 app.use('/auth', authRoutes);
 
