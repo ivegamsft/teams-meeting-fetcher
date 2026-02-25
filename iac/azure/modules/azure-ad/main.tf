@@ -143,7 +143,7 @@ resource "azuread_application" "tmf_admin_app" {
   display_name     = var.admin_app_display_name
   sign_in_audience = "AzureADMyOrg"
 
-  public_client {
+  web {
     redirect_uris = []
   }
 

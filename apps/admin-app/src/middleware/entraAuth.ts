@@ -60,10 +60,10 @@ async function discoverRedirectUri(configuredUri: string, port: number): Promise
     const response = await fetch('http://checkip.amazonaws.com');
     const ip = (await response.text()).trim();
     if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
-      return `http://${ip}:${port}/auth/callback`;
+      return `https://${ip}:${port}/auth/callback`;
     }
   } catch {
     // Fall through to default
   }
-  return `http://localhost:${port}/auth/callback`;
+  return `https://localhost:${port}/auth/callback`;
 }
