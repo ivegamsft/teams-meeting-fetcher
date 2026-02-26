@@ -26,6 +26,8 @@
 - **EventHub consumer group** for Lambda processor is cross-cloud wired from `module.azure.eventhub_lambda_consumer_group` (not a hardcoded default).
 - **Key file paths for meetings pipeline config**: `iac/aws/modules/admin-app/main.tf` (ECS task def, lines 370-391), `iac/aws/modules/eventhub-processor/main.tf` (Lambda env vars, lines 93-110), `iac/azure/outputs.tf` (tenant_domain output, line 135).
 - **Azure Storage Account has `prevent_destroy = true`** in `iac/azure/modules/storage/main.tf` — any Terraform change that would recreate this resource will fail the plan.
+- **Webhook forwarding env vars** added: Lambda gets `ADMIN_APP_WEBHOOK_URL` and `WEBHOOK_AUTH_SECRET` (conditionally merged, won't break if empty). Admin app gets `WEBHOOK_AUTH_SECRET` via Secrets Manager and `WEBHOOK_CLIENT_STATE` as plain env var. The deploy-admin-app workflow dynamically updates the Lambda env var with the Fargate task IP after each deploy.
+- **deploy-admin-app.yml now updates Lambda env vars** — after discovering the Fargate task IP, it calls `aws lambda update-function-configuration` to set `ADMIN_APP_WEBHOOK_URL` on the eventhub processor. This mirrors the Entra redirect URI update pattern.
 
 ## Team Updates
 
