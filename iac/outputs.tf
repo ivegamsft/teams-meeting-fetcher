@@ -165,12 +165,4 @@ output "admin_app_entra_client_id" {
   value       = module.azure.admin_app_client_id
 }
 
-output "admin_app_eip_allocation_id" {
-  description = "Admin app Elastic IP allocation ID"
-  value       = module.aws.admin_app_eip_allocation_id
-}
 
-output "admin_app_eip_public_ip" {
-  description = "Admin app Elastic IP public address"
-  value       = module.aws.admin_app_eip_public_ip
-}

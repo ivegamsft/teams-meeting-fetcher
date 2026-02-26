@@ -242,12 +242,4 @@ output "admin_app_task_definition_arn" {
   value       = module.admin_app.task_definition_arn
 }
 
-output "admin_app_eip_allocation_id" {
-  description = "Admin app Elastic IP allocation ID"
-  value       = module.admin_app.eip_allocation_id
-}
 
-output "admin_app_eip_public_ip" {
-  description = "Admin app Elastic IP public address"
-  value       = module.admin_app.eip_public_ip
-}

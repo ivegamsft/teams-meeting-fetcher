@@ -179,9 +179,6 @@ resource "azuread_application" "tmf_admin_app" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [web[0].redirect_uris]
-  }
 }
 
 resource "azuread_service_principal" "tmf_admin_app" {

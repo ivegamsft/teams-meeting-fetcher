@@ -142,11 +142,6 @@ output "admin_app_object_id" {
   value       = module.azure_ad.admin_app_object_id
 }
 
-output "admin_app_id" {
-  description = "Admin app application resource ID"
-  value       = module.azure_ad.admin_app_id
-}
-
 //=============================================================================
 // KEY VAULT OUTPUTS
 //=============================================================================

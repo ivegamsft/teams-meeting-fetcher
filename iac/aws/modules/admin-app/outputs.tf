@@ -50,12 +50,4 @@ output "vpc_id" {
   value       = aws_vpc.main.id
 }
 
-output "eip_allocation_id" {
-  description = "Elastic IP allocation ID (used by deploy workflow to associate with task ENI)"
-  value       = aws_eip.admin_app.id
-}
 
-output "eip_public_ip" {
-  description = "Elastic IP public address (stable across deployments)"
-  value       = aws_eip.admin_app.public_ip
-}

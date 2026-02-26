@@ -63,8 +63,6 @@ jobs:
           echo "cluster_name=$(terraform output -raw admin_app_ecs_cluster_name)" >> $GITHUB_OUTPUT
           echo "service_name=$(terraform output -raw admin_app_ecs_service_name)" >> $GITHUB_OUTPUT
           echo "task_family=$(terraform output -json admin_app_task_definition_arn | jq -r 'split("/")[1] | split(":")[0]')" >> $GITHUB_OUTPUT
-          echo "eip_allocation_id=$(terraform output -raw admin_app_eip_allocation_id)" >> $GITHUB_OUTPUT
-          echo "eip_public_ip=$(terraform output -raw admin_app_eip_public_ip)" >> $GITHUB_OUTPUT
 
       - name: Determine image tag
         id: image
@@ -129,20 +127,41 @@ jobs:
             --services "${{ steps.tf-output.outputs.service_name }}" \
             --region ${{ env.AWS_REGION }} || echo "::warning::Service did not stabilize within timeout"
 
-      - name: Associate Elastic IP to task ENI
+      - name: Discover new task IP
+        id: task-ip
         run: |
           CLUSTER="${{ steps.tf-output.outputs.cluster_name }}"
           SERVICE="${{ steps.tf-output.outputs.service_name }}"
-          EIP_ALLOC="${{ steps.tf-output.outputs.eip_allocation_id }}"
 
           TASK_ARN=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" \
             --query 'taskArns[0]' --output text)
           ENI=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
             --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+          IP=$(aws ec2 describe-network-interfaces --network-interface-ids "$ENI" \
+            --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
 
-          echo "Associating EIP ${EIP_ALLOC} to ENI ${ENI}"
-          aws ec2 associate-address --allocation-id "$EIP_ALLOC" --network-interface-id "$ENI" --allow-reassociation
-          echo "Elastic IP associated: ${{ steps.tf-output.outputs.eip_public_ip }}"
+          echo "ip=${IP}" >> $GITHUB_OUTPUT
+          echo "Task public IP: ${IP}"
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Entra redirect URI
+        run: |
+          IP="${{ steps.task-ip.outputs.ip }}"
+          APP_ID=$(cd iac && terraform output -raw admin_app_entra_client_id)
+          NEW_URI="https://${IP}:3000/auth/callback"
+
+          echo "Setting redirect URI to: ${NEW_URI}"
+          OBJECT_ID=$(az ad app show --id "$APP_ID" --query id -o tsv)
+          az rest --method PATCH \
+            --uri "https://graph.microsoft.com/v1.0/applications/${OBJECT_ID}" \
+            --body "{\"web\":{\"redirectUris\":[\"${NEW_URI}\"]}}"
+          echo "Entra redirect URI updated successfully"
 
       - name: Deployment Summary
         run: |
@@ -151,5 +170,5 @@ jobs:
           echo "Service: ${{ steps.tf-output.outputs.service_name }}"
           echo "Task Definition: ${{ steps.register.outputs.task_def_arn }}"
           echo "Image: ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.image.outputs.tag }}"
-          echo "Public IP (EIP): ${{ steps.tf-output.outputs.eip_public_ip }}"
-          echo "URL: https://${{ steps.tf-output.outputs.eip_public_ip }}:3000"
+          echo "Public IP: ${{ steps.task-ip.outputs.ip }}"
+          echo "URL: https://${{ steps.task-ip.outputs.ip }}:3000"

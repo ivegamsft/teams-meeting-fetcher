@@ -236,6 +236,12 @@ variable "entra_client_secret" {
   sensitive   = true
 }
 
+variable "entra_redirect_uri" {
+  description = "Entra ID OIDC redirect URI"
+  type        = string
+  default     = ""
+}
+
 variable "admin_group_id" {
   description = "Entra admin group object ID for RBAC"
   type        = string

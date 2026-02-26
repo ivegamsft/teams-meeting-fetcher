@@ -1,6 +1,7 @@
 // Admin App ECS Fargate module
 // Deploys VPC, ECS cluster, ECR, IAM, Secrets Manager, CloudWatch
-// Uses Elastic IP for stable public address across deployments
+// (No ALB — this AWS account does not support creating load balancers.
+// ECS tasks use public subnets with assigned public IPs instead.)
 
 locals {
   name_prefix = "tmf-admin-app-${var.resource_suffix}"
@@ -149,18 +150,6 @@ resource "aws_security_group" "ecs_tasks" {
   lifecycle {
     create_before_destroy = true
   }
-}
-
-//=============================================================================
-// ELASTIC IP (stable public address across deployments)
-// Free when attached to a running ENI. The deploy workflow associates
-// this EIP to the Fargate task's ENI after each deployment.
-//=============================================================================
-
-resource "aws_eip" "admin_app" {
-  domain = "vpc"
-
-  tags = merge(var.tags, { Name = "${local.name_prefix}-eip" })
 }
 
 //=============================================================================
@@ -394,7 +383,7 @@ resource "aws_ecs_task_definition" "admin_app" {
       { name = "GRAPH_SECRET_NAME", value = aws_secretsmanager_secret.admin_app.name },
       { name = "ENTRA_TENANT_ID", value = var.entra_tenant_id },
       { name = "ENTRA_CLIENT_ID", value = var.entra_client_id },
-      { name = "ENTRA_REDIRECT_URI", value = "https://${aws_eip.admin_app.public_ip}:${var.container_port}/auth/callback" },
+      { name = "ENTRA_REDIRECT_URI", value = var.entra_redirect_uri },
       { name = "ADMIN_GROUP_ID", value = var.admin_group_id },
     ]
 
