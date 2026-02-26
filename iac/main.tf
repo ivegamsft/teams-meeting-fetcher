@@ -171,12 +171,16 @@ module "aws" {
   admin_app_entra_tenant_id     = module.azure.app_tenant_id
   admin_app_entra_client_id     = module.azure.admin_app_client_id
   admin_app_entra_client_secret = module.azure.admin_app_client_secret
-  admin_app_entra_redirect_uri  = ""
 }
 
 //=============================================================================
 // ADMIN APP REDIRECT URI
-// Managed by the deploy-admin-app workflow directly (az ad app update)
-// after ECS task stabilizes and IP is known. Not in Terraform to avoid
-// timing issues with dynamic Fargate IPs.
+// Uses the Elastic IP for a stable redirect URI across deployments.
+// The EIP is associated to the Fargate task ENI by the deploy workflow.
 //=============================================================================
+
+resource "azuread_application_redirect_uris" "admin_app" {
+  application_id = module.azure.admin_app_id
+  type           = "Web"
+  redirect_uris  = ["https://${module.aws.admin_app_eip_public_ip}:3000/auth/callback"]
+}

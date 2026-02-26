@@ -74,6 +74,11 @@ output "admin_app_object_id" {
   value       = azuread_application.tmf_admin_app.object_id
 }
 
+output "admin_app_id" {
+  description = "Admin app application resource ID (for azuread_application_redirect_uris)"
+  value       = azuread_application.tmf_admin_app.id
+}
+
 output "admin_app_client_secret" {
   description = "Admin app client secret for OIDC sign-in"
   value       = azuread_application_password.tmf_admin_app.value

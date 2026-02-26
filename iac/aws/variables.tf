@@ -292,8 +292,4 @@ variable "admin_app_entra_client_secret" {
   sensitive   = true
 }
 
-variable "admin_app_entra_redirect_uri" {
-  description = "Entra ID OIDC redirect URI (optional, constructed from ALB DNS if empty)"
-  type        = string
-  default     = ""
-}
+
