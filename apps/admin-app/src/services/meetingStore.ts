@@ -89,19 +89,29 @@ export const meetingStore = {
     return { meetings: paged, totalCount: allMeetings.length };
   },
 
-  async updateStatus(id: string, status: string): Promise<void> {
+  async updateStatus(id: string, status: string, changeType?: string): Promise<void> {
     const key = await this._resolveKey(id);
     if (!key) throw new Error(`Meeting ${id} not found`);
+
+    const updateExpr = changeType 
+      ? 'SET #status = :status, changeType = :changeType, updatedAt = :now'
+      : 'SET #status = :status, updatedAt = :now';
+    
+    const exprValues: Record<string, any> = {
+      ':status': status,
+      ':now': new Date().toISOString(),
+    };
+    
+    if (changeType) {
+      exprValues[':changeType'] = changeType;
+    }
 
     await dynamoDb.send(new UpdateCommand({
       TableName: TABLE,
       Key: key,
-      UpdateExpression: 'SET #status = :status, updatedAt = :now',
+      UpdateExpression: updateExpr,
       ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':status': status,
-        ':now': new Date().toISOString(),
-      },
+      ExpressionAttributeValues: exprValues,
     }));
   },
 

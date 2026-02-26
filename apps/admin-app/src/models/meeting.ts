@@ -18,11 +18,16 @@ export interface Meeting {
   organizerDisplayName: string;
   attendees: Attendee[];
   recordingUrl?: string;
-  status: 'scheduled' | 'recording' | 'transcript_pending' | 'completed' | 'failed' | 'cancelled';
+  status: 'notification_received' | 'scheduled' | 'recording' | 'transcript_pending' | 'completed' | 'failed' | 'cancelled';
   transcriptionId?: string;
   subscriptionId: string;
   joinWebUrl?: string;
   onlineMeetingId?: string;
+  changeType?: 'created' | 'updated' | 'deleted';
+  resource?: string;
+  rawNotification?: Record<string, any>;
+  detailsFetched?: boolean;
+  rawEventData?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }

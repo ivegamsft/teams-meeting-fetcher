@@ -8,43 +8,70 @@ import { configStore } from './configStore';
 
 export const meetingService = {
   async processNotification(notification: any): Promise<void> {
-    const { resource, changeType, subscriptionId } = notification;
+    const { resource, changeType, subscriptionId, resourceData, tenantId } = notification;
+
+    const parts = resource.split('/');
+    const eventId = parts[parts.length - 1];
+
+    const existing = await meetingStore.get(eventId);
 
     if (changeType === 'deleted') {
-      const existingMeeting = await this.findMeetingByResource(resource);
-      if (existingMeeting) {
-        await meetingStore.updateStatus(existingMeeting.meeting_id, 'cancelled');
+      if (existing) {
+        await meetingStore.updateStatus(existing.meeting_id, 'cancelled', 'deleted');
       }
       return;
     }
 
-    const client = getGraphClient();
-    let eventData: any;
-    try {
-      eventData = await client.api(`/${resource}`).get();
-    } catch (err: any) {
-      console.error(`Failed to fetch event details for ${resource}:`, err.message);
-      return;
-    }
+    const now = new Date().toISOString();
 
-    const existingMeeting = await this.findMeetingByResource(resource);
-
-    if (existingMeeting) {
-      await this.updateMeeting(existingMeeting, eventData);
+    if (existing) {
+      await meetingStore.put({
+        ...existing,
+        changeType,
+        rawNotification: notification,
+        resource,
+        updatedAt: now,
+      });
     } else {
-      await this.createMeeting(eventData, subscriptionId, resource);
+      const meeting: Meeting = {
+        meeting_id: eventId,
+        tenantId: tenantId || config.graph.tenantId,
+        subject: '',
+        description: '',
+        startTime: '',
+        endTime: '',
+        organizerId: '',
+        organizerEmail: '',
+        organizerDisplayName: '',
+        attendees: [],
+        status: 'notification_received',
+        subscriptionId,
+        changeType,
+        resource,
+        rawNotification: notification,
+        detailsFetched: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await meetingStore.put(meeting);
+      await configStore.incrementCounter('monitoredMeetingsCount', 1);
     }
   },
 
-  async createMeeting(eventData: any, subscriptionId: string, resource: string): Promise<Meeting> {
-    const now = new Date().toISOString();
-    const meeting: Meeting = {
-      meeting_id: eventData.id || uuidv4(),
-      tenantId: config.graph.tenantId,
+  async fetchDetails(meetingId: string): Promise<Meeting> {
+    const meeting = await meetingStore.get(meetingId);
+    if (!meeting) throw new Error('Meeting not found');
+    if (!meeting.resource) throw new Error('Meeting has no resource path');
+
+    const client = getGraphClient();
+    const eventData = await client.api(`/${meeting.resource}`).get();
+
+    const enriched: Meeting = {
+      ...meeting,
       subject: eventData.subject || 'Untitled Meeting',
       description: eventData.bodyPreview || '',
-      startTime: eventData.start?.dateTime || now,
-      endTime: eventData.end?.dateTime || now,
+      startTime: eventData.start?.dateTime || meeting.startTime,
+      endTime: eventData.end?.dateTime || meeting.endTime,
       organizerId: eventData.organizer?.emailAddress?.address || '',
       organizerEmail: eventData.organizer?.emailAddress?.address || '',
       organizerDisplayName: eventData.organizer?.emailAddress?.name || '',
@@ -52,57 +79,36 @@ export const meetingService = {
         id: a.emailAddress?.address || '',
         email: a.emailAddress?.address || '',
         displayName: a.emailAddress?.name || '',
-        role: a.type === 'required' ? 'required' : a.type === 'optional' ? 'optional' : 'required',
-        status: a.status?.response || 'notResponded',
-      })),
-      status: eventData.isOnlineMeeting ? 'scheduled' : 'scheduled',
-      subscriptionId,
-      joinWebUrl: eventData.onlineMeeting?.joinUrl || '',
-      onlineMeetingId: eventData.onlineMeetingId || '',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await meetingStore.put(meeting);
-    await configStore.incrementCounter('monitoredMeetingsCount', 1);
-
-    if (eventData.isOnlineMeeting && eventData.onlineMeetingId) {
-      this.checkForTranscript(meeting).catch(err =>
-        console.error(`Transcript check failed for meeting ${meeting.meeting_id}:`, err.message)
-      );
-    }
-
-    return meeting;
-  },
-
-  async updateMeeting(existing: Meeting, eventData: any): Promise<void> {
-    if (eventData.isCancelled) {
-      await meetingStore.updateStatus(existing.meeting_id, 'cancelled');
-      return;
-    }
-
-    const updated: Meeting = {
-      ...existing,
-      subject: eventData.subject || existing.subject,
-      startTime: eventData.start?.dateTime || existing.startTime,
-      endTime: eventData.end?.dateTime || existing.endTime,
-      attendees: (eventData.attendees || []).map((a: any) => ({
-        id: a.emailAddress?.address || '',
-        email: a.emailAddress?.address || '',
-        displayName: a.emailAddress?.name || '',
         role: a.type === 'required' ? 'required' : 'optional',
         status: a.status?.response || 'notResponded',
       })),
+      status: meeting.status === 'notification_received' ? 'scheduled' : meeting.status,
+      joinWebUrl: eventData.onlineMeeting?.joinUrl || meeting.joinWebUrl || '',
+      onlineMeetingId: eventData.onlineMeetingId || meeting.onlineMeetingId || '',
+      rawEventData: eventData,
+      detailsFetched: true,
       updatedAt: new Date().toISOString(),
     };
 
-    await meetingStore.put(updated);
+    await meetingStore.put(enriched);
+    return enriched;
+  },
 
-    if (eventData.isOnlineMeeting && !existing.transcriptionId) {
-      this.checkForTranscript(updated).catch(err =>
-        console.error(`Transcript check failed for meeting ${updated.meeting_id}:`, err.message)
-      );
+  async fetchDetailsBatch(meetingIds: string[]): Promise<{ success: string[]; failed: Array<{ id: string; error: string }> }> {
+    const success: string[] = [];
+    const failed: Array<{ id: string; error: string }> = [];
+
+    for (const id of meetingIds) {
+      try {
+        await this.fetchDetails(id);
+        success.push(id);
+      } catch (err: any) {
+        failed.push({ id, error: err.message });
+      }
+      await new Promise(r => setTimeout(r, 100));
     }
+
+    return { success, failed };
   },
 
   async checkForTranscript(meeting: Meeting): Promise<void> {
@@ -145,5 +151,50 @@ export const meetingService = {
     pageSize?: number;
   }) {
     return meetingStore.list(filters);
+  },
+
+  async getMeetingDetails(id: string): Promise<any> {
+    const meeting = await meetingStore.get(id);
+    if (!meeting) throw new Error('Meeting not found');
+    if (!meeting.onlineMeetingId || !meeting.organizerEmail) {
+      throw new Error('Meeting does not have online meeting information');
+    }
+
+    const client = getGraphClient();
+    try {
+      const onlineMeeting = await client
+        .api(`/users/${meeting.organizerEmail}/onlineMeetings/${meeting.onlineMeetingId}`)
+        .get();
+      return onlineMeeting;
+    } catch (err: any) {
+      console.error(`Failed to fetch online meeting details for ${id}:`, err.message);
+      throw new Error(`Unable to fetch meeting details: ${err.message}`);
+    }
+  },
+
+  async toggleTranscription(id: string, enabled: boolean): Promise<void> {
+    const meeting = await meetingStore.get(id);
+    if (!meeting) throw new Error('Meeting not found');
+    if (!meeting.onlineMeetingId || !meeting.organizerEmail) {
+      throw new Error('Meeting does not have online meeting information');
+    }
+
+    const client = getGraphClient();
+    try {
+      await client
+        .api(`/users/${meeting.organizerEmail}/onlineMeetings/${meeting.onlineMeetingId}`)
+        .patch({
+          isEntryExitAnnounced: enabled,
+          recordAutomatically: enabled,
+        });
+
+      await meetingStore.put({
+        ...meeting,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error(`Failed to toggle transcription for meeting ${id}:`, err.message);
+      throw new Error(`Unable to update transcription settings: ${err.message}`);
+    }
   },
 };

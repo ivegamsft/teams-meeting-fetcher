@@ -168,7 +168,7 @@ jobs:
       - name: Update EventHub Lambda with webhook URL
         run: |
           IP="${{ steps.task-ip.outputs.ip }}"
-          WEBHOOK_URL="http://${IP}:3000/api/webhooks/graph"
+          WEBHOOK_URL="https://${IP}:3000/api/webhooks/graph"
           LAMBDA_NAME="${{ steps.tf-output.outputs.eventhub_lambda_name }}"
 
           echo "Updating Lambda ${LAMBDA_NAME} with ADMIN_APP_WEBHOOK_URL=${WEBHOOK_URL}"
@@ -191,4 +191,4 @@ jobs:
           echo "Image: ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.image.outputs.tag }}"
           echo "Public IP: ${{ steps.task-ip.outputs.ip }}"
           echo "URL: https://${{ steps.task-ip.outputs.ip }}:3000"
-          echo "Webhook URL: http://${{ steps.task-ip.outputs.ip }}:3000/api/webhooks/graph"
+          echo "Webhook URL: https://${{ steps.task-ip.outputs.ip }}:3000/api/webhooks/graph"

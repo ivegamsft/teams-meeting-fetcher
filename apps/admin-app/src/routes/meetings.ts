@@ -89,4 +89,58 @@ router.get('/:id/transcript/download', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/batch-fetch-details', async (req: Request, res: Response) => {
+  try {
+    const { meetingIds } = req.body;
+    if (!Array.isArray(meetingIds)) {
+      res.status(400).json({ error: 'meetingIds must be an array' });
+      return;
+    }
+    const result = await meetingService.fetchDetailsBatch(meetingIds);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Failed to batch fetch meeting details:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/fetch-details', async (req: Request, res: Response) => {
+  try {
+    const meeting = await meetingService.fetchDetails(req.params.id as string);
+    res.json(meeting);
+  } catch (err: any) {
+    console.error('Failed to fetch meeting details:', err.message);
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+router.get('/:id/details', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const details = await meetingService.getMeetingDetails(id);
+    res.json(details);
+  } catch (err: any) {
+    console.error('Failed to get meeting details:', err.message);
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id/transcription', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { enabled } = req.body;
+    
+    if (typeof enabled !== 'boolean') {
+      res.status(400).json({ error: 'Request body must include "enabled" boolean field' });
+      return;
+    }
+
+    await meetingService.toggleTranscription(id, enabled);
+    res.json({ success: true, message: `Transcription ${enabled ? 'enabled' : 'disabled'}` });
+  } catch (err: any) {
+    console.error('Failed to toggle transcription:', err.message);
+    res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
+  }
+});
+
 export default router;
