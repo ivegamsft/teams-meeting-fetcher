@@ -18,5 +18,3 @@
 - Bootstrap/verify scripts and docs cover AWS OIDC, Terraform state backend, and deployment prerequisites.
 
 ## Team Updates
-
-📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed repo/scripts do not rely on temp-lambda/tasks — reported by Fenster — decided by Scribe
