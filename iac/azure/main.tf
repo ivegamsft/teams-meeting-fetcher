@@ -16,12 +16,20 @@ resource "random_string" "suffix" {
   upper   = false
   numeric = true
   lower   = true
+  keepers = {
+    environment = var.environment
+    base_name   = var.base_name
+  }
 }
 
 // Generate random pet name for test user
 resource "random_pet" "test_user" {
   length    = 2
   separator = ""
+  keepers = {
+    environment = var.environment
+    base_name   = var.base_name
+  }
 }
 
 // Generate secure random password for test user
@@ -36,6 +44,10 @@ resource "random_password" "test_user" {
   min_upper   = 2
   min_lower   = 2
   min_numeric = 2
+  keepers = {
+    environment = var.environment
+    base_name   = var.base_name
+  }
 }
 
 //=============================================================================
@@ -107,13 +119,13 @@ resource "azurerm_resource_group" "main" {
 module "azure_ad" {
   source = "./modules/azure-ad"
 
-  environment              = var.environment
-  app_display_name         = var.app_display_name
-  bot_app_display_name     = var.bot_app_display_name
+  environment                  = var.environment
+  app_display_name             = var.app_display_name
+  bot_app_display_name         = var.bot_app_display_name
   admin_group_display_name     = var.admin_group_display_name
   monitored_group_display_name = var.monitored_group_display_name
-  admin_app_display_name   = "${var.base_name}-admin-app-${local.suffix}"
-  admin_app_redirect_uri   = var.admin_app_redirect_uri
+  admin_app_display_name       = "${var.base_name}-admin-app-${local.suffix}"
+  admin_app_redirect_uri       = var.admin_app_redirect_uri
 
   // Test user configuration
   create_test_user         = var.create_test_user

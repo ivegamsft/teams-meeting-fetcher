@@ -342,14 +342,14 @@ module "admin_app" {
   # Entra ID OIDC auth
   entra_tenant_id     = var.admin_app_entra_tenant_id
   entra_client_id     = var.admin_app_entra_client_id
-  entra_client_secret  = var.admin_app_entra_client_secret
-  entra_redirect_uri   = var.admin_app_entra_redirect_uri
-  admin_group_id       = var.azure_allowed_group_id
+  entra_client_secret = var.admin_app_entra_client_secret
+  entra_redirect_uri  = var.admin_app_entra_redirect_uri
+  admin_group_id      = var.azure_allowed_group_id
 
   # EventHub configuration
-  eventhub_namespace    = var.eventhub_namespace
-  eventhub_name         = var.eventhub_name
-  graph_tenant_domain   = var.graph_tenant_domain
+  eventhub_namespace  = var.eventhub_namespace
+  eventhub_name       = var.eventhub_name
+  graph_tenant_domain = var.graph_tenant_domain
 
   tags = local.common_tags
 }

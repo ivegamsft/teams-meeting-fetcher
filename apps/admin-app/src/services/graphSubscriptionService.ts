@@ -20,8 +20,9 @@ export const graphSubscriptionService = {
     const resource = request.resource || `/users/${request.userId}/events`;
     const changeType = request.changeType || 'created,updated,deleted';
 
+    // Graph API max for /users/{id}/events with EventHub: 10070 minutes (~7 days)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 28);
+    expirationDate.setTime(expirationDate.getTime() + 10070 * 60 * 1000);
 
     const notificationUrl = getEventHubNotificationUrl();
 
@@ -59,8 +60,9 @@ export const graphSubscriptionService = {
 
   async renewSubscription(id: string): Promise<Subscription> {
     const client = getGraphClient();
+    // Graph API max for /users/{id}/events with EventHub: 10070 minutes (~7 days)
     const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 28);
+    expirationDate.setTime(expirationDate.getTime() + 10070 * 60 * 1000);
 
     const updated = await client.api(`/subscriptions/${id}`).patch({
       expirationDateTime: expirationDate.toISOString(),

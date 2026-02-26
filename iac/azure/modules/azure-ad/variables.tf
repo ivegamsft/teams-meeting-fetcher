@@ -37,7 +37,7 @@ variable "monitored_group_display_name" {
 variable "create_test_user" {
   description = "Whether to create a test user for development"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "test_user_upn" {
