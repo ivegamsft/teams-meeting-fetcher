@@ -179,6 +179,12 @@ variable "message_processing_mode" {
   default     = "consume"
 }
 
+variable "graph_tenant_domain" {
+  description = "Azure AD tenant domain for EventHub Graph API notifications"
+  type        = string
+  default     = ""
+}
+
 variable "renewal_schedule_expression" {
   description = "AWS Events schedule expression (cron) for subscription renewal (default: 2 AM UTC daily)"
   type        = string

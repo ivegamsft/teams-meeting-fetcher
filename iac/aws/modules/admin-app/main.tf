@@ -385,6 +385,9 @@ resource "aws_ecs_task_definition" "admin_app" {
       { name = "ENTRA_CLIENT_ID", value = var.entra_client_id },
       { name = "ENTRA_REDIRECT_URI", value = var.entra_redirect_uri },
       { name = "ADMIN_GROUP_ID", value = var.admin_group_id },
+      { name = "EVENTHUB_NAMESPACE", value = var.eventhub_namespace },
+      { name = "EVENTHUB_NAME", value = var.eventhub_name },
+      { name = "GRAPH_TENANT_DOMAIN", value = var.graph_tenant_domain },
     ]
 
     secrets = [

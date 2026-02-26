@@ -346,5 +346,10 @@ module "admin_app" {
   entra_redirect_uri   = var.admin_app_entra_redirect_uri
   admin_group_id       = var.azure_allowed_group_id
 
+  # EventHub configuration
+  eventhub_namespace    = var.eventhub_namespace
+  eventhub_name         = var.eventhub_name
+  graph_tenant_domain   = var.graph_tenant_domain
+
   tags = local.common_tags
 }

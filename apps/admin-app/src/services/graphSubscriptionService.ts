@@ -9,7 +9,7 @@ function getEventHubNotificationUrl(): string {
   const ns = config.eventhub.namespace.includes('.servicebus.windows.net')
     ? config.eventhub.namespace
     : `${config.eventhub.namespace}.servicebus.windows.net`;
-  return `EventHub:https://${ns}/eventhubname/${config.eventhub.name}?tenantId=${config.eventhub.tenantDomain}`;
+  return `EventHub:https://${ns}/eventhubs/${config.eventhub.name}?tenantId=${config.eventhub.tenantDomain}`;
 }
 
 export const graphSubscriptionService = {

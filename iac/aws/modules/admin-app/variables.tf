@@ -248,6 +248,24 @@ variable "admin_group_id" {
   default     = ""
 }
 
+variable "eventhub_namespace" {
+  description = "Azure Event Hub namespace name"
+  type        = string
+  default     = ""
+}
+
+variable "eventhub_name" {
+  description = "Azure Event Hub name"
+  type        = string
+  default     = ""
+}
+
+variable "graph_tenant_domain" {
+  description = "Azure AD tenant domain for EventHub notifications"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

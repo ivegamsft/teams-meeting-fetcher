@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <td>${s.userDisplayName}</td>
           <td>${s.userEmail}</td>
-          <td><code style="font-size:12px">${s.resource}</code></td>
           <td><span class="status-badge status-${s.status}">${s.status}</span></td>
           <td>${formatDate(s.expirationDateTime)}</td>
           <td>
@@ -289,48 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('apply-filters-btn').addEventListener('click', () => loadMeetings());
-
-  document.getElementById('new-subscription-btn').addEventListener('click', () => {
-    const modal = document.getElementById('modal-overlay');
-    const content = document.getElementById('modal-content');
-    content.innerHTML = `
-      <h2>New Subscription</h2>
-      <form id="create-sub-form">
-        <div class="form-group">
-          <label>User ID</label>
-          <input type="text" id="sub-user-id" class="form-input" required placeholder="Azure AD User ID">
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="text" id="sub-email" class="form-input" required placeholder="user@company.com">
-        </div>
-        <div class="form-group">
-          <label>Display Name</label>
-          <input type="text" id="sub-name" class="form-input" required placeholder="John Doe">
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary">Create</button>
-        </div>
-      </form>
-    `;
-    modal.classList.remove('hidden');
-
-    document.getElementById('create-sub-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        await API.subscriptions.create({
-          userId: document.getElementById('sub-user-id').value,
-          userEmail: document.getElementById('sub-email').value,
-          userDisplayName: document.getElementById('sub-name').value,
-        });
-        closeModal();
-        loadSubscriptions();
-      } catch (err) {
-        alert('Failed to create subscription: ' + err.message);
-      }
-    });
-  });
 
   document.getElementById('sync-group-btn').addEventListener('click', async () => {
     if (!confirm('Sync subscriptions with Entra group members?')) return;
