@@ -131,17 +131,9 @@ resource "aws_security_group" "ecs_tasks" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "HTTPS container port from anywhere"
+    description = "Container port from anywhere"
     from_port   = var.container_port
     to_port     = var.container_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTP origin port for CloudFront"
-    from_port   = 8080
-    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -437,63 +429,4 @@ resource "aws_ecs_service" "admin_app" {
   }
 
   tags = var.tags
-}
-
-//=============================================================================
-// CLOUDFRONT - Stable FQDN for admin app
-//=============================================================================
-
-resource "aws_cloudfront_distribution" "admin_app" {
-  enabled             = true
-  comment             = "Stable endpoint for TMF Admin App (${var.resource_suffix})"
-  default_root_object = ""
-
-  origin {
-    // Placeholder origin - updated by deploy workflow with actual task IP
-    domain_name = "127.0.0.1"
-    origin_id   = "ecs-admin-app"
-
-    custom_origin_config {
-      http_port              = 8080
-      https_port             = var.container_port
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
-  }
-
-  default_cache_behavior {
-    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "ecs-admin-app"
-    viewer_protocol_policy = "redirect-to-https"
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Host", "Origin", "Authorization", "Accept", "Content-Type"]
-
-      cookies {
-        forward = "all"
-      }
-    }
-
-    min_ttl     = 0
-    default_ttl = 0
-    max_ttl     = 0
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
-  }
-
-  tags = var.tags
-
-  lifecycle {
-    ignore_changes = [origin] // Origin IP managed by deploy workflow
-  }
 }

@@ -34,7 +34,7 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER appuser
 
-EXPOSE 3000 8080
+EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "const https=require('https');https.get({hostname:'localhost',port:3000,path:'/health',rejectUnauthorized:false},(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
