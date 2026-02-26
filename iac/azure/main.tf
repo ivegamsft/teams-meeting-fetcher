@@ -52,7 +52,6 @@ data "azuread_client_config" "current" {}
 // NOTE: Requires Directory.Read.All permission on SPN
 // Only queried when create_test_user is true (avoids needing permission in CI)
 data "azuread_domains" "aad_domains" {
-  count        = var.create_test_user ? 1 : 0
   only_default = true
 }
 
@@ -65,9 +64,7 @@ locals {
   suffix    = random_string.suffix.result
   // Default domain for test user UPN (requires Directory.Read.All to query domains)
   // Only resolved when create_test_user is true; uses override if provided
-  default_domain = var.domain_name_suffix != "" ? var.domain_name_suffix : (
-    var.create_test_user ? data.azuread_domains.aad_domains[0].domains[0].domain_name : "placeholder.onmicrosoft.com"
-  )
+  default_domain = var.domain_name_suffix != "" ? var.domain_name_suffix : data.azuread_domains.aad_domains.domains[0].domain_name
 
   // Common tags
   common_tags = {
