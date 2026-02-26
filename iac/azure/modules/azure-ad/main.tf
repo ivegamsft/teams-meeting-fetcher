@@ -260,14 +260,6 @@ resource "azuread_user" "test_user" {
   }
 }
 
-// Add test user to admin group (so they can log in to the admin app)
-resource "azuread_group_member" "test_user_admin" {
-  count = var.create_test_user ? 1 : 0
-
-  group_object_id  = azuread_group.admins.object_id
-  member_object_id = azuread_user.test_user[0].object_id
-}
-
 // Add test user to monitored users group (so their meetings are tracked)
 resource "azuread_group_member" "test_user_monitored" {
   count = var.create_test_user ? 1 : 0
