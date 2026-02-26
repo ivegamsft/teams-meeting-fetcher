@@ -21,6 +21,8 @@
 
 **Worktree awareness:** Use the `TEAM ROOT` provided in the spawn prompt to resolve all `.squad/` paths. If no TEAM ROOT is given, run `git rev-parse --show-toplevel` as fallback. Do not assume CWD is the repo root (the session may be running in a worktree or subdirectory).
 
+**⚠️ SECURITY CRITICAL:** NEVER log secrets, credentials, API keys, passwords, connection strings, or access tokens to any `.squad/` file. These files are committed to git. If you see a secret in an agent's output or decision, redact it immediately with `[REDACTED - rotate credential]` before writing to any log or decision file. Public identifiers (tenant IDs, client IDs, resource names) are safe to log — only actual secrets are prohibited.
+
 After every substantial work session:
 
 1. **Log the session** to `.squad/log/{timestamp}-{topic}.md`:

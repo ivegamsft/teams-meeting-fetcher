@@ -3,6 +3,49 @@
 # DO NOT
 
 - Add emojis to commit messages or PR titles or documentation or scripts unless specified explicitly in the instructions.
+- **NEVER log secrets, credentials, or sensitive data to `.squad/` files** — see Squad Security Rules below.
+
+## ⚠️ CRITICAL: Squad Security Rules
+
+**NEVER log secrets, credentials, or sensitive data to `.squad/` files.** These files are committed to git and searchable by all team members.
+
+### What NEVER Goes in .squad/ Files
+
+❌ **Absolute prohibitions:**
+
+- Client secrets (Azure/AWS/any service)
+- API keys or access tokens
+- Passwords or passphrases
+- Connection strings with embedded credentials
+- Private keys or certificates
+- AWS access keys or secret keys
+- Database passwords
+- Webhook secrets
+- JWT tokens or session tokens
+- Any string that grants access to a system
+
+✅ **What IS allowed in .squad/ files:**
+
+- Public identifiers: Tenant IDs, Application/Client IDs, Subscription IDs, Resource Group names
+- Environment variable **names** (e.g., `GRAPH_CLIENT_SECRET`) — NOT the values
+- Configuration patterns and best practices
+- Architecture decisions and technical learnings
+- File paths, resource names, and non-sensitive metadata
+
+### If a Secret Was Logged
+
+If you or another agent logged a secret to a `.squad/` file:
+
+1. **Immediately redact it:** Replace with `[REDACTED - rotate credential]`
+2. **Rotate the credential:** The exposed secret is now compromised
+3. **Commit the redaction:** Same commit or immediately after
+4. **DO NOT rewrite git history** — redaction in place is sufficient
+
+### Agent-Specific Rules
+
+- **Scribe:** Never write secrets when merging decisions or logging sessions
+- **All agents:** Never write secrets to your `history.md` or decision inbox files
+- **All agents:** When referencing credentials, use placeholders: `<your-secret>`, `[from .env]`, `[from Key Vault]`
 
 ## PowerShell Best Practices (Windows)
 
