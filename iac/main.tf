@@ -184,3 +184,8 @@ resource "azuread_application_redirect_uris" "admin_app" {
   type           = "Web"
   redirect_uris  = ["https://${module.aws.admin_app_eip_public_ip}:3000/auth/callback"]
 }
+
+import {
+  to = azuread_application_redirect_uris.admin_app
+  id = "/applications/d4d11391-03fe-4941-84dd-0aadef019abf/redirectUris/Web"
+}
