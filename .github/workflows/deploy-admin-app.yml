@@ -87,14 +87,15 @@ jobs:
             --query 'taskDefinition' \
             --output json)
 
-          # Update the image in the container definition
           ECR_REPO="${{ steps.tf-output.outputs.ecr_repo }}"
           IMAGE_TAG="${{ steps.image.outputs.tag }}"
           NEW_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
 
+          # Update image and clear ENTRA_REDIRECT_URI so app auto-discovers its IP
           echo "$TASK_DEF" | jq \
             --arg image "$NEW_IMAGE" \
             '.containerDefinitions[0].image = $image |
+             .containerDefinitions[0].environment = [.containerDefinitions[0].environment[] | if .name == "ENTRA_REDIRECT_URI" then .value = "" else . end] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             > /tmp/task-def.json
 
