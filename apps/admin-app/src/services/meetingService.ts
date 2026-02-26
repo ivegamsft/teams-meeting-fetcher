@@ -25,9 +25,13 @@ export const meetingService = {
     const now = new Date().toISOString();
 
     if (existing) {
+      // Don't regress changeType — "created" replay must not overwrite "updated"/"deleted"
+      const effectiveChangeType = (changeType === 'created' && existing.changeType && existing.changeType !== 'created')
+        ? existing.changeType
+        : changeType;
       await meetingStore.put({
         ...existing,
-        changeType,
+        changeType: effectiveChangeType,
         rawNotification: notification,
         resource,
         updatedAt: now,
