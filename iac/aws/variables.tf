@@ -303,3 +303,23 @@ variable "admin_app_entra_redirect_uri" {
   type        = string
   default     = ""
 }
+
+variable "admin_app_webhook_url" {
+  description = "URL of the admin app webhook endpoint for notification forwarding"
+  type        = string
+  default     = ""
+}
+
+variable "webhook_auth_secret" {
+  description = "Shared secret for webhook authentication between Lambda and admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "webhook_client_state" {
+  description = "Client state for Graph notification validation in admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

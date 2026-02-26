@@ -5,11 +5,13 @@ import meetingRoutes from './meetings';
 import transcriptRoutes from './transcripts';
 import configRoutes from './configRoute';
 import groupRoutes from './groups';
+import webhookRoutes from './webhooks';
 import { dashboardAuth } from '../middleware/auth';
 
 const router = Router();
 
 router.use('/auth', authStatusRoutes);
+router.use('/webhooks', webhookRoutes);
 
 router.use('/subscriptions', dashboardAuth, subscriptionRoutes);
 router.use('/meetings', dashboardAuth, meetingRoutes);

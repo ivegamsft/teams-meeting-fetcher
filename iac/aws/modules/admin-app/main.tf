@@ -105,7 +105,7 @@ resource "aws_cloudwatch_log_group" "admin_app" {
 
 resource "aws_secretsmanager_secret" "admin_app" {
   name        = "tmf/admin-app-${var.resource_suffix}"
-  description = "Admin app secrets (Graph client secret, session secret, API key, dashboard password, Entra ID client secret)"
+  description = "Admin app secrets (Graph client secret, session secret, API key, dashboard password, Entra ID client secret, webhook auth secret)"
 
   tags = var.tags
 }
@@ -118,6 +118,7 @@ resource "aws_secretsmanager_secret_version" "admin_app" {
     API_KEY             = var.api_key
     DASHBOARD_PASSWORD  = var.dashboard_password
     ENTRA_CLIENT_SECRET = var.entra_client_secret
+    WEBHOOK_AUTH_SECRET = var.webhook_auth_secret
   })
 }
 
@@ -388,6 +389,7 @@ resource "aws_ecs_task_definition" "admin_app" {
       { name = "EVENTHUB_NAMESPACE", value = var.eventhub_namespace },
       { name = "EVENTHUB_NAME", value = var.eventhub_name },
       { name = "GRAPH_TENANT_DOMAIN", value = var.graph_tenant_domain },
+      { name = "WEBHOOK_CLIENT_STATE", value = var.webhook_client_state },
     ]
 
     secrets = [
@@ -396,6 +398,7 @@ resource "aws_ecs_task_definition" "admin_app" {
       { name = "API_KEY", valueFrom = "${aws_secretsmanager_secret.admin_app.arn}:API_KEY::" },
       { name = "DASHBOARD_PASSWORD", valueFrom = "${aws_secretsmanager_secret.admin_app.arn}:DASHBOARD_PASSWORD::" },
       { name = "ENTRA_CLIENT_SECRET", valueFrom = "${aws_secretsmanager_secret.admin_app.arn}:ENTRA_CLIENT_SECRET::" },
+      { name = "WEBHOOK_AUTH_SECRET", valueFrom = "${aws_secretsmanager_secret.admin_app.arn}:WEBHOOK_AUTH_SECRET::" },
     ]
 
     logConfiguration = {

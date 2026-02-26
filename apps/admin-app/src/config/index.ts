@@ -49,6 +49,11 @@ export const config = {
     apiKey: process.env.API_KEY || '',
   },
 
+  webhook: {
+    authSecret: process.env.WEBHOOK_AUTH_SECRET || '',
+    clientState: process.env.WEBHOOK_CLIENT_STATE || '',
+  },
+
   entra: {
     tenantId: process.env.ENTRA_TENANT_ID || '',
     clientId: process.env.ENTRA_CLIENT_ID || '',

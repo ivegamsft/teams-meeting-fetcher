@@ -266,6 +266,20 @@ variable "graph_tenant_domain" {
   default     = ""
 }
 
+variable "webhook_auth_secret" {
+  description = "Shared secret for validating incoming webhook calls from Lambda"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "webhook_client_state" {
+  description = "Client state for Graph notification validation"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

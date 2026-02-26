@@ -63,6 +63,7 @@ jobs:
           echo "cluster_name=$(terraform output -raw admin_app_ecs_cluster_name)" >> $GITHUB_OUTPUT
           echo "service_name=$(terraform output -raw admin_app_ecs_service_name)" >> $GITHUB_OUTPUT
           echo "task_family=$(terraform output -json admin_app_task_definition_arn | jq -r 'split("/")[1] | split(":")[0]')" >> $GITHUB_OUTPUT
+          echo "eventhub_lambda_name=$(terraform output -raw aws_eventhub_processor_name)" >> $GITHUB_OUTPUT
 
       - name: Determine image tag
         id: image
@@ -164,6 +165,23 @@ jobs:
             --body "{\"web\":{\"redirectUris\":[\"${NEW_URI}\"]}}"
           echo "Entra redirect URI updated successfully"
 
+      - name: Update EventHub Lambda with webhook URL
+        run: |
+          IP="${{ steps.task-ip.outputs.ip }}"
+          WEBHOOK_URL="http://${IP}:3000/api/webhooks/graph"
+          LAMBDA_NAME="${{ steps.tf-output.outputs.eventhub_lambda_name }}"
+
+          echo "Updating Lambda ${LAMBDA_NAME} with ADMIN_APP_WEBHOOK_URL=${WEBHOOK_URL}"
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_NAME" \
+            --environment "$(aws lambda get-function-configuration \
+              --function-name "$LAMBDA_NAME" \
+              --query 'Environment' --output json \
+              | jq --arg url "$WEBHOOK_URL" '.Variables.ADMIN_APP_WEBHOOK_URL = $url')" \
+            --region ${{ env.AWS_REGION }} \
+            --query 'FunctionName' --output text
+          echo "Lambda webhook URL updated successfully"
+
       - name: Deployment Summary
         run: |
           echo "Admin App deployed to ECS"
@@ -173,3 +191,4 @@ jobs:
           echo "Image: ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.image.outputs.tag }}"
           echo "Public IP: ${{ steps.task-ip.outputs.ip }}"
           echo "URL: https://${{ steps.task-ip.outputs.ip }}:3000"
+          echo "Webhook URL: http://${{ steps.task-ip.outputs.ip }}:3000/api/webhooks/graph"

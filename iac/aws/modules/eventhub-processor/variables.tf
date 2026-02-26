@@ -113,6 +113,19 @@ variable "sns_topic_arn" {
   type        = string
 }
 
+variable "admin_app_webhook_url" {
+  description = "URL of the admin app webhook endpoint for notification forwarding"
+  type        = string
+  default     = ""
+}
+
+variable "webhook_auth_secret" {
+  description = "Bearer token for authenticating webhook calls to the admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

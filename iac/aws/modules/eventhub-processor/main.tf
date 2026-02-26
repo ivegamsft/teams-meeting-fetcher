@@ -105,7 +105,9 @@ resource "aws_lambda_function" "eventhub" {
         AZURE_CLIENT_ID               = var.azure_client_id
         AZURE_CLIENT_SECRET           = var.azure_client_secret
       },
-      var.sns_topic_arn != null ? { SNS_TOPIC_ARN = var.sns_topic_arn } : {}
+      var.sns_topic_arn != null ? { SNS_TOPIC_ARN = var.sns_topic_arn } : {},
+      var.admin_app_webhook_url != "" ? { ADMIN_APP_WEBHOOK_URL = var.admin_app_webhook_url } : {},
+      var.webhook_auth_secret != "" ? { WEBHOOK_AUTH_SECRET = var.webhook_auth_secret } : {}
     )
   }
 

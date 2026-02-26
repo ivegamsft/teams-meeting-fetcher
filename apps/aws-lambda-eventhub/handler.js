@@ -228,6 +228,47 @@ async function receivePartitionEvents(
   });
 }
 
+function forwardNotification(webhookUrl, authSecret, notificationPayload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(notificationPayload);
+    const parsed = new URL(webhookUrl);
+
+    const options = {
+      method: 'POST',
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        Authorization: `Bearer ${authSecret}`,
+      },
+    };
+
+    const transport = parsed.protocol === 'https:' ? https : require('http');
+    const req = transport.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ statusCode: res.statusCode, body: data });
+        } else {
+          reject(new Error(`Webhook forward failed: ${res.statusCode} ${data}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('Webhook forward timeout'));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
 exports.handler = async (event, context) => {
   const eventHubName = requireEnv('EVENT_HUB_NAME');
   const eventHubNamespaceRaw = requireEnv('EVENT_HUB_NAMESPACE');
@@ -345,6 +386,33 @@ exports.handler = async (event, context) => {
       })
     );
 
+    // Forward notifications to admin app webhook for meeting processing
+    const adminWebhookUrl = getEnv('ADMIN_APP_WEBHOOK_URL');
+    const webhookAuthSecret = getEnv('WEBHOOK_AUTH_SECRET');
+    let forwardedCount = 0;
+
+    if (adminWebhookUrl && webhookAuthSecret && allEvents.length > 0) {
+      for (const evt of allEvents) {
+        try {
+          const body = evt.body;
+          // Normalize: wrap single notifications in { value: [...] } format
+          const notificationPayload = body && body.value
+            ? body
+            : { value: body ? [body] : [] };
+
+          if (notificationPayload.value.length > 0) {
+            await forwardNotification(adminWebhookUrl, webhookAuthSecret, notificationPayload);
+            forwardedCount += notificationPayload.value.length;
+          }
+        } catch (err) {
+          console.error(`Failed to forward notification from partition ${evt.partitionId}:`, err.message || err);
+        }
+      }
+      console.log(`Forwarded ${forwardedCount} notifications to admin app`);
+    } else if (allEvents.length > 0 && !adminWebhookUrl) {
+      console.log('ADMIN_APP_WEBHOOK_URL not set - skipping notification forwarding');
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -352,6 +420,7 @@ exports.handler = async (event, context) => {
         processingMode,
         consumerGroup,
         eventCount: allEvents.length,
+        forwardedCount,
         checkpointUpdated: shouldUpdateCheckpoint,
         key,
       }),

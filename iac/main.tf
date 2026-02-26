@@ -173,6 +173,11 @@ module "aws" {
   admin_app_entra_client_id     = module.azure.admin_app_client_id
   admin_app_entra_client_secret = module.azure.admin_app_client_secret
   admin_app_entra_redirect_uri  = ""
+
+  # Webhook forwarding (Lambda -> admin app)
+  admin_app_webhook_url = var.admin_app_webhook_url
+  webhook_auth_secret   = var.webhook_auth_secret
+  webhook_client_state  = var.webhook_client_state
 }
 
 //=============================================================================

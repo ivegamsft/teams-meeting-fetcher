@@ -85,4 +85,22 @@ export const configStore = {
       },
     }));
   },
+
+  async updateLastNotification(): Promise<void> {
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { config_key: CONFIG_ID },
+      UpdateExpression: 'SET lastNotificationAt = :now, updatedAt = :now',
+      ExpressionAttributeValues: { ':now': new Date().toISOString() },
+    }));
+  },
+
+  async updateLastWebhook(): Promise<void> {
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { config_key: CONFIG_ID },
+      UpdateExpression: 'SET lastWebhookAt = :now, updatedAt = :now',
+      ExpressionAttributeValues: { ':now': new Date().toISOString() },
+    }));
+  },
 };

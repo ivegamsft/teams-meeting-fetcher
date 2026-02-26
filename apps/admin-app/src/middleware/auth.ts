@@ -1,6 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../config';
 
+export function webhookAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!config.webhook.authSecret) {
+    next();
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Bearer token required' });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  if (token !== config.webhook.authSecret) {
+    res.status(403).json({ error: 'Invalid bearer token' });
+    return;
+  }
+
+  next();
+}
+
 export function dashboardAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.path === '/api/auth/status' || req.path === '/health') {
     next();
@@ -9,6 +30,11 @@ export function dashboardAuth(req: Request, res: Response, next: NextFunction): 
 
   const apiKey = req.headers['x-api-key'] as string;
   if (apiKey && apiKey === config.auth.apiKey) {
+    next();
+    return;
+  }
+
+  if ((req as any).isAuthenticated?.()) {
     next();
     return;
   }
@@ -24,6 +50,10 @@ export function dashboardAuth(req: Request, res: Response, next: NextFunction): 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
   const apiKey = req.headers['x-api-key'] as string;
   if (apiKey && apiKey === config.auth.apiKey) {
+    (req as any).authenticated = true;
+  }
+
+  if ((req as any).isAuthenticated?.()) {
     (req as any).authenticated = true;
   }
 

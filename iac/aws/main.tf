@@ -242,6 +242,8 @@ module "eventhub_processor" {
   azure_client_id              = module.security.eventhub_reader_client_id
   azure_client_secret          = module.security.eventhub_reader_client_secret
   sns_topic_arn                = module.notifications.topic_arn
+  admin_app_webhook_url        = var.admin_app_webhook_url
+  webhook_auth_secret          = var.webhook_auth_secret
 
   tags = local.common_tags
 }
@@ -350,6 +352,10 @@ module "admin_app" {
   eventhub_namespace  = var.eventhub_namespace
   eventhub_name       = var.eventhub_name
   graph_tenant_domain = var.graph_tenant_domain
+
+  # Webhook forwarding
+  webhook_auth_secret  = var.webhook_auth_secret
+  webhook_client_state = var.webhook_client_state
 
   tags = local.common_tags
 }

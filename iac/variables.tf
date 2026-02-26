@@ -292,3 +292,23 @@ variable "admin_app_dashboard_password" {
   sensitive   = true
   default     = ""
 }
+
+variable "admin_app_webhook_url" {
+  description = "URL of the admin app webhook endpoint for notification forwarding from Lambda"
+  type        = string
+  default     = ""
+}
+
+variable "webhook_auth_secret" {
+  description = "Shared secret for webhook authentication between EventHub Lambda and admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "webhook_client_state" {
+  description = "Client state for Graph notification validation in admin app"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
