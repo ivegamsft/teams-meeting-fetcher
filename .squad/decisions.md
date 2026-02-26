@@ -1126,3 +1126,148 @@ The EventHub Lambda forwards parsed Graph notification payloads to the admin app
 - **Deployment:** Admin app must be deployed first (webhook route available) before Lambda can forward. S3 archival continues independently.
 - **New env vars for admin app:** `WEBHOOK_AUTH_SECRET`, `WEBHOOK_CLIENT_STATE` -- need to be set in the container app config.
 
+
+---
+
+## 2026-02-26: EventHub Lambda Deploy Gap and HTTPS Webhook URL
+
+**By:** McManus (Backend Dev)
+
+**Decision:** Three deployment issues found and partially fixed during E2E pipeline test.
+
+### Issue 1: EventHub Lambda deployed with placeholder code
+
+**Problem:** `deploy-unified.yml` creates placeholder zips before `terraform apply`, but only rebuilds/redeploys the main Lambda and authorizer — not the eventhub-processor Lambda. The `deploy-lambda-eventhub.yml` workflow handles this separately but is not triggered by deploy-unified. When deploy-unified or any Terraform apply runs, the eventhub Lambda gets overwritten with `placeholder.js`.
+
+**Fix needed (Fenster):** Either:
+- Add an eventhub Lambda build+deploy step to `deploy-unified.yml` (after Terraform apply), OR
+- Trigger `deploy-lambda-eventhub.yml` as a dependent workflow from deploy-unified
+
+**Immediate fix applied:** Manually deployed handler.js + node_modules via `aws lambda update-function-code`.
+
+### Issue 2: Admin app webhook URL uses HTTP instead of HTTPS
+
+**Problem:** The admin app generates self-signed TLS certificates at Docker build time and runs HTTPS. But `deploy-admin-app.yml` line 171 set `ADMIN_APP_WEBHOOK_URL` with `http://` causing Lambda forwarding to fail with "socket hang up" (HTTP request to HTTPS server).
+
+**Fix applied:** Changed `deploy-admin-app.yml` to use `https://` in the webhook URL. Also updated the Lambda env var directly.
+
+### Issue 3: Missing WEBHOOK_AUTH_SECRET and NODE_TLS_REJECT_UNAUTHORIZED on Lambda
+
+**Problem:** Lambda env vars were missing `WEBHOOK_AUTH_SECRET` (required for forwarding to be enabled) and `NODE_TLS_REJECT_UNAUTHORIZED=0` (required for self-signed certs). These need to be wired in Terraform.
+
+**Fix needed (Fenster):** Add these env vars to `iac/aws/modules/eventhub-processor/` Terraform module:
+- `WEBHOOK_AUTH_SECRET` — from Secrets Manager
+- `NODE_TLS_REJECT_UNAUTHORIZED` = `"0"` (until proper TLS certs are configured)
+
+**Immediate fix applied:** Added via `aws lambda update-function-configuration`.
+
+---
+
+**Impact:** Without these fixes, every Terraform deployment breaks the eventhub Lambda, and the meeting notification pipeline silently stops working.
+
+
+---
+
+# Decision: Notification-Only Storage for Meeting Events
+
+**Date:** 2026-02-27  
+**Decided by:** McManus (Backend Developer)  
+**Context:** Architectural change requested by Isaac (ivegamsft)
+
+## Decision
+
+The admin app's `meetingService.processNotification()` no longer auto-fetches full event details from Graph API on webhook receipt. Instead, it stores ONLY the raw notification data. Meeting details (subject, attendees, times, organizer) are fetched on-demand via deliberate user action.
+
+## Motivation
+
+Isaac directive: "use the raw data and make the meeting details a deliberate action, not automatic. do not want to expose anything that is not in the event."
+
+**Privacy/security consideration:** Graph change notifications contain minimal data (resource path, changeType, event ID) — no PII. Auto-fetching full event details exposes subject, attendees, organizer info without explicit user request.
+
+## Implementation
+
+### What's in a Graph change notification (this is ALL we store automatically):
+```json
+{
+  "subscriptionId": "...",
+  "changeType": "created|updated|deleted",
+  "resource": "users/86894ae2-.../events/AAMkADI5...",
+  "resourceData": { "id": "AAMkADI5...", "@odata.type": "#microsoft.graph.event" },
+  "clientState": "...",
+  "tenantId": "..."
+}
+```
+NO subject, NO description, NO attendees, NO organizer, NO times. Just "something changed at this resource path."
+
+### Changes Made
+
+**1. Meeting Model (`apps/admin-app/src/models/meeting.ts`)**
+- Added `resource?: string` — the Graph resource path (needed to fetch details later)
+- Added `rawNotification?: Record<string, any>` — the full notification payload as received
+- Added `detailsFetched?: boolean` — flag indicating whether details have been enriched from Graph
+- Added `'notification_received'` to the status union type (for meetings that haven't been enriched yet)
+- Kept `rawEventData` — this gets populated ONLY when user triggers "fetch details"
+
+**2. Meeting Service (`apps/admin-app/src/services/meetingService.ts`)**
+
+**Refactored `processNotification()`** — NO Graph API calls:
+- Extracts event ID from resource path
+- On delete: marks existing meeting as cancelled (if found)
+- On create/update: stores lightweight record with empty subject/attendees
+- Sets `status: 'notification_received'`, `detailsFetched: false`
+- Stores full notification in `rawNotification`
+
+**Removed:**
+- `createMeeting()` (auto-enrichment logic)
+- `updateMeeting()` (auto-enrichment logic)
+- Auto-triggered `checkForTranscript()` calls
+
+**Added:**
+- `fetchDetails(meetingId: string)` — enriches a single meeting from Graph API
+  - Fetches event from `/${meeting.resource}`
+  - Populates subject, attendees, times, organizer
+  - Sets `detailsFetched: true`, `rawEventData: eventData`
+  - Transitions status from `notification_received` → `scheduled`
+- `fetchDetailsBatch(meetingIds: string[])` — batch enrichment
+  - Processes array of meeting IDs
+  - 100ms delay between requests for rate limit safety
+  - Returns `{ success: string[], failed: Array<{ id, error }> }`
+
+**Kept (unchanged):**
+- `getMeetingDetails()` — fetches online meeting settings (transcription config)
+- `toggleTranscription()` — enable/disable transcription
+- `checkForTranscript()` — but now only callable as deliberate action
+- `findMeetingByResource()` — resource path → meeting lookup
+
+**3. Meeting Routes (`apps/admin-app/src/routes/meetings.ts`)**
+
+**Added:**
+- `POST /batch-fetch-details` — batch enrichment endpoint (registered BEFORE `/:id` route)
+- `POST /:id/fetch-details` — single meeting enrichment endpoint
+
+**Kept (unchanged):**
+- `GET /:id/details` — online meeting settings (transcription config)
+- `PATCH /:id/transcription` — toggle transcription
+
+**Route order:** Batch route MUST be registered before `/:id` route, otherwise Express matches "batch-fetch-details" as an `:id` parameter.
+
+## Result
+
+- Webhook receipt is fast and privacy-preserving (no subject/attendees stored until user fetches)
+- `detailsFetched` flag tracks enrichment state
+- `rawNotification` always available for audit/inspection
+- `rawEventData` populated separately after fetch (keeps notification vs event data distinct)
+- Batch fetch enables efficient bulk enrichment
+- Meetings list can show `notification_received` status for unenriched records
+
+## Verification
+
+Compiled successfully: `cd apps/admin-app && npx tsc --noEmit` (exit code 0)
+
+## Future Considerations
+
+- Frontend needs UI for "fetch details" action on meetings with `notification_received` status
+- Consider auto-fetch batch job for old unenriched meetings (opt-in, not default)
+- Transcript checks should be explicit user action, not auto-triggered
+- May need pagination for batch fetch if user selects many meetings at once
+

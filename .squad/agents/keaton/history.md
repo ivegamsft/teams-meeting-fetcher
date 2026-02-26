@@ -26,4 +26,6 @@
 
 📌 Team update (2026-02-24T21:09): Nobots-EventHub deployment plan merged into canonical decisions — Scribe finalized orchestration and decision sync
 
+📌 Team update (2026-02-26T18:17:56Z): Meeting notification storage refactored to privacy-preserving model: raw notifications stored immediately (no Graph API auto-fetch), meeting details fetched only on deliberate user action via new fetch-details endpoints. Frontend needs UI for "fetch details" action on meetings with `notification_received` status. — decided by McManus
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
