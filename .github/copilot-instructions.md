@@ -236,7 +236,6 @@ These directories are gitignored and won't be committed (verify with `git status
 
 - `nobots-eventhub/` - Local testing directory with credentials
 - `nobots/` - Local development files
-- `temp-lambda/` - Temporary Lambda builds
 - `.env`, `.env.*` - Environment variable files
 - `*.tfvars` - Terraform variable files (except .example files)
 

@@ -25,7 +25,6 @@ Categorize each file:
 - **Infra READMEs**: `iac/*/README.md`
 - **Test docs**: `test/TEST_PLAN.md`, `test/README.md`
 - **Script docs**: `scripts/README.md`
-- **Task/TODO**: `tasks/TODO.md`
 - **Prompt/agent files**: `.github/prompts/`, `.github/agents/`
 
 ### Step 2: Detect Duplicates & Overlaps
