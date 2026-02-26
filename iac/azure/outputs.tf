@@ -132,6 +132,11 @@ output "test_user_password" {
 #   value       = data.azuread_domains.aad_domains.domains[0].domain_name
 # }
 
+output "tenant_domain" {
+  description = "Azure AD tenant domain name for EventHub notifications"
+  value       = local.default_domain
+}
+
 //=============================================================================
 // ADMIN APP ENTRA ID OUTPUTS (OIDC sign-in)
 //=============================================================================

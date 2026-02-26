@@ -16,7 +16,12 @@ router.get('/', async (req: Request, res: Response) => {
       appConfig = await configStore.get();
     }
 
-    res.json(appConfig);
+    // Always return live EventHub config from env vars
+    res.json({
+      ...appConfig,
+      eventhubNamespace: config.eventhub.namespace || appConfig?.eventhubNamespace,
+      eventhubName: config.eventhub.name || appConfig?.eventhubName,
+    });
   } catch (err: any) {
     console.error('Failed to get config:', err.message);
     res.status(500).json({ error: err.message });
