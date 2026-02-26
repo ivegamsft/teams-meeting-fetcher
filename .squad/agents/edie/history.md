@@ -10,11 +10,11 @@
 
 ## Learnings
 
-### 2026-02-25: Cleanup of Legacy Doc References (Edie)
+### 2026-02-25: temp-lambda and tasks Folder References (Edie)
 
-- Removed obsolete documentation and ignore-file references to deprecated temp build directories and local task trackers.
-- Key files updated: .gitignore, .github/copilot-instructions.md, .github/prompts/clean-up-docs.prompt.md.
+- `temp-lambda/` and `tasks/` are gitignored and absent.
+- Only references found in `.github/copilot-instructions.md` (gitignore note) and `.github/prompts/clean-up-docs.prompt.md` (`tasks/TODO.md`).
 
 ## Team Updates
 
-📌 Team update (2026-02-26T02:36:49Z): Removed temp-lambda/tasks references from .gitignore, copilot instructions, and cleanup prompt — decided by Edie
+📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed doc references for temp-lambda/tasks — reported by Fenster and Edie — decided by Scribe
