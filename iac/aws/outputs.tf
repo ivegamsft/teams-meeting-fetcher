@@ -242,4 +242,12 @@ output "admin_app_task_definition_arn" {
   value       = module.admin_app.task_definition_arn
 }
 
+output "admin_app_cloudfront_domain" {
+  description = "Admin app CloudFront domain name (stable FQDN)"
+  value       = module.admin_app.cloudfront_domain_name
+}
 
+output "admin_app_cloudfront_distribution_id" {
+  description = "Admin app CloudFront distribution ID"
+  value       = module.admin_app.cloudfront_distribution_id
+}

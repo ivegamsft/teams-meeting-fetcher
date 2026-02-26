@@ -175,4 +175,13 @@ output "admin_app_entra_client_id" {
   value       = module.azure.admin_app_client_id
 }
 
+output "admin_app_cloudfront_domain" {
+  description = "Admin app CloudFront domain name (stable FQDN)"
+  value       = module.aws.admin_app_cloudfront_domain
+}
+
+output "admin_app_cloudfront_distribution_id" {
+  description = "Admin app CloudFront distribution ID"
+  value       = module.aws.admin_app_cloudfront_distribution_id
+}
 

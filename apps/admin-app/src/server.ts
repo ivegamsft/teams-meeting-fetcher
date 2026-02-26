@@ -1,10 +1,12 @@
 import https from 'https';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import app from './app';
 import { config } from './config';
 
 const PORT = config.port;
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || '8080', 10);
 
 const certPath = '/app/certs/server.crt';
 const keyPath = '/app/certs/server.key';
@@ -19,11 +21,9 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     console.log(`Environment: ${config.nodeEnv}`);
     console.log(`Dashboard: https://localhost:${PORT}`);
   });
-} else {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Teams Meeting Fetcher backend running on HTTP port ${PORT}`);
-    console.log(`Environment: ${config.nodeEnv}`);
-    console.log(`Dashboard: http://localhost:${PORT}`);
-    console.log(`WARNING: No TLS certs found, running without HTTPS`);
-  });
 }
+
+// Always start HTTP server (used by CloudFront origin)
+http.createServer(app).listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`HTTP origin server running on port ${HTTP_PORT}`);
+});

@@ -63,6 +63,8 @@ jobs:
           echo "cluster_name=$(terraform output -raw admin_app_ecs_cluster_name)" >> $GITHUB_OUTPUT
           echo "service_name=$(terraform output -raw admin_app_ecs_service_name)" >> $GITHUB_OUTPUT
           echo "task_family=$(terraform output -json admin_app_task_definition_arn | jq -r 'split("/")[1] | split(":")[0]')" >> $GITHUB_OUTPUT
+          echo "cf_domain=$(terraform output -raw admin_app_cloudfront_domain)" >> $GITHUB_OUTPUT
+          echo "cf_dist_id=$(terraform output -raw admin_app_cloudfront_distribution_id)" >> $GITHUB_OUTPUT
 
       - name: Determine image tag
         id: image
@@ -87,18 +89,22 @@ jobs:
             --query 'taskDefinition' \
             --output json)
 
-          # Update the image in the container definition
           ECR_REPO="${{ steps.tf-output.outputs.ecr_repo }}"
           IMAGE_TAG="${{ steps.image.outputs.tag }}"
           NEW_IMAGE="${ECR_REPO}:${IMAGE_TAG}"
+          CF_DOMAIN="${{ steps.tf-output.outputs.cf_domain }}"
+          CF_REDIRECT="https://${CF_DOMAIN}/auth/callback"
 
           echo "$TASK_DEF" | jq \
             --arg image "$NEW_IMAGE" \
+            --arg redirect "$CF_REDIRECT" \
             '.containerDefinitions[0].image = $image |
+             .containerDefinitions[0].environment = [.containerDefinitions[0].environment[] | if .name == "ENTRA_REDIRECT_URI" then .value = $redirect else . end] |
              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
             > /tmp/task-def.json
 
-          echo "Registering new task definition with image: ${NEW_IMAGE}"
+          echo "Image: ${NEW_IMAGE}"
+          echo "Redirect URI: ${CF_REDIRECT}"
 
       - name: Register new task definition
         id: register
@@ -143,6 +149,24 @@ jobs:
           echo "ip=${IP}" >> $GITHUB_OUTPUT
           echo "Task public IP: ${IP}"
 
+      - name: Update CloudFront origin with task IP
+        run: |
+          IP="${{ steps.task-ip.outputs.ip }}"
+          DIST_ID="${{ steps.tf-output.outputs.cf_dist_id }}"
+
+          echo "Updating CloudFront distribution ${DIST_ID} origin to ${IP}"
+          CONFIG=$(aws cloudfront get-distribution-config --id "$DIST_ID")
+          ETAG=$(echo "$CONFIG" | jq -r '.ETag')
+          echo "$CONFIG" | jq --arg ip "$IP" \
+            '.DistributionConfig.Origins.Items[0].DomainName = $ip' | \
+            jq '.DistributionConfig' > /tmp/cf-config.json
+
+          aws cloudfront update-distribution \
+            --id "$DIST_ID" \
+            --if-match "$ETAG" \
+            --distribution-config file:///tmp/cf-config.json
+          echo "CloudFront origin updated to ${IP}"
+
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -150,11 +174,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Update Entra redirect URI
+      - name: Update Entra redirect URI to CloudFront
         run: |
-          IP="${{ steps.task-ip.outputs.ip }}"
+          CF_DOMAIN="${{ steps.tf-output.outputs.cf_domain }}"
           APP_ID=$(cd iac && terraform output -raw admin_app_entra_client_id)
-          NEW_URI="https://${IP}:3000/auth/callback"
+          NEW_URI="https://${CF_DOMAIN}/auth/callback"
 
           echo "Setting redirect URI to: ${NEW_URI}"
           OBJECT_ID=$(az ad app show --id "$APP_ID" --query id -o tsv)
@@ -170,5 +194,6 @@ jobs:
           echo "Service: ${{ steps.tf-output.outputs.service_name }}"
           echo "Task Definition: ${{ steps.register.outputs.task_def_arn }}"
           echo "Image: ${{ steps.tf-output.outputs.ecr_repo }}:${{ steps.image.outputs.tag }}"
-          echo "Public IP: ${{ steps.task-ip.outputs.ip }}"
-          echo "URL: https://${{ steps.task-ip.outputs.ip }}:3000"
+          echo "Task IP: ${{ steps.task-ip.outputs.ip }}"
+          echo "CloudFront: https://${{ steps.tf-output.outputs.cf_domain }}"
+          echo "Direct: https://${{ steps.task-ip.outputs.ip }}:3000"
