@@ -269,6 +269,57 @@ function forwardNotification(webhookUrl, authSecret, notificationPayload) {
   });
 }
 
+async function forwardWithRetry(webhookUrl, authSecret, notificationPayload, maxRetries = 3, s3Key = null) {
+  const isRetryableError = (err) => {
+    const msg = err.message || '';
+    if (msg.includes('timeout') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND') || msg.includes('ETIMEDOUT')) {
+      return true;
+    }
+    const statusMatch = msg.match(/failed: (\d{3})/i);
+    if (statusMatch) {
+      const status = parseInt(statusMatch[1], 10);
+      return status >= 500;
+    }
+    return false;
+  };
+
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await forwardNotification(webhookUrl, authSecret, notificationPayload);
+      if (attempt > 0) {
+        console.log(`Webhook forward succeeded on attempt ${attempt + 1}`);
+      }
+      return { success: true, attempts: attempt + 1 };
+    } catch (err) {
+      lastError = err;
+      
+      if (!isRetryableError(err) || attempt === maxRetries) {
+        console.error(JSON.stringify({
+          level: 'ERROR',
+          type: 'FORWARD_PERMANENT_FAILURE',
+          notificationCount: notificationPayload.value ? notificationPayload.value.length : 0,
+          changeTypes: notificationPayload.value ? notificationPayload.value.map(n => n.changeType) : [],
+          resources: notificationPayload.value ? notificationPayload.value.map(n => n.resource?.substring(0, 50)) : [],
+          attempts: attempt + 1,
+          s3Key: s3Key,
+          error: err.message || String(err)
+        }));
+        return { success: false, attempts: attempt + 1 };
+      }
+
+      const backoffMs = attempt === 0 ? 0 : Math.pow(2, attempt) * 1000;
+      console.log(`Webhook forward failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoffMs}ms: ${err.message}`);
+      
+      if (backoffMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+
+  return { success: false, attempts: maxRetries + 1 };
+}
+
 exports.handler = async (event, context) => {
   const eventHubName = requireEnv('EVENT_HUB_NAME');
   const eventHubNamespaceRaw = requireEnv('EVENT_HUB_NAMESPACE');
@@ -390,25 +441,28 @@ exports.handler = async (event, context) => {
     const adminWebhookUrl = getEnv('ADMIN_APP_WEBHOOK_URL');
     const webhookAuthSecret = getEnv('WEBHOOK_AUTH_SECRET');
     let forwardedCount = 0;
+    let forwardRetries = 0;
+    let forwardFailures = 0;
 
     if (adminWebhookUrl && webhookAuthSecret && allEvents.length > 0) {
       for (const evt of allEvents) {
-        try {
-          const body = evt.body;
-          // Normalize: wrap single notifications in { value: [...] } format
-          const notificationPayload = body && body.value
-            ? body
-            : { value: body ? [body] : [] };
+        const body = evt.body;
+        // Normalize: wrap single notifications in { value: [...] } format
+        const notificationPayload = body && body.value
+          ? body
+          : { value: body ? [body] : [] };
 
-          if (notificationPayload.value.length > 0) {
-            await forwardNotification(adminWebhookUrl, webhookAuthSecret, notificationPayload);
+        if (notificationPayload.value.length > 0) {
+          const result = await forwardWithRetry(adminWebhookUrl, webhookAuthSecret, notificationPayload, 3, key);
+          if (result.success) {
             forwardedCount += notificationPayload.value.length;
+          } else {
+            forwardFailures++;
           }
-        } catch (err) {
-          console.error(`Failed to forward notification from partition ${evt.partitionId}:`, err.message || err);
+          forwardRetries += (result.attempts - 1);
         }
       }
-      console.log(`Forwarded ${forwardedCount} notifications to admin app`);
+      console.log(`Forwarded ${forwardedCount} notifications to admin app (${forwardRetries} retries, ${forwardFailures} failures)`);
     } else if (allEvents.length > 0 && !adminWebhookUrl) {
       console.log('ADMIN_APP_WEBHOOK_URL not set - skipping notification forwarding');
     }
@@ -421,6 +475,8 @@ exports.handler = async (event, context) => {
         consumerGroup,
         eventCount: allEvents.length,
         forwardedCount,
+        forwardRetries,
+        forwardFailures,
         checkpointUpdated: shouldUpdateCheckpoint,
         key,
       }),
