@@ -1061,3 +1061,68 @@ The app registration needs these redirect URIs configured:
 - `https://{ALB_DOMAIN}/auth/callback` (production)
 - `http://localhost:3000/auth/callback` (development)
 
+
+
+## Decision: Never add keepers to random_string.suffix
+
+**By:** Fenster (DevOps/Infra)
+**Date:** 2026-02-26
+
+**Decision:** The `random_string.suffix` resource in `iac/azure/main.tf` must NEVER have a `keepers` block. Adding keepers forces suffix regeneration, which cascades to destroy/recreate ALL Azure resources that embed the suffix (storage account, key vault, resource group, etc.).
+
+**Context:** Commit daf35c7 added `keepers = { environment, base_name }` to the suffix, random_pet, and random_password resources. This caused the deploy-unified plan to fail with "Instance cannot be destroyed" because the Azure Storage Account has `lifecycle.prevent_destroy = true`.
+
+**Fix applied:** Removed all three `keepers` blocks. The suffix is meant to be generated once and remain stable.
+
+**Rule:** If you need environment-specific resource isolation, use separate Terraform workspaces or state files — never change the random suffix.
+
+
+# Decision: Webhook auth secret stored in Secrets Manager alongside existing app secrets
+
+**Author:** Fenster  
+**Date:** 2026-02-26  
+**Status:** Implemented
+
+## Context
+McManus added notification forwarding from the EventHub Lambda to the admin app. Both sides need a shared `WEBHOOK_AUTH_SECRET` for Bearer token authentication.
+
+## Decision
+- `WEBHOOK_AUTH_SECRET` is added as a new key in the existing admin-app Secrets Manager secret (`tmf/admin-app-{suffix}`), alongside `GRAPH_CLIENT_SECRET`, `SESSION_SECRET`, `API_KEY`, `DASHBOARD_PASSWORD`, and `ENTRA_CLIENT_SECRET`.
+- The admin app ECS task reads it via the `secrets` block (ECS-native Secrets Manager injection).
+- The EventHub Lambda gets the same value via Terraform variable → env var (conditionally merged, empty default).
+- The `ADMIN_APP_WEBHOOK_URL` is set dynamically by the deploy-admin-app workflow after each deploy, since the Fargate task IP changes on every deployment.
+- `WEBHOOK_CLIENT_STATE` is passed as a plain-text env var to the admin app (same pattern as other non-secret config).
+
+## Rationale
+- Reuses the existing Secrets Manager secret rather than creating a new one (cost, simplicity).
+- Conditional merge pattern (`var != "" ? {...} : {}`) ensures backward compatibility — existing deployments without webhook config continue to work.
+- Dynamic Lambda update in the deploy workflow mirrors the established Entra redirect URI update pattern.
+
+## Impact
+- Terraform: New variables with empty defaults at all three levels (root, aws, module). Non-breaking.
+- Deploy workflow: New step after Entra URI update. Non-breaking (Lambda function name resolved from Terraform output).
+- Secrets Manager secret version will be recreated on next `terraform apply` (new key added). This is expected and non-disruptive.
+
+
+# Decision: EventHub-to-Meetings Pipeline via Webhook Forwarding
+
+**By:** McManus (Backend Dev)
+**Date:** 2026-02-25
+
+## Decision
+
+The EventHub Lambda forwards parsed Graph notification payloads to the admin app's `/api/webhooks/graph` endpoint. The admin app processes them via `meetingService.processNotification()`, which fetches event details from Graph API and writes to the DynamoDB meetings table.
+
+## Rationale
+
+- The EventHub Lambda has Azure EventHub credentials but NOT Graph API credentials. It cannot fetch meeting details directly.
+- The admin app already has Graph API client configured and the meeting processing logic built.
+- Forwarding keeps the Lambda thin (poll + archive + forward) and the admin app as the single source of truth for meeting data.
+- The forwarding is optional -- controlled by `ADMIN_APP_WEBHOOK_URL` env var. Lambda still archives to S3 regardless.
+
+## Impact
+
+- **Fenster (Infra):** Must add `ADMIN_APP_WEBHOOK_URL` and `WEBHOOK_AUTH_SECRET` env vars to the eventhub-processor Lambda module in Terraform (`iac/aws/modules/eventhub-processor/`).
+- **Deployment:** Admin app must be deployed first (webhook route available) before Lambda can forward. S3 archival continues independently.
+- **New env vars for admin app:** `WEBHOOK_AUTH_SECRET`, `WEBHOOK_CLIENT_STATE` -- need to be set in the container app config.
+

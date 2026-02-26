@@ -11,6 +11,8 @@
 
 📌 Team update (2026-02-25T01:37:00Z): Fenster fixed the handler.js subscribe() bug by replacing `.catch()` with try/catch wrapper. Also fixed Terraform consumer group wiring in iac/main.tf (uses module.azure output instead of var default). Lambda deployed; Terraform changes pending manual deploy-unified.yml trigger. — decided by Fenster
 
+📌 Team update (2026-02-26T14:56Z): Fenster completed webhook infrastructure: added Lambda env vars `ADMIN_APP_WEBHOOK_URL` and `WEBHOOK_AUTH_SECRET` to Terraform, integrated Secrets Manager, fixed deploy-undefined blockers (no keepers on suffix), and updated deploy-admin-app workflow to set Lambda webhook URL dynamically after IP discovery. Both deployments succeeded. — decided by Fenster
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

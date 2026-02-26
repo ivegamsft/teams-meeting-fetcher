@@ -32,3 +32,5 @@
 ## Team Updates
 
 📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed repo/scripts do not rely on temp-lambda/tasks — reported by Fenster — decided by Scribe
+
+📌 Team update (2026-02-26T14:56Z): McManus implemented webhook notification forwarding: created `/api/webhooks/graph` endpoint, added webhook auth middleware, updated Lambda handler to forward Graph notifications to admin app, fixed Entra compatibility. Admin app deployed with webhook endpoint live. — decided by McManus
