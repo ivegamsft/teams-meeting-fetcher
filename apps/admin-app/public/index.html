@@ -146,22 +146,25 @@
         <div id="page-settings" class="page-content hidden">
           <h1>Settings</h1>
           <div class="card">
+            <h2>Monitored Groups</h2>
+            <p style="color:var(--gray-400);margin-bottom:1rem;">Select Entra groups whose members will be monitored for meetings.</p>
+            <div id="monitored-groups-list" style="margin-bottom:1rem;"></div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="group-search" class="form-input" placeholder="Search Entra groups..." style="flex:1">
+              <button id="search-groups-btn" class="btn btn-secondary">Search</button>
+            </div>
+            <div id="group-search-results" style="margin-top:8px;"></div>
+          </div>
+          <div class="card mt-4">
             <h2>Configuration</h2>
-            <form id="settings-form">
-              <div class="form-group">
-                <label for="setting-group-id">Entra Group ID</label>
-                <input type="text" id="setting-group-id" class="form-input" placeholder="Enter Entra Group ID">
-              </div>
-              <div class="form-group">
-                <label>Webhook URL</label>
-                <div class="readonly-field" id="setting-webhook-url">--</div>
-              </div>
-              <div class="form-group">
-                <label>Tenant ID</label>
-                <div class="readonly-field" id="setting-tenant-id">--</div>
-              </div>
-              <button type="submit" class="btn btn-primary">Save Settings</button>
-            </form>
+            <div class="form-group">
+              <label>EventHub</label>
+              <div class="readonly-field" id="setting-eventhub">--</div>
+            </div>
+            <div class="form-group">
+              <label>Tenant ID</label>
+              <div class="readonly-field" id="setting-tenant-id">--</div>
+            </div>
           </div>
           <div class="card mt-4">
             <h2>Connection Status</h2>

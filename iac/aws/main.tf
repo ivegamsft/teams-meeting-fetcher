@@ -344,6 +344,7 @@ module "admin_app" {
   entra_client_id     = var.admin_app_entra_client_id
   entra_client_secret = var.admin_app_entra_client_secret
   entra_redirect_uri  = var.admin_app_entra_redirect_uri
+  admin_group_id      = var.azure_allowed_group_id
 
   tags = local.common_tags
 }

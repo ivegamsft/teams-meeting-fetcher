@@ -6,6 +6,7 @@ export interface EntraUser {
   displayName: string;
   email: string;
   upn: string;
+  groups: string[];
 }
 
 let msalClient: ConfidentialClientApplication | null = null;

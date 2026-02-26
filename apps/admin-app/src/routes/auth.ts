@@ -64,7 +64,27 @@ async function handleCallback(req: Request, res: Response): Promise<void> {
       displayName: claims.name || '',
       email: claims.preferred_username || claims.email || '',
       upn: claims.preferred_username || claims.upn || '',
+      groups: Array.isArray(claims.groups) ? claims.groups : [],
     };
+
+    // Check admin group membership
+    const adminGroupId = config.entra.adminGroupId;
+    if (adminGroupId && !user.groups.includes(adminGroupId)) {
+      console.warn(`Access denied for ${user.email} - not in admin group ${adminGroupId}`);
+      req.session.destroy(() => {});
+      res.status(403).send(`
+        <!DOCTYPE html>
+        <html><head><title>Access Denied</title>
+        <style>body{font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#1a1a2e;color:#e0e0e0}
+        .box{text-align:center;padding:2rem;border:1px solid #333;border-radius:8px;max-width:500px}
+        h1{color:#e74c3c;margin-bottom:.5rem}a{color:#3498db}</style></head>
+        <body><div class="box"><h1>Access Denied</h1>
+        <p>Your account <strong>${user.email}</strong> is not a member of the admin group.</p>
+        <p>Contact your administrator to request access.</p>
+        <p><a href="/auth/logout">Sign out</a></p></div></body></html>
+      `);
+      return;
+    }
 
     (req.session as any).user = user;
     console.log(`User authenticated: ${user.displayName} (${user.email})`);

@@ -140,11 +140,18 @@ resource "azuread_application_password" "tmf_lambda_app" {
 //=============================================================================
 
 resource "azuread_application" "tmf_admin_app" {
-  display_name     = var.admin_app_display_name
-  sign_in_audience = "AzureADMyOrg"
+  display_name            = var.admin_app_display_name
+  sign_in_audience        = "AzureADMyOrg"
+  group_membership_claims = ["SecurityGroup"]
 
   web {
     redirect_uris = []
+  }
+
+  optional_claims {
+    id_token {
+      name = "groups"
+    }
   }
 
   required_resource_access {

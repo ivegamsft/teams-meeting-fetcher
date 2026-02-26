@@ -60,7 +60,13 @@ const API = {
 
   config: {
     get: () => API.request('/config'),
-    update: (data) => API.request('/config', { method: 'PUT', body: JSON.stringify(data) }),
     health: () => API.request('/config/health'),
+  },
+
+  groups: {
+    list: (search) => API.request(`/groups${search ? '?search=' + encodeURIComponent(search) : ''}`),
+    monitored: () => API.request('/groups/monitored'),
+    addMonitored: (data) => API.request('/groups/monitored', { method: 'POST', body: JSON.stringify(data) }),
+    removeMonitored: (groupId) => API.request(`/groups/monitored/${groupId}`, { method: 'DELETE' }),
   },
 };

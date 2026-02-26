@@ -12,8 +12,6 @@ router.get('/', async (req: Request, res: Response) => {
     if (!appConfig) {
       await configStore.put({
         tenantId: config.graph.tenantId,
-        entraGroupId: config.graph.entraGroupId,
-        webhookUrl: config.webhook.notificationUrl,
       });
       appConfig = await configStore.get();
     }
@@ -25,22 +23,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/', async (req: Request, res: Response) => {
-  try {
-    const { entraGroupId } = req.body;
-
-    if (entraGroupId) {
-      await configStore.updateEntraGroupId(entraGroupId);
-    }
-
-    const updated = await configStore.get();
-    res.json(updated);
-  } catch (err: any) {
-    console.error('Failed to update config:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.get('/health', async (req: Request, res: Response) => {
   const health: any = {
     status: 'healthy',
@@ -48,7 +30,7 @@ router.get('/health', async (req: Request, res: Response) => {
     uptime: process.uptime(),
     graphApi: 'unknown',
     database: 'unknown',
-    webhookUrl: config.webhook.notificationUrl,
+    eventhub: config.eventhub.namespace ? 'configured' : 'not configured',
   };
 
   try {

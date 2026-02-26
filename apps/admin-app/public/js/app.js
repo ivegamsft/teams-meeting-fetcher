@@ -183,14 +183,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadSettings() {
     try {
-      const [config, health] = await Promise.all([
+      const [config, health, monitored] = await Promise.all([
         API.config.get().catch(() => null),
         API.config.health().catch(() => null),
+        API.groups.monitored().catch(() => ({ groups: [] })),
       ]);
 
+      // Render monitored groups
+      renderMonitoredGroups(monitored.groups || []);
+
       if (config) {
-        document.getElementById('setting-group-id').value = config.entraGroupId || '';
-        document.getElementById('setting-webhook-url').textContent = config.webhookUrl || 'Not configured';
+        const ehDisplay = config.eventhubNamespace ? `${config.eventhubNamespace}/${config.eventhubName || ''}` : 'Not configured';
+        document.getElementById('setting-eventhub').textContent = ehDisplay;
         document.getElementById('setting-tenant-id').textContent = config.tenantId || 'Not configured';
 
         document.getElementById('config-stats').innerHTML = `
@@ -198,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div><strong>Meetings Monitored:</strong> ${config.monitoredMeetingsCount || 0}</div>
             <div><strong>Transcripts Processed:</strong> ${config.transcriptionsProcessed || 0}</div>
             <div><strong>Transcripts Pending:</strong> ${config.transcriptionsPending || 0}</div>
-            <div><strong>Last Webhook:</strong> ${config.lastWebhookReceived ? formatDate(config.lastWebhookReceived) : 'Never'}</div>
+            <div><strong>Monitored Groups:</strong> ${(monitored.groups || []).length}</div>
           </div>
         `;
       }
@@ -216,14 +220,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  document.getElementById('settings-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const entraGroupId = document.getElementById('setting-group-id').value;
+  function renderMonitoredGroups(groups) {
+    const container = document.getElementById('monitored-groups-list');
+    if (!groups || groups.length === 0) {
+      container.innerHTML = '<div class="empty-state">No monitored groups. Search and add groups below.</div>';
+      return;
+    }
+    container.innerHTML = groups.map(g => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--gray-100);border-radius:6px;margin-bottom:6px;">
+        <div>
+          <strong>${g.displayName}</strong>
+          <span style="color:var(--gray-400);font-size:12px;margin-left:8px;">${g.groupId}</span>
+        </div>
+        <button class="btn btn-sm btn-danger" onclick="removeMonitoredGroup('${g.groupId}')">Remove</button>
+      </div>
+    `).join('');
+  }
+
+  window.removeMonitoredGroup = async (groupId) => {
+    if (!confirm('Remove this group from monitoring?')) return;
     try {
-      await API.config.update({ entraGroupId });
-      alert('Settings saved successfully');
+      const result = await API.groups.removeMonitored(groupId);
+      renderMonitoredGroups(result.groups || []);
     } catch (err) {
-      alert('Failed to save settings: ' + err.message);
+      alert('Failed to remove group: ' + err.message);
+    }
+  };
+
+  window.addMonitoredGroup = async (groupId, displayName) => {
+    try {
+      const result = await API.groups.addMonitored({ groupId, displayName });
+      renderMonitoredGroups(result.groups || []);
+      document.getElementById('group-search-results').innerHTML = '';
+    } catch (err) {
+      alert('Failed to add group: ' + err.message);
+    }
+  };
+
+  document.getElementById('search-groups-btn').addEventListener('click', async () => {
+    const search = document.getElementById('group-search').value.trim();
+    const resultsEl = document.getElementById('group-search-results');
+    resultsEl.innerHTML = 'Searching...';
+    try {
+      const result = await API.groups.list(search);
+      if (!result.groups || result.groups.length === 0) {
+        resultsEl.innerHTML = '<div style="padding:8px;color:var(--gray-400);">No groups found</div>';
+        return;
+      }
+      resultsEl.innerHTML = result.groups.map(g => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border:1px solid var(--gray-100);border-radius:4px;margin-bottom:4px;">
+          <div>
+            <strong>${g.displayName}</strong>
+            ${g.description ? `<span style="color:var(--gray-400);font-size:12px;margin-left:8px;">${g.description}</span>` : ''}
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="addMonitoredGroup('${g.groupId}', '${g.displayName.replace(/'/g, "\\'")}')">Add</button>
+        </div>
+      `).join('');
+    } catch (err) {
+      resultsEl.innerHTML = '<div style="padding:8px;color:#e74c3c;">Search failed: ' + err.message + '</div>';
+    }
+  });
+
+  document.getElementById('group-search').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('search-groups-btn').click();
     }
   });
 

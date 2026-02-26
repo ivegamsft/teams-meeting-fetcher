@@ -36,13 +36,12 @@ export const config = {
     tenantId: process.env.GRAPH_TENANT_ID || '',
     clientId: process.env.GRAPH_CLIENT_ID || '',
     clientSecret: process.env.GRAPH_CLIENT_SECRET || '',
-    entraGroupId: process.env.ENTRA_GROUP_ID || '',
   },
 
-  webhook: {
-    authSecret: process.env.WEBHOOK_AUTH_SECRET || '',
-    clientState: process.env.WEBHOOK_CLIENT_STATE || '',
-    notificationUrl: process.env.WEBHOOK_NOTIFICATION_URL || '',
+  eventhub: {
+    namespace: process.env.EVENTHUB_NAMESPACE || '',
+    name: process.env.EVENTHUB_NAME || '',
+    tenantDomain: process.env.GRAPH_TENANT_DOMAIN || '',
   },
 
   auth: {
@@ -55,6 +54,7 @@ export const config = {
     clientId: process.env.ENTRA_CLIENT_ID || '',
     clientSecret: process.env.ENTRA_CLIENT_SECRET || '',
     redirectUri: process.env.ENTRA_REDIRECT_URI || '',
+    adminGroupId: process.env.ADMIN_GROUP_ID || '',
   },
 
   sanitization: {

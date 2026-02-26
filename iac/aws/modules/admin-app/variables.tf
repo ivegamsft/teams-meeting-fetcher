@@ -242,6 +242,12 @@ variable "entra_redirect_uri" {
   default     = ""
 }
 
+variable "admin_group_id" {
+  description = "Entra admin group object ID for RBAC"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
