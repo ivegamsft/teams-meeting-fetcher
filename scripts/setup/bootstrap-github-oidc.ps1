@@ -313,7 +313,11 @@ if (-not $AzureOnly) {
         "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
         "arn:aws:iam::aws:policy/AmazonSNSFullAccess",
         "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
-        "arn:aws:iam::aws:policy/CloudWatchFullAccessV2"
+        "arn:aws:iam::aws:policy/CloudWatchFullAccessV2",
+        "arn:aws:iam::aws:policy/AmazonECS_FullAccess",
+        "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+        "arn:aws:iam::aws:policy/AmazonECR_FullAccess",
+        "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
     )
     
     foreach ($policy in $policiesToAttach) {

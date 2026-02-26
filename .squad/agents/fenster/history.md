@@ -186,6 +186,10 @@
   - Consumer group consumed: `iac/main.tf` (line 142) -> `iac/aws/main.tf` (line 232) -> `iac/aws/modules/eventhub-processor/main.tf` (line 98, `CONSUMER_GROUP` env var)
   - Lambda handler: `apps/aws-lambda-eventhub/handler.js` (line 219, `requireEnv('CONSUMER_GROUP')`)
 
+### 2026-02-25: Temp Build Folder Cleanup
+
+- **temp-lambda/** and **tasks/** are gitignored and not referenced by build, deploy, or scripts. Safe to remove when present.
+
 ### 2026-02-25: Azure Firewall CIDR Fix for Multi-IP Runners
 
 - **Root cause**: GitHub Actions runners have multiple outbound IPs in the same subnet. `api.ipify.org` returned `20.161.60.20`, but Azure API calls used `20.161.60.19`. The `/32` firewall rule only covered one IP, causing `ForbiddenByFirewall` on Key Vault access during Terraform plan.

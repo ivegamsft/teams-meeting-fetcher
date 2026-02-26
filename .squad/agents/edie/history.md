@@ -11,6 +11,12 @@
 
 ## Learnings
 
+### 2026-02-25: temp-lambda and tasks Folder References (Edie)
+
+- `temp-lambda/` and `tasks/` are gitignored and currently absent in the repo (no directories at root).
+- Only doc-like references found: `.github/copilot-instructions.md` lists `temp-lambda/` as a gitignored temp build folder, and `.github/prompts/clean-up-docs.prompt.md` references `tasks/TODO.md` as a doc category.
+- If those folders are removed/kept absent, the only doc update needed would be removing `tasks/TODO.md` from the clean-up-docs prompt (optional); `temp-lambda/` mention in copilot instructions can remain as a gitignore note.
+
 ### 2026-02-25: Unified Terraform Deployment Workflow Documentation (Edie)
 
 **Work completed:**
