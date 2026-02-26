@@ -63,9 +63,15 @@ variable "bot_app_display_name" {
 }
 
 variable "admin_group_display_name" {
-  description = "Display name for the monitored meetings group"
+  description = "Display name for the admin RBAC group (who can access the admin app)"
   type        = string
-  default     = "Teams Meeting Fetcher Monitored Meetings"
+  default     = "Teams Meeting Fetcher Admins"
+}
+
+variable "monitored_group_display_name" {
+  description = "Display name for the monitored users group (users whose meetings are tracked)"
+  type        = string
+  default     = "Teams Meeting Fetcher Monitored Users"
 }
 variable "create_test_user" {
   description = "Whether to create a test user for development with randomly generated name and password"

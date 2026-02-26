@@ -90,6 +90,16 @@ output "admin_group_name" {
   value       = azuread_group.admins.display_name
 }
 
+output "monitored_group_id" {
+  description = "Monitored users group object ID"
+  value       = azuread_group.monitored_users.object_id
+}
+
+output "monitored_group_name" {
+  description = "Monitored users group display name"
+  value       = azuread_group.monitored_users.display_name
+}
+
 output "test_user_principal_name" {
   description = "Test user principal name (email)"
   value       = var.create_test_user ? azuread_user.test_user[0].user_principal_name : null

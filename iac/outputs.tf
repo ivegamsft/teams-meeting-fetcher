@@ -26,8 +26,18 @@ output "azure_bot_app_id" {
 }
 
 output "azure_admin_group_id" {
-  description = "Azure admin group ID"
+  description = "Azure admin group ID (RBAC for admin app access)"
   value       = module.azure.admin_group_id
+}
+
+output "azure_monitored_group_id" {
+  description = "Azure monitored users group ID (users whose meetings are tracked)"
+  value       = module.azure.monitored_group_id
+}
+
+output "azure_monitored_group_name" {
+  description = "Azure monitored users group display name"
+  value       = module.azure.monitored_group_name
 }
 
 output "azure_eventhub_namespace" {

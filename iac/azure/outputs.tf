@@ -91,6 +91,16 @@ output "admin_group_name" {
   value       = module.azure_ad.admin_group_name
 }
 
+output "monitored_group_id" {
+  description = "Object ID of the monitored users group"
+  value       = module.azure_ad.monitored_group_id
+}
+
+output "monitored_group_name" {
+  description = "Display name of the monitored users group"
+  value       = module.azure_ad.monitored_group_name
+}
+
 //=============================================================================
 // TEST USER OUTPUTS
 //=============================================================================

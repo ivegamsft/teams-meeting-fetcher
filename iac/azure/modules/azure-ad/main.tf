@@ -216,7 +216,7 @@ resource "azuread_application_password" "tmf_bot_app" {
   application_id = azuread_application.tmf_bot_app.id
 }
 
-// Admin group for application administrators
+// Admin group for application administrators (RBAC - who can access the admin app)
 resource "azuread_group" "admins" {
   display_name     = "${var.admin_group_display_name} (${var.environment})"
   mail_enabled     = false
@@ -227,6 +227,20 @@ resource "azuread_group" "admins" {
   lifecycle {
     prevent_destroy = true      # Prevent accidental deletion
     ignore_changes  = [members] # Don't manage members in terraform to avoid conflicts with manual additions
+  }
+}
+
+// Monitored users group (users whose meetings are tracked)
+resource "azuread_group" "monitored_users" {
+  display_name     = "${var.monitored_group_display_name} (${var.environment})"
+  mail_enabled     = false
+  security_enabled = true
+
+  description = "Users whose Teams meetings are monitored by Teams Meeting Fetcher"
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [members]
   }
 }
 
@@ -246,10 +260,18 @@ resource "azuread_user" "test_user" {
   }
 }
 
-// Add test user to admin group (if created)
+// Add test user to admin group (so they can log in to the admin app)
 resource "azuread_group_member" "test_user_admin" {
   count = var.create_test_user ? 1 : 0
 
   group_object_id  = azuread_group.admins.object_id
+  member_object_id = azuread_user.test_user[0].object_id
+}
+
+// Add test user to monitored users group (so their meetings are tracked)
+resource "azuread_group_member" "test_user_monitored" {
+  count = var.create_test_user ? 1 : 0
+
+  group_object_id  = azuread_group.monitored_users.object_id
   member_object_id = azuread_user.test_user[0].object_id
 }

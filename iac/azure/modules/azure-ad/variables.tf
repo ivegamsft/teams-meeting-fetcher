@@ -25,7 +25,12 @@ variable "admin_app_redirect_uri" {
 }
 
 variable "admin_group_display_name" {
-  description = "Display name for the monitored meetings group"
+  description = "Display name for the admin RBAC group (who can access the admin app)"
+  type        = string
+}
+
+variable "monitored_group_display_name" {
+  description = "Display name for the monitored users group (users whose meetings are tracked)"
   type        = string
 }
 
