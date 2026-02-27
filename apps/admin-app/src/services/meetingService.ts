@@ -70,6 +70,28 @@ export const meetingService = {
     const client = getGraphClient();
     const eventData = await client.api(`/${meeting.resource}`).get();
 
+    const joinWebUrl = eventData.onlineMeeting?.joinUrl || meeting.joinWebUrl || '';
+    let onlineMeetingId = eventData.onlineMeetingId || meeting.onlineMeetingId || '';
+
+    // Resolve onlineMeetingId from joinWebUrl if not directly available
+    if (!onlineMeetingId && joinWebUrl) {
+      const organizerEmail = eventData.organizer?.emailAddress?.address || '';
+      if (organizerEmail) {
+        try {
+          const resp = await client
+            .api(`/users/${organizerEmail}/onlineMeetings`)
+            .filter(`JoinWebUrl eq '${joinWebUrl}'`)
+            .get();
+          if (resp.value && resp.value.length > 0) {
+            onlineMeetingId = resp.value[0].id;
+            console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl`);
+          }
+        } catch (err: any) {
+          console.warn(`[MeetingService] Failed to resolve onlineMeetingId for ${meetingId}: ${err.message}`);
+        }
+      }
+    }
+
     const enriched: Meeting = {
       ...meeting,
       subject: eventData.subject || 'Untitled Meeting',
@@ -87,8 +109,8 @@ export const meetingService = {
         status: a.status?.response || 'notResponded',
       })),
       status: meeting.status === 'notification_received' ? 'scheduled' : meeting.status,
-      joinWebUrl: eventData.onlineMeeting?.joinUrl || meeting.joinWebUrl || '',
-      onlineMeetingId: eventData.onlineMeetingId || meeting.onlineMeetingId || '',
+      joinWebUrl,
+      onlineMeetingId,
       rawEventData: eventData,
       detailsFetched: true,
       updatedAt: new Date().toISOString(),

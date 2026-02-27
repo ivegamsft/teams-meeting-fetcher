@@ -58,9 +58,12 @@ export const transcriptPoller = {
 
       // Phase 1: Enrich meetings that haven't been fetched from Graph yet
       const unenriched = allMeetings.filter(m => !m.detailsFetched && m.resource);
-      const enrichBatch = isCatchUp ? unenriched : unenriched.slice(0, batchLimit);
+      // Also re-enrich meetings that have joinWebUrl but no onlineMeetingId
+      const needsIdResolution = allMeetings.filter(m => m.detailsFetched && m.joinWebUrl && !m.onlineMeetingId);
+      const toEnrich = [...unenriched, ...needsIdResolution];
+      const enrichBatch = isCatchUp ? toEnrich : toEnrich.slice(0, batchLimit);
       if (enrichBatch.length > 0) {
-        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} of ${unenriched.length} meetings`);
+        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} (${unenriched.length} new + ${needsIdResolution.length} re-enrich for onlineMeetingId)`);
       }
 
       for (const meeting of enrichBatch) {
@@ -83,6 +86,13 @@ export const transcriptPoller = {
       // Re-fetch all meetings after enrichment to get updated endTime/onlineMeetingId
       const refreshed = isCatchUp && enriched > 0 ? await meetingStore.listAll() : allMeetings;
       const now = new Date().toISOString();
+
+      // Diagnostics
+      const withOnlineMeetingId = refreshed.filter(m => m.onlineMeetingId).length;
+      const pastMeetings = refreshed.filter(m => m.endTime && m.endTime < now).length;
+      const enrichedCount = refreshed.filter(m => m.detailsFetched).length;
+      console.log(`[TranscriptPoller] Phase 2 diagnostics: total=${refreshed.length}, enriched=${enrichedCount}, withOnlineMeetingId=${withOnlineMeetingId}, pastMeetings=${pastMeetings}`);
+
       const candidates = refreshed.filter(m =>
         m.onlineMeetingId &&
         m.endTime && m.endTime < now &&
@@ -91,9 +101,7 @@ export const transcriptPoller = {
       );
 
       const transcriptBatch = isCatchUp ? candidates : candidates.slice(0, batchLimit);
-      if (transcriptBatch.length > 0) {
-        console.log(`[TranscriptPoller] Phase 2 (${mode}): Checking ${transcriptBatch.length} of ${candidates.length} meetings for transcripts`);
-      }
+      console.log(`[TranscriptPoller] Phase 2 (${mode}): ${candidates.length} candidates, checking ${transcriptBatch.length}`);
 
       for (const meeting of transcriptBatch) {
         try {
