@@ -173,12 +173,12 @@ jobs:
           for dir in apps/aws-lambda apps/aws-lambda-authorizer apps/aws-lambda-eventhub; do
             mkdir -p "$dir"
           done
-          mkdir -p scenarios/lambda/meeting-bot
+          mkdir -p apps/meeting-bot
           cd /tmp && zip placeholder.zip placeholder.js
           cp /tmp/placeholder.zip $GITHUB_WORKSPACE/apps/aws-lambda/lambda.zip
           cp /tmp/placeholder.zip $GITHUB_WORKSPACE/apps/aws-lambda-authorizer/authorizer.zip
           cp /tmp/placeholder.zip $GITHUB_WORKSPACE/apps/aws-lambda-eventhub/lambda.zip
-          cp /tmp/placeholder.zip $GITHUB_WORKSPACE/scenarios/lambda/meeting-bot/meeting-bot.zip
+          cp /tmp/placeholder.zip $GITHUB_WORKSPACE/apps/meeting-bot/meeting-bot.zip
 
       - name: Terraform plan
         run: terraform plan -input=false -out=tfplan

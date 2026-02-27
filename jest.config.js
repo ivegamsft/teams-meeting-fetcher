@@ -8,14 +8,14 @@ module.exports = {
   ],
   testMatch: ['**/?(*.)+(spec|test).js'],
   modulePaths: [
-    '<rootDir>/scenarios/lambda/meeting-bot/node_modules',
+    '<rootDir>/apps/meeting-bot/node_modules',
     '<rootDir>/apps/aws-lambda/node_modules',
   ],
   collectCoverageFrom: [
     'apps/aws-lambda/**/*.js',
-    'scenarios/lambda/meeting-bot/**/*.js',
+    'apps/meeting-bot/**/*.js',
     '!apps/aws-lambda/node_modules/**',
     '!apps/aws-lambda/**/*.test.js',
-    '!scenarios/lambda/meeting-bot/node_modules/**',
+    '!apps/meeting-bot/node_modules/**',
   ],
 };

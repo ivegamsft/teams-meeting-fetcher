@@ -327,7 +327,7 @@ Default commands (implemented in Lambda):
 | `@bot help` | Show available commands |
 | `@bot status` | Check bot status and health |
 
-**To add custom commands**: Edit `scenarios/lambda/meeting-bot/index.js`
+**To add custom commands**: Edit `apps/meeting-bot/index.js`
 
 ## Next Steps
 
@@ -335,7 +335,7 @@ Default commands (implemented in Lambda):
 
 1. **Add more commands**:
    ```javascript
-   // In scenarios/lambda/meeting-bot/index.js
+   // In apps/meeting-bot/index.js
    if (text.includes('list meetings')) {
      // Query DynamoDB for recent meetings
      // Respond with formatted list

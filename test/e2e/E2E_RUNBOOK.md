@@ -18,7 +18,7 @@ The Teams Meeting Fetcher has **3 distinct E2E test scenarios**, all requiring *
 
 | **Scenario** | **Flow** | **Infrastructure** | **Location** | **Est. Time** | **Test File** |
 |---|---|---|---|---|---|
-| **1. Teams Bot** | Teams → Bot Framework → Graph API → S3 + DynamoDB | AWS Lambda, DynamoDB, S3, Teams Bot | `scenarios/lambda/meeting-bot/` | 30-40 min | TBD |
+| **1. Teams Bot** | Teams → Bot Framework → Graph API → S3 + DynamoDB | AWS Lambda, DynamoDB, S3, Teams Bot | `apps/meeting-bot/` | 30-40 min | TBD |
 | **2. Event Hub** | Teams → Graph Subscription → Azure Event Hub → AWS Lambda → DynamoDB | Azure Event Hub, AWS Lambda, DynamoDB | `scenarios/nobots-eventhub/` | 25-35 min | `test-scripts/test-complete-flow.ps1` |
 | **3. Direct Graph** | Teams → Graph Subscription → API Gateway → Lambda → S3 | AWS API Gateway, Lambda, S3 | `scenarios/nobots/` | 30-40 min | TBD |
 
@@ -186,7 +186,7 @@ Write-Host "`n✅ All prerequisites met. Ready for E2E testing!" -ForegroundColo
 
 **What it tests:** Teams Bot Framework → Graph API → Lambda → S3 + DynamoDB
 
-**Location:** `scenarios/lambda/meeting-bot/`
+**Location:** `apps/meeting-bot/`
 
 **Time:** 30-40 minutes
 
@@ -1420,7 +1420,7 @@ aws s3 ls --profile tmf-dev
 | **File** | **Purpose** | **Location** |
 |---|---|---|
 | **Test Scripts** | Ad-hoc E2E testing | `test-scripts/` |
-| **Scenario 1** | Teams Bot implementation | `scenarios/lambda/meeting-bot/` |
+| **Scenario 1** | Teams Bot implementation | `apps/meeting-bot/` |
 | **Scenario 2** | EventHub implementation | `scenarios/nobots-eventhub/` |
 | **Scenario 3** | Direct Graph implementation | `scenarios/nobots/` |
 | **Environment** | Credentials and config | `.env.test` (create from `.env.example`) |

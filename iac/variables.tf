@@ -253,7 +253,7 @@ variable "region_short" {
 variable "meeting_bot_package_path" {
   description = "Path to meeting bot Lambda zip package"
   type        = string
-  default     = "../../lambda/meeting-bot/meeting-bot.zip"
+  default     = "../apps/meeting-bot/meeting-bot.zip"
 }
 
 variable "eventhub_namespace" {

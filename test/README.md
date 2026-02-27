@@ -324,7 +324,7 @@ The project has **3 distinct test scenarios**, each exercising a different data 
 
 | **Scenario** | **Flow** | **Location** | **Time** |
 |---|---|---|---|
-| **1. Teams Bot** | Teams → Bot Framework → Graph API → S3 + DynamoDB | `scenarios/lambda/meeting-bot/` | 30-40 min |
+| **1. Teams Bot** | Teams → Bot Framework → Graph API → S3 + DynamoDB | `apps/meeting-bot/` | 30-40 min |
 | **2. Event Hub** | Teams → Graph Subscription → Azure Event Hub → AWS Lambda → DynamoDB | `scenarios/nobots-eventhub/` | 25-35 min |
 | **3. Direct Graph** | Teams → Graph Subscription → API Gateway → Lambda → S3 | `scenarios/nobots/` | 30-40 min |
 

@@ -5,13 +5,13 @@ on:
     branches:
       - develop
     paths:
-      - "scenarios/lambda/meeting-bot/**"
+      - "apps/meeting-bot/**"
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - "scenarios/lambda/meeting-bot/**"
+      - "apps/meeting-bot/**"
   workflow_dispatch:
 
 jobs:
@@ -26,27 +26,27 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          cache-dependency-path: "scenarios/lambda/meeting-bot/package-lock.json"
+          cache-dependency-path: "apps/meeting-bot/package-lock.json"
 
       - name: Install Meeting Bot dependencies
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           npm ci
 
       - name: Validate entrypoint
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           node -c index.js
 
       - name: Package Lambda
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           rm -f meeting-bot.zip
           zip -r meeting-bot.zip index.js graph-client.js node_modules -x "*.git*" "*.md"
 
       - name: Verify package
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           if [ ! -f meeting-bot.zip ]; then
             echo "Package failed: meeting-bot.zip not created"
             exit 1
@@ -58,5 +58,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lambda-meeting-bot-artifact
-          path: scenarios/lambda/meeting-bot/meeting-bot.zip
+          path: apps/meeting-bot/meeting-bot.zip
           retention-days: 30

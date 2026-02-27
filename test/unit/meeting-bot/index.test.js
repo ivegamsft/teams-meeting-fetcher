@@ -38,7 +38,7 @@ const mockGetOnlineMeeting = jest
   .mockResolvedValue({ id: 'meeting-1', chatInfo: { threadId: '19:meeting_abc@thread.v2' } });
 const mockUpdateOnlineMeeting = jest.fn().mockResolvedValue({});
 
-jest.mock('../../../scenarios/lambda/meeting-bot/graph-client', () => ({
+jest.mock('../../../apps/meeting-bot/graph-client', () => ({
   graphRequest: mockGraphRequest,
   getMeetingTranscripts: mockGetMeetingTranscripts,
   getTranscriptContent: mockGetTranscriptContent,
@@ -88,7 +88,7 @@ process.env.POLL_LOOKAHEAD_MINUTES = '60';
 process.env.GRAPH_NOTIFICATION_URL = 'https://example.com/bot/notifications';
 process.env.GRAPH_NOTIFICATION_CLIENT_STATE = 'test-client-state';
 
-const { handler } = require('../../../scenarios/lambda/meeting-bot/index');
+const { handler } = require('../../../apps/meeting-bot/index');
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
 

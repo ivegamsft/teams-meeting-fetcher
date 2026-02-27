@@ -658,7 +658,7 @@ This project is a multi-app monorepo with **no root `package.json`**. App code l
 | `apps/aws-lambda/` | Main webhook handler Lambda |
 | `apps/aws-lambda-authorizer/` | API Gateway custom authorizer |
 | `apps/aws-lambda-eventhub/` | Event Hub processor Lambda |
-| `scenarios/lambda/meeting-bot/` | Teams Bot Lambda |
+| `apps/meeting-bot/` | Teams Bot Lambda |
 | `apps/teams-app/` | Teams app manifest (no npm) |
 
 All workflows install dependencies per-app (`cd apps/aws-lambda && npm ci`), never at the root.

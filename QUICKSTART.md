@@ -266,7 +266,7 @@ AWS DynamoDB (checkpoints, meetings)
 
 **Description**: Teams Bot Framework with Lambda webhook processor (requires Bot Service).
 
-**Location**: `scenarios/lambda/meeting-bot/`, `apps/teams-app/`
+**Location**: `apps/meeting-bot/`, `apps/teams-app/`
 
 **Setup time**: 60-90 minutes
 

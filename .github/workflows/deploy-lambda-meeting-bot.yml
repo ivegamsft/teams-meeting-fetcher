@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "scenarios/lambda/meeting-bot/**"
+      - "apps/meeting-bot/**"
   workflow_dispatch:
 
 permissions:
@@ -56,16 +56,16 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          cache-dependency-path: "scenarios/lambda/meeting-bot/package-lock.json"
+          cache-dependency-path: "apps/meeting-bot/package-lock.json"
 
       - name: Install Meeting Bot dependencies
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           npm ci
 
       - name: Package Lambda
         run: |
-          cd scenarios/lambda/meeting-bot
+          cd apps/meeting-bot
           rm -f meeting-bot.zip
           zip -r meeting-bot.zip index.js graph-client.js node_modules -x "*.git*" "*.md"
 
@@ -73,7 +73,7 @@ jobs:
         run: |
           aws lambda update-function-code \
             --function-name ${{ steps.tf-output.outputs.lambda_name }} \
-            --zip-file fileb://scenarios/lambda/meeting-bot/meeting-bot.zip \
+            --zip-file fileb://apps/meeting-bot/meeting-bot.zip \
             --region ${{ env.AWS_REGION }}
 
       - name: Wait for Lambda update
