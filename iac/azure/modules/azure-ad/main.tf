@@ -210,8 +210,10 @@ resource "azuread_application_password" "tmf_admin_app" {
 //=============================================================================
 // ADMIN CONSENT GRANTS — IaC-managed app role assignments
 // These grant admin consent for Graph API permissions on the service principals.
-// The Terraform deployment SPN needs Application.Read.All (satisfied by
-// Application.ReadWrite.All) to look up the Graph SP via data source.
+// The Terraform deployment SPN needs AppRoleAssignment.ReadWrite.All to create
+// these resources. Default: DISABLED (var.grant_admin_consent = false).
+// Use scripts/grant-graph-permissions.ps1 as a one-time bootstrap step instead.
+// Set grant_admin_consent = true only if your deploy SPN has sufficient privileges.
 //=============================================================================
 
 resource "azuread_app_role_assignment" "tmf_graph_consent" {

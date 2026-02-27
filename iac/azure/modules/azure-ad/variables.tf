@@ -72,7 +72,7 @@ variable "test_user_usage_location" {
 }
 
 variable "grant_admin_consent" {
-  description = "Whether to grant admin consent for Graph API permissions via IaC. Requires Application.Read.All on the deployment SPN."
+  description = "Whether to grant admin consent for Graph API permissions via IaC. Requires AppRoleAssignment.ReadWrite.All on the deployment SPN. Default false — use scripts/grant-graph-permissions.ps1 as a bootstrap step instead."
   type        = bool
-  default     = true
+  default     = false
 }
