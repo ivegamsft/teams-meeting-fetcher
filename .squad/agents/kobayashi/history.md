@@ -96,3 +96,33 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
 **Active Subscriptions:** 4 calendar event subscriptions confirmed working.
 
 **Decision:** Full configuration checklist written to `.squad/decisions/inbox/kobayashi-teams-transcription-config.md`. Application Access Policy creation is the #1 priority action item.
+
+### 2026-02-27: Teams Policy Verification and Calendar Assessment for Isaac
+
+**Context:** Isaac requested verification of Teams admin policies and assessment of calendar cleanup needs before starting fresh transcription testing.
+
+**Key Findings:**
+
+1. **Calendar Status — boldoriole@ibuyspy.net:**
+   - Has 10 active events (created 2026-02-26 to 2026-02-27)
+   - Mix of auto-generated test events ("E2E DynamoDB Direct Write 005135") and scheduled sales calls
+   - Events are non-blocking but clutter calendar for manual verification
+   - Recommendation: Clean up before starting fresh recording test runs (optional)
+
+2. **Configuration IDs Located:**
+   - Group ID (test users): `2e572630-7b65-470d-82f2-0387ebb04524`
+   - Bot App ID (Graph): `63f2f070-e55d-40d3-93f9-f46229544066`
+   - Teams Bot App ID: `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2`
+   - Catalog App ID: **UNKNOWN** (requires interactive PowerShell query)
+
+3. **Policy Status Check:**
+   - Created helper script `scripts/temp-check-policies.ps1` for interactive Teams PowerShell
+   - DryRun script cannot execute in non-interactive context (requires Teams admin auth)
+   - From prior investigation: Application Access Policy confirmed MISSING (critical blocker)
+
+4. **Recommended Steps for Isaac:**
+   - Get Catalog App ID: `Connect-MicrosoftTeams; Get-TeamsApp -DistributionMethod Organization | Format-Table Id, DisplayName`
+   - Run setup script DryRun to see current policy state
+   - If policies missing, run non-DryRun to create them (4-24 hour propagation delay)
+
+**Decision:** Documented full status and runbook in `.squad/decisions/inbox/kobayashi-policy-status.md`. Calendar cleanup is optional; policy verification/setup is required.

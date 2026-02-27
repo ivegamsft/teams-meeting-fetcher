@@ -300,6 +300,48 @@ Configures Microsoft Teams policies to allow the Bot to join meetings and enable
 
 ---
 
+### `grant-graph-permissions.ps1`
+
+Automatically grants all 7 required Microsoft Graph API permissions to the Teams Meeting Fetcher app.
+
+**Usage**:
+
+```powershell
+.\scripts\grant-graph-permissions.ps1
+```
+
+**What it does**:
+
+1. ✅ Adds all 7 required Graph API permissions to the app registration:
+   - Calendars.Read
+   - Group.Read.All
+   - User.Read.All
+   - OnlineMeetings.Read.All
+   - OnlineMeetingTranscript.Read.All
+   - OnlineMeetingRecording.Read.All
+   - Subscription.ReadWrite.All
+2. ✅ Grants admin consent for all permissions
+3. ✅ Verifies all permissions were successfully added
+
+**Prerequisites**:
+
+- Azure CLI logged in (`az login`)
+- Global Administrator or Cloud Application Administrator role (to grant admin consent)
+
+**When to use**:
+
+- During initial deployment to grant all required permissions at once
+- As an alternative to manual permission granting in Azure Portal
+
+**After running**: Verify that the Admin App can authenticate and create webhook subscriptions:
+
+```bash
+python scripts/graph/01-verify-setup.py
+python scripts/graph/02-create-webhook-subscription.py
+```
+
+---
+
 ## Recommended Setup Sequence
 
 ### For New Deployments
@@ -321,19 +363,25 @@ Configures Microsoft Teams policies to allow the Bot to join meetings and enable
    terraform apply tfplan
    ```
 
-4. **Re-grant Bot app consent** (2 min):
+4. **Grant Graph API permissions** (2 min):
+
+   ```powershell
+   .\scripts\grant-graph-permissions.ps1
+   ```
+
+5. **Re-grant Bot app consent** (2 min):
 
    ```powershell
    .\scripts\setup\regrant-bot-app-consent.ps1
    ```
 
-5. **Configure Teams policies** (5 min):
+6. **Configure Teams policies** (5 min):
 
    ```powershell
    .\scripts\setup\setup-teams-policies.ps1
    ```
 
-6. **Setup GitHub workflows** (optional, 5 min):
+7. **Setup GitHub workflows** (optional, 5 min):
 
    ```powershell
    .\scripts\setup\setup-github-azure-spn.ps1

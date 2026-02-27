@@ -1,5 +1,27 @@
 # Graph API Scripts
 
+## Prerequisites
+
+Before running any scripts, ensure:
+
+1. **Teams Admin Configuration** (one-time)
+   - See [TEAMS_ADMIN_CONFIGURATION.md](../../docs/TEAMS_ADMIN_CONFIGURATION.md)
+   - Layer 1: Teams policies configured (recording, transcription enabled)
+   - Layer 2: Application Access Policy created and assigned
+   - Layer 3: All 7 Graph API permissions granted
+   - Layer 4: Teams Premium licenses assigned
+
+2. **Environment Configuration**
+   - Create `.env.local` with credentials (see `.env.local.template`)
+   - Required variables: `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET`, `ENTRA_GROUP_ID`
+
+3. **Python Dependencies**
+   ```bash
+   pip install -r scripts/requirements.txt
+   ```
+
+---
+
 ## Main Workflow (Use These)
 
 **Numbered scripts form the main workflow:**
@@ -45,10 +67,10 @@ These scripts check various system states:
 ## Quick Start
 
 ```bash
-# 1. Verify setup
+# 1. Verify Graph API access and permissions
 python 01-verify-setup.py
 
-# 2. Create subscriptions (if not already created)
+# 2. Create/renew webhook subscriptions (if not already created)
 python 02-create-webhook-subscription.py
 
 # 3. Create a test meeting to trigger transcripts
@@ -57,17 +79,18 @@ python 03-create-test-meeting.py
 # 4. Monitor and fetch transcripts
 python 04-poll-transcription.py
 
-# 5. Test webhook manually
-python trigger-webhook-manual.py
+# 5. Test webhook delivery
+python 06-test-webhook.py
 ```
 
 ## Environment Setup
 
 All scripts use `.env.local` for credentials. Required variables:
 
-- `GRAPH_TENANT_ID`
-- `GRAPH_CLIENT_ID`
-- `GRAPH_CLIENT_SECRET`
-- `WEBHOOK_AUTH_SECRET` (for webhook testing)
+- `GRAPH_TENANT_ID` — Your Azure tenant ID
+- `GRAPH_CLIENT_ID` — Teams Meeting Fetcher app registration client ID
+- `GRAPH_CLIENT_SECRET` — App registration client secret
+- `ENTRA_GROUP_ID` — Target Entra group ID (users whose meetings to track)
+- `WEBHOOK_AUTH_SECRET` — Bearer token for webhook testing (for 06-test-webhook.py)
 
-See `.env.local.template` in project root.
+See `.env.local.template` in project root for complete template.

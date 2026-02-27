@@ -30,7 +30,23 @@
   4. **Layer 4:** Teams Premium license verification — users must have base Teams license + Teams Premium add-on
 - Added cross-reference in CONFIGURATION.md (top of "Quick Start" section) linking to the new Teams Admin doc to clarify that app configuration assumes admin setup is complete.
 - Key insight: Transcription pipeline has two-phase setup: *admin configuration* (tenant policies/permissions, one-time) + *app configuration* (credentials/secrets, per deployment). These are complementary and separate.
-- Test tenant ibuyspy.net has only two licensed users: trustingboar@ibuyspy.net and boldoriole@ibuyspy.net. Isaac's account (a-ivega@ibuyspy.net) is NOT licensed — important for test planning.
+### 2026-02-28: Complete Prerequisites & Permissions Documentation (Edie)
+
+- Updated `docs/TEAMS_ADMIN_CONFIGURATION.md` Layer 3 to document the complete set of **7 required Graph API permissions** (was only 3):
+  1. **Calendars.Read** — Read calendar events
+  2. **Group.Read.All** — Read group membership information
+  3. **User.Read.All** — Read user details
+  4. **OnlineMeetings.Read.All** — Read online meeting details
+  5. **OnlineMeetingTranscript.Read.All** — Read meeting transcripts
+  6. **OnlineMeetingRecording.Read.All** — Read meeting recordings
+  7. **Subscription.ReadWrite.All** — Create and manage webhook subscriptions
+- Added reference to `scripts/grant-graph-permissions.ps1` for automated permission granting (previously undocumented).
+- Updated `CONFIGURATION.md` to list all 7 permissions in the Teams Admin Configuration section and corrected the security section to reflect the 7 permissions.
+- Added comprehensive **Prerequisites** section to `README.md` with organizational, technical, and configuration requirements clearly separated; emphasized that Teams Admin Configuration must be completed first.
+- Added warning banner in README Quick Start section directing teams to the admin configuration guide before starting development.
+- Updated `scripts/setup/README.md` to document `grant-graph-permissions.ps1` with full usage, prerequisites, and integration into the setup sequence; added script to the recommended setup sequence (step 4).
+- Updated `scripts/graph/README.md` with prerequisites section, environment variable explanations, and link to the admin configuration guide.
+- All changes focused on answering: "What permissions are required?" and "How do I grant them?" — prerequisites now clearly listed across all entry points (README, CONFIGURATION, admin guide, and scripts docs).
 
 ## Team Updates
 

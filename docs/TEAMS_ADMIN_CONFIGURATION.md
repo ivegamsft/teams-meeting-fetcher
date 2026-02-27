@@ -208,7 +208,19 @@ ApplicationAccessPolicy: TMF-AppAccess-Policy
 
 ## Layer 3: Graph API Permissions
 
-The Teams Meeting Fetcher app needs specific Microsoft Graph API permissions to read meetings, transcripts, and recordings.
+The Teams Meeting Fetcher app needs specific Microsoft Graph API permissions to read meetings, transcripts, recordings, and user/group information.
+
+### Required Permissions (7 Total)
+
+The complete set of Graph API permissions required:
+
+1. **Calendars.Read** — Read calendar events
+2. **Group.Read.All** — Read group membership information
+3. **User.Read.All** — Read user details
+4. **OnlineMeetings.Read.All** — Read online meeting details
+5. **OnlineMeetingTranscript.Read.All** — Read meeting transcripts
+6. **OnlineMeetingRecording.Read.All** — Read meeting recordings
+7. **Subscription.ReadWrite.All** — Create and manage webhook subscriptions
 
 ### Step 3.1: Add Permissions in Azure Portal
 
@@ -219,10 +231,25 @@ The Teams Meeting Fetcher app needs specific Microsoft Graph API permissions to 
 5. Click **Add a permission**
 6. Select **Microsoft Graph** > **Application permissions**
 7. Search and add these permissions:
+   - `Calendars.Read` — Read calendar events
+   - `Group.Read.All` — Read group membership information
+   - `User.Read.All` — Read user details
    - `OnlineMeetings.Read.All` — Read online meeting details
    - `OnlineMeetingTranscript.Read.All` — Read meeting transcripts
    - `OnlineMeetingRecording.Read.All` — Read meeting recordings
+   - `Subscription.ReadWrite.All` — Create and manage webhook subscriptions
 8. Click **Add permissions**
+
+### Automated Permission Granting
+
+These permissions can be automatically granted using the PowerShell script:
+
+```powershell
+# Grant all 7 required Graph API permissions
+.\scripts\grant-graph-permissions.ps1
+```
+
+This script automates the process and ensures all required permissions are configured correctly.
 
 ### Step 3.2: Grant Admin Consent
 
@@ -361,10 +388,14 @@ Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
 In Azure Portal:
 1. **App registrations** > **Teams Meeting Fetcher**
 2. **API permissions** tab
-3. Verify these appear with status "✓ Granted for [Tenant]":
+3. Verify all 7 permissions appear with status "✓ Granted for [Tenant]":
+   - `Calendars.Read`
+   - `Group.Read.All`
+   - `User.Read.All`
    - `OnlineMeetings.Read.All`
    - `OnlineMeetingTranscript.Read.All`
    - `OnlineMeetingRecording.Read.All`
+   - `Subscription.ReadWrite.All`
 
 ### Verification Step 4: Check Teams Premium License
 
@@ -421,10 +452,14 @@ Grant-CsApplicationAccessPolicy -PolicyName "TMF-AppAccess-Policy" -Identity "us
 3. Permissions added but not propagated
 
 **Solution:**
-1. Verify in Azure Portal > **App registrations** > **API permissions** that these are present with "✓ Granted" status:
+1. Verify in Azure Portal > **App registrations** > **API permissions** that all 7 permissions are present with "✓ Granted" status:
+   - `Calendars.Read`
+   - `Group.Read.All`
+   - `User.Read.All`
    - `OnlineMeetings.Read.All`
    - `OnlineMeetingTranscript.Read.All`
    - `OnlineMeetingRecording.Read.All`
+   - `Subscription.ReadWrite.All`
 2. If missing, add and grant admin consent (see Layer 3)
 3. Wait 10-15 minutes for propagation
 4. Retry API call

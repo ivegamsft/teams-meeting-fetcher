@@ -26,6 +26,22 @@ This project provides a distributed system to:
 
 ## Quick Start
 
+### ⚠️ Prerequisites First: Teams Admin Configuration
+
+**Before you start**, a Teams Administrator must complete the setup in this guide:
+
+**👉 [Teams Admin Configuration Guide](./docs/TEAMS_ADMIN_CONFIGURATION.md)** — Required one-time setup
+
+This includes:
+- Enabling Teams meeting policies (recording, transcription)
+- Creating Application Access Policy for the app
+- Granting 7 Graph API permissions
+- Assigning Teams Premium licenses
+
+**Estimated time: 60 minutes** (mostly waiting for policy propagation). Without this, the app cannot access meetings or transcriptions.
+
+---
+
 ### Interactive Workflow (Recommended for Development)
 
 Use the **[Teams Meeting Fetcher Workflow Notebook](./Teams-Meeting-Fetcher-Workflow.ipynb)** for an interactive, step-by-step guide through:
@@ -173,17 +189,52 @@ This exports:
 - [TEAMS_INVENTORY_AUTOMATION.md](./docs/TEAMS_INVENTORY_AUTOMATION.md) — How to use the inventory system
 - [TEAMS_INVENTORY_SCRIPTS_REFERENCE.md](./docs/TEAMS_INVENTORY_SCRIPTS_REFERENCE.md) — Script architecture & troubleshooting
 
-### Prerequisites
+## Prerequisites
 
-- Node.js 18+
-- Microsoft 365 tenant with:
-  - **Privileged Role Administrator or Global Administrator** (to create app registrations and service principals)
-  - **Teams Administrator** (to deploy Teams app)
-  - **Contributor or Owner** on Azure subscription (for infrastructure deployment)
-- Target Entra group created
-- Server with HTTPS capability (for webhooks)
-- (Optional) AWS Account for Lambda deployments
-- (Optional) Azure Subscription for cloud deployments
+Before deploying Teams Meeting Fetcher, ensure you have:
+
+### Organizational Requirements
+
+- **Microsoft 365 Tenant** with Teams enabled
+- **Teams Administrator** role (for policy and app registration setup)
+- **Global Administrator** or **Application Administrator** role (for Azure app registration)
+- **Target Entra Group** created (users whose meetings will be monitored)
+- **Teams Premium License** assigned to monitored users (for transcription features)
+
+### Technical Requirements
+
+- **Node.js 18+** (for application deployment)
+- **HTTPS-enabled server** (required for webhook delivery from Graph API)
+- **Outbound HTTPS access** to Microsoft Graph API (https://graph.microsoft.com)
+
+### Teams Admin Configuration
+
+**IMPORTANT:** Before the application will work, a Teams Administrator must complete the setup guide:
+
+**📖 [Teams Admin Configuration Guide](./docs/TEAMS_ADMIN_CONFIGURATION.md)**
+
+This includes:
+1. **Layer 1:** Configuring Teams meeting policies (recording, transcription enabled)
+2. **Layer 2:** Creating Application Access Policy for the app
+3. **Layer 3:** Granting 7 Graph API permissions:
+   - Calendars.Read
+   - Group.Read.All
+   - User.Read.All
+   - OnlineMeetings.Read.All
+   - OnlineMeetingTranscript.Read.All
+   - OnlineMeetingRecording.Read.All
+   - Subscription.ReadWrite.All
+4. **Layer 4:** Verifying Teams Premium licenses
+
+Without these prerequisites, the application cannot access meetings or transcriptions.
+
+### Optional Cloud Deployment
+
+- **AWS Account** (for Lambda webhook processor)
+- **Azure Subscription** (for managed infrastructure deployment)
+- **Terraform 1.0+** (for infrastructure-as-code deployment)
+
+---
 
 ### 1. Create App Registration
 

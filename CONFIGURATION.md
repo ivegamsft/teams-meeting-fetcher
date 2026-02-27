@@ -26,7 +26,7 @@ Complete guide to configuring Teams Meeting Fetcher for development and producti
 This separate guide covers:
 - **Layer 1:** Teams Admin Meeting Policies (recording, transcription, auto-recording)
 - **Layer 2:** Application Access Policy for Graph API (required for meeting access)
-- **Layer 3:** Graph API Permissions (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All)
+- **Layer 3:** Graph API Permissions (7 permissions: Calendars.Read, Group.Read.All, User.Read.All, OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All, Subscription.ReadWrite.All)
 - **Layer 4:** Teams Premium License verification
 - **Verification steps** and troubleshooting for each layer
 
@@ -467,21 +467,18 @@ WEBHOOK_AUTH_SECRET=new-random-token
 # Rotate credentials regularly
 ```
 
-### 5. Entra Group Permissions
+### Security Best Practices
 
-```bash
-# Only expose necessary permissions to Graph API
-# Application permissions (not delegated) ensure:
-# - Service reads group calendar events
-# - No user impersonation
-# - Audit trail in Azure AD
+1. **Graph API Permissions** (7 total, all required)
+   - `Calendars.Read` — Read calendar events
+   - `Group.Read.All` — Read group membership
+   - `User.Read.All` — Read user details
+   - `OnlineMeetings.Read.All` — Read online meeting details
+   - `OnlineMeetingTranscript.Read.All` — Read transcripts
+   - `OnlineMeetingRecording.Read.All` — Read recordings
+   - `Subscription.ReadWrite.All` — Manage webhook subscriptions
 
-# Permissions granted:
-# - GroupMember.Read.All (enumerate members)
-# - Calendars.Read.All (read member calendars)
-# - OnlineMeetingRecording.Read.All (access recordings)
-# - CallTranscripts.Read.All (access transcripts)
-```
+   Use application permissions (not delegated) to ensure service reads data without impersonating users or needing individual consent.
 
 ### 6. Monitoring & Alerts
 
