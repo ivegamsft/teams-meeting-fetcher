@@ -4,15 +4,33 @@ Complete guide to configuring Teams Meeting Fetcher for development and producti
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Environment Files](#environment-files)
-3. [Graph API Configuration](#graph-api-configuration)
-4. [Server Configuration](#server-configuration)
-5. [Database Configuration](#database-configuration)
-6. [Azure Integration](#azure-integration)
-7. [AWS Integration](#aws-integration)
-8. [Security Best Practices](#security-best-practices)
-9. [Troubleshooting](#troubleshooting)
+1. [Teams Admin Configuration](#teams-admin-configuration)
+2. [Quick Start](#quick-start)
+3. [Environment Files](#environment-files)
+4. [Graph API Configuration](#graph-api-configuration)
+5. [Server Configuration](#server-configuration)
+6. [Database Configuration](#database-configuration)
+7. [Azure Integration](#azure-integration)
+8. [AWS Integration](#aws-integration)
+9. [Security Best Practices](#security-best-practices)
+10. [Troubleshooting](#troubleshooting)
+
+---
+
+## Teams Admin Configuration
+
+**Before configuring the Teams Meeting Fetcher application**, your Teams administrator must set up tenant-level policies and permissions.
+
+**See:** [TEAMS_ADMIN_CONFIGURATION.md](docs/TEAMS_ADMIN_CONFIGURATION.md)
+
+This separate guide covers:
+- **Layer 1:** Teams Admin Meeting Policies (recording, transcription, auto-recording)
+- **Layer 2:** Application Access Policy for Graph API (required for meeting access)
+- **Layer 3:** Graph API Permissions (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All)
+- **Layer 4:** Teams Premium License verification
+- **Verification steps** and troubleshooting for each layer
+
+**These steps must be completed before application configuration will work.** The app cannot read transcripts or recordings without the admin setup in place.
 
 ---
 
