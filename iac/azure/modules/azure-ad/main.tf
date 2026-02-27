@@ -1,11 +1,12 @@
 // Azure AD module for app registration, service principal, groups, and test users
 // Manages Azure Active Directory resources for Teams Meeting Fetcher
 
-// Microsoft Graph service principal (for app role assignments)
-// NOTE: Commented out - requires Directory.Read.All permission on SPN
-// data "azuread_service_principal" "graph" {
-//   client_id = "00000003-0000-0000-c000-000000000000"
-// }
+// Microsoft Graph service principal (for app role assignments / admin consent)
+// Requires Application.Read.All on the deployment SPN (already satisfied by
+// Application.ReadWrite.All which is needed to create azuread_application resources)
+data "azuread_service_principal" "graph" {
+  client_id = "00000003-0000-0000-c000-000000000000"
+}
 
 // Hard-code Graph API values since data source requires extra permissions
 locals {
@@ -19,7 +20,7 @@ locals {
     online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
     group_read_all                     = "5b567255-7703-4780-807c-7be8301ae99b"
     user_read_all                      = "df021288-bdef-4463-88db-98f22de89214"
-    subscription_readwrite_all         = "482be48f-8d13-42ab-b51e-677fdd881820"
+    subscription_readwrite_all         = "482be48f-8d13-42ab-b51e-677fdd881820" // INVALID — not a Graph appRole; see tmf_consent_permissions
     // Bot-only permissions (not used by TMF SPN)
     online_meetings_readwrite_all = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
     calls_join_group_call_all     = "f6b49018-60ab-4f81-83bd-22caeabfed2d"
@@ -28,6 +29,20 @@ locals {
 
   bot_graph_app_role_ids = {
     online_meetings_readwrite_all      = local.graph_app_role_ids.online_meetings_readwrite_all
+    online_meeting_transcript_read_all = local.graph_app_role_ids.online_meeting_transcript_read_all
+    online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
+    group_read_all                     = local.graph_app_role_ids.group_read_all
+    user_read_all                      = local.graph_app_role_ids.user_read_all
+  }
+
+  // TMF SPN: 6 Graph API application permissions that need admin consent grants.
+  // Subscription.ReadWrite.All excluded — GUID 482be48f-... does not exist as a
+  // Graph appRole (confirmed 2026-02-27 via MS Graph permissions reference).
+  // Graph subscriptions only require the resource-specific permission
+  // (e.g., Calendars.Read for calendar change notifications).
+  tmf_consent_permissions = {
+    calendars_read                     = local.graph_app_role_ids.calendars_read
+    online_meetings_read_all           = local.graph_app_role_ids.online_meetings_read_all
     online_meeting_transcript_read_all = local.graph_app_role_ids.online_meeting_transcript_read_all
     online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
     group_read_all                     = local.graph_app_role_ids.group_read_all
@@ -42,7 +57,8 @@ resource "azuread_application" "tmf_app" {
   required_resource_access {
     resource_app_id = local.graph_client_id
 
-    // TMF SPN: 7 Graph API application permissions (verified 2026-02-27)
+    // TMF SPN: 6 Graph API application permissions (verified 2026-02-27)
+    // Subscription.ReadWrite.All removed — not a valid Graph appRole (delegated-only)
     resource_access {
       id   = local.graph_app_role_ids.calendars_read
       type = "Role"
@@ -65,10 +81,6 @@ resource "azuread_application" "tmf_app" {
     }
     resource_access {
       id   = local.graph_app_role_ids.online_meeting_recording_read_all
-      type = "Role"
-    }
-    resource_access {
-      id   = local.graph_app_role_ids.subscription_readwrite_all
       type = "Role"
     }
   }
@@ -195,23 +207,28 @@ resource "azuread_application_password" "tmf_admin_app" {
   application_id = azuread_application.tmf_admin_app.id
 }
 
-// NOTE: App role assignments commented out - requires Directory.Read.All to get Graph SPN object ID
-// These will be granted via admin consent URL or Azure Portal instead
-// resource "azuread_app_role_assignment" "graph_app_roles" {
-//   for_each = local.graph_app_role_ids
-//
-//   app_role_id         = each.value
-//   principal_object_id = azuread_service_principal.tmf_app.object_id
-//   resource_object_id  = "<Graph SPN object ID>"  // Would come from data.azuread_service_principal.graph.object_id
-// }
-//
-// resource "azuread_app_role_assignment" "bot_graph_app_roles" {
-//   for_each = local.bot_graph_app_role_ids
-//
-//   app_role_id         = each.value
-//   principal_object_id = azuread_service_principal.tmf_bot_app.object_id
-//   resource_object_id  = "<Graph SPN object ID>"  // Would come from data.azuread_service_principal.graph.object_id
-// }
+//=============================================================================
+// ADMIN CONSENT GRANTS — IaC-managed app role assignments
+// These grant admin consent for Graph API permissions on the service principals.
+// The Terraform deployment SPN needs Application.Read.All (satisfied by
+// Application.ReadWrite.All) to look up the Graph SP via data source.
+//=============================================================================
+
+resource "azuread_app_role_assignment" "tmf_graph_consent" {
+  for_each = var.grant_admin_consent ? local.tmf_consent_permissions : {}
+
+  app_role_id         = each.value
+  principal_object_id = azuread_service_principal.tmf_app.object_id
+  resource_object_id  = data.azuread_service_principal.graph.object_id
+}
+
+resource "azuread_app_role_assignment" "bot_graph_consent" {
+  for_each = var.grant_admin_consent ? local.bot_graph_app_role_ids : {}
+
+  app_role_id         = each.value
+  principal_object_id = azuread_service_principal.tmf_bot_app.object_id
+  resource_object_id  = data.azuread_service_principal.graph.object_id
+}
 
 // Application password/secret
 resource "azuread_application_password" "tmf_app" {

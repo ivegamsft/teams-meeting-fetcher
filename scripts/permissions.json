@@ -32,11 +32,6 @@
           "id": "a4a08342-c95d-476b-b943-97e100569c8d",
           "type": "Role",
           "_comment": "OnlineMeetingRecording.Read.All"
-        },
-        {
-          "id": "482be48f-8d13-42ab-b51e-677fdd881820",
-          "type": "Role",
-          "_comment": "Subscription.ReadWrite.All"
         }
       ]
     }

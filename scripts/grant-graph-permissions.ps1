@@ -1,12 +1,17 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-Grant admin consent for Graph API permissions to Teams Meeting Fetcher app.
+FALLBACK/BOOTSTRAP: Grant admin consent for Graph API permissions to Teams Meeting Fetcher app.
 
 .DESCRIPTION
-This script grants admin consent for the required Microsoft Graph API permissions
-used by the Teams Meeting Fetcher application. It uses the correct permission IDs
-to avoid validation errors.
+*** CANONICAL SOURCE OF TRUTH FOR PERMISSIONS IS TERRAFORM ***
+See: iac/azure/modules/azure-ad/main.tf (azuread_app_role_assignment resources)
+
+This script exists ONLY as a fallback for initial bootstrap before Terraform
+is fully configured, or for emergency manual recovery. In normal operations,
+`terraform apply` manages both permission declarations AND admin consent grants.
+
+Do NOT use this script for routine permission changes — update Terraform instead.
 
 .PARAMETER AppId
 The application ID (client ID) of the Teams Meeting Fetcher app in Azure AD.
@@ -30,6 +35,9 @@ param(
 $graphSpn = "00000003-0000-0000-c000-000000000000"
 
 # Permission IDs from Microsoft Graph
+# NOTE: Subscription.ReadWrite.All removed — not a valid Graph application permission
+# (only exists as delegated Subscription.Read.All). Graph subscriptions require the
+# resource-specific permission instead (e.g., Calendars.Read).
 $permissions = @{
     "Calendars.Read"                     = "798ee544-9d2d-430c-a058-570e29e34338"
     "Group.Read.All"                     = "5b567255-7703-4780-807c-7be8301ae99b"
@@ -37,7 +45,6 @@ $permissions = @{
     "OnlineMeetings.Read.All"            = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
     "OnlineMeetingTranscript.Read.All"   = "a4a80d8d-d283-4bd8-8504-555ec3870630"
     "OnlineMeetingRecording.Read.All"    = "a4a08342-c95d-476b-b943-97e100569c8d"
-    "Subscription.ReadWrite.All"         = "482be48f-8d13-42ab-b51e-677fdd881820"
 }
 
 Write-Host "🔐 Granting Graph API permissions for app: $AppId`n" -ForegroundColor Cyan

@@ -70,3 +70,9 @@ variable "test_user_usage_location" {
   type        = string
   default     = "US"
 }
+
+variable "grant_admin_consent" {
+  description = "Whether to grant admin consent for Graph API permissions via IaC. Requires Application.Read.All on the deployment SPN."
+  type        = bool
+  default     = true
+}
