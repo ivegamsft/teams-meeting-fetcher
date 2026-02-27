@@ -114,15 +114,27 @@ variable "sns_topic_arn" {
 }
 
 variable "admin_app_webhook_url" {
-  description = "URL of the admin app webhook endpoint for notification forwarding"
+  description = "DEPRECATED: No longer used. Lambda writes directly to DynamoDB."
   type        = string
   default     = ""
 }
 
 variable "webhook_auth_secret" {
-  description = "Bearer token for authenticating webhook calls to the admin app"
+  description = "DEPRECATED: No longer used. Lambda writes directly to DynamoDB."
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "meetings_table_name" {
+  description = "DynamoDB table name for meeting notifications (direct write)"
+  type        = string
+  default     = ""
+}
+
+variable "meetings_table_arn" {
+  description = "DynamoDB table ARN for meeting notifications IAM policy"
+  type        = string
   default     = ""
 }
 

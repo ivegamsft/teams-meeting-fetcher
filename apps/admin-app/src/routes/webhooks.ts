@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { config } from '../config';
 import { webhookAuth } from '../middleware/auth';
-import { meetingService } from '../services/meetingService';
-import { configStore } from '../services/configStore';
 
 const router = Router();
 
+// DEPRECATED: Webhook intake is no longer the primary notification path.
+// Lambda now writes directly to DynamoDB (change data feed pattern).
+// This endpoint is kept as a no-op for backward compatibility during transition.
 router.post('/graph', webhookAuth, async (req: Request, res: Response) => {
-  // Graph subscription validation handshake
+  // Graph subscription validation handshake (still needed for active subscriptions)
   const validationToken = req.query.validationToken as string;
   if (validationToken) {
     res.status(200).contentType('text/plain').send(validationToken);
@@ -15,31 +15,8 @@ router.post('/graph', webhookAuth, async (req: Request, res: Response) => {
   }
 
   const notifications = req.body?.value || [];
-  let processed = 0;
-
-  for (const notification of notifications) {
-    if (config.webhook.clientState && notification.clientState !== config.webhook.clientState) {
-      console.warn(`Skipping notification with invalid clientState for subscription ${notification.subscriptionId}`);
-      continue;
-    }
-
-    try {
-      await meetingService.processNotification(notification);
-      processed++;
-
-      await configStore.updateLastNotification();
-    } catch (err: any) {
-      console.error(`Failed to process notification for ${notification.resource}:`, err.message);
-    }
-  }
-
-  try {
-    await configStore.updateLastWebhook();
-  } catch (err: any) {
-    console.error('Failed to update webhook timestamp:', err.message);
-  }
-
-  res.json({ success: true, processed });
+  console.log(`[DEPRECATED] Webhook received ${notifications.length} notifications — Lambda writes directly to DynamoDB now`);
+  res.json({ success: true, processed: 0, deprecated: true, message: 'Webhook intake deprecated. Lambda writes directly to DynamoDB.' });
 });
 
 export default router;

@@ -5,7 +5,7 @@ const { webcrypto } = require('crypto');
 const { EventHubConsumerClient, earliestEventPosition } = require('@azure/event-hubs');
 const { S3Client, PutObjectCommand, HeadBucketCommand } = require('@aws-sdk/client-s3');
 const { DynamoDBClient, DescribeTableCommand } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
 // globalThis.crypto is already available in Node 18+, no need to set it
 const s3 = new S3Client({});
@@ -228,96 +228,112 @@ async function receivePartitionEvents(
   });
 }
 
-function forwardNotification(webhookUrl, authSecret, notificationPayload) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify(notificationPayload);
-    const parsed = new URL(webhookUrl);
-
-    const options = {
-      method: 'POST',
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-        Authorization: `Bearer ${authSecret}`,
-      },
-    };
-
-    const transport = parsed.protocol === 'https:' ? https : require('http');
-    const req = transport.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve({ statusCode: res.statusCode, body: data });
-        } else {
-          reject(new Error(`Webhook forward failed: ${res.statusCode} ${data}`));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.setTimeout(10000, () => {
-      req.destroy(new Error('Webhook forward timeout'));
-    });
-    req.write(body);
-    req.end();
-  });
-}
-
-async function forwardWithRetry(webhookUrl, authSecret, notificationPayload, maxRetries = 3, s3Key = null) {
-  const isRetryableError = (err) => {
-    const msg = err.message || '';
-    if (msg.includes('timeout') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND') || msg.includes('ETIMEDOUT')) {
-      return true;
-    }
-    const statusMatch = msg.match(/failed: (\d{3})/i);
-    if (statusMatch) {
-      const status = parseInt(statusMatch[1], 10);
-      return status >= 500;
-    }
-    return false;
-  };
-
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await forwardNotification(webhookUrl, authSecret, notificationPayload);
-      if (attempt > 0) {
-        console.log(`Webhook forward succeeded on attempt ${attempt + 1}`);
-      }
-      return { success: true, attempts: attempt + 1 };
-    } catch (err) {
-      lastError = err;
-      
-      if (!isRetryableError(err) || attempt === maxRetries) {
-        console.error(JSON.stringify({
-          level: 'ERROR',
-          type: 'FORWARD_PERMANENT_FAILURE',
-          notificationCount: notificationPayload.value ? notificationPayload.value.length : 0,
-          changeTypes: notificationPayload.value ? notificationPayload.value.map(n => n.changeType) : [],
-          resources: notificationPayload.value ? notificationPayload.value.map(n => n.resource?.substring(0, 50)) : [],
-          attempts: attempt + 1,
-          s3Key: s3Key,
-          error: err.message || String(err)
-        }));
-        return { success: false, attempts: attempt + 1 };
-      }
-
-      const backoffMs = attempt === 0 ? 0 : Math.pow(2, attempt) * 1000;
-      console.log(`Webhook forward failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoffMs}ms: ${err.message}`);
-      
-      if (backoffMs > 0) {
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-      }
-    }
+async function writeMeetingNotification(meetingsTableName, notification) {
+  const { resource, changeType } = notification;
+  if (!resource) {
+    console.warn('Skipping notification with no resource path');
+    return { written: false, reason: 'no_resource' };
   }
 
-  return { success: false, attempts: maxRetries + 1 };
+  const parts = resource.split('/');
+  const meetingId = parts[parts.length - 1];
+  if (!meetingId) {
+    console.warn('Skipping notification — could not extract meeting_id from resource:', resource);
+    return { written: false, reason: 'no_meeting_id' };
+  }
+
+  const now = new Date().toISOString();
+
+  // Check if record already exists (composite key: meeting_id + created_at)
+  const existingResult = await ddb.send(new QueryCommand({
+    TableName: meetingsTableName,
+    KeyConditionExpression: 'meeting_id = :pk',
+    ExpressionAttributeValues: { ':pk': meetingId },
+    Limit: 1,
+  }));
+  const existing = existingResult.Items && existingResult.Items.length > 0
+    ? existingResult.Items[0]
+    : null;
+
+  if (changeType === 'deleted') {
+    if (existing) {
+      await ddb.send(new PutCommand({
+        TableName: meetingsTableName,
+        Item: {
+          ...existing,
+          changeType: 'deleted',
+          status: 'cancelled',
+          rawNotification: notification,
+          updatedAt: now,
+        },
+      }));
+    } else {
+      // No existing record for a delete — write a minimal cancelled record
+      await ddb.send(new PutCommand({
+        TableName: meetingsTableName,
+        Item: {
+          meeting_id: meetingId,
+          created_at: now,
+          resource,
+          changeType: 'deleted',
+          status: 'cancelled',
+          subject: '',
+          startTime: '',
+          endTime: '',
+          organizerId: '',
+          organizerEmail: '',
+          organizerDisplayName: '',
+          rawNotification: notification,
+          createdAt: now,
+          updatedAt: now,
+        },
+      }));
+    }
+    return { written: true, meetingId, action: 'deleted' };
+  }
+
+  // changeType guard: don't regress "updated"/"deleted" back to "created"
+  let effectiveChangeType = changeType;
+  if (existing) {
+    if (changeType === 'created' && existing.changeType && existing.changeType !== 'created') {
+      effectiveChangeType = existing.changeType;
+    }
+    await ddb.send(new PutCommand({
+      TableName: meetingsTableName,
+      Item: {
+        ...existing,
+        changeType: effectiveChangeType,
+        resource,
+        status: existing.status || 'notification_received',
+        rawNotification: notification,
+        updatedAt: now,
+      },
+    }));
+    return { written: true, meetingId, action: 'updated' };
+  }
+
+  // New record
+  await ddb.send(new PutCommand({
+    TableName: meetingsTableName,
+    Item: {
+      meeting_id: meetingId,
+      created_at: now,
+      resource,
+      changeType: effectiveChangeType || 'created',
+      status: 'notification_received',
+      subject: '',
+      startTime: '',
+      endTime: '',
+      organizerId: '',
+      organizerEmail: '',
+      organizerDisplayName: '',
+      rawNotification: notification,
+      detailsFetched: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  }));
+  return { written: true, meetingId, action: 'created' };
 }
 
 exports.handler = async (event, context) => {
@@ -437,34 +453,32 @@ exports.handler = async (event, context) => {
       })
     );
 
-    // Forward notifications to admin app webhook for meeting processing
-    const adminWebhookUrl = getEnv('ADMIN_APP_WEBHOOK_URL');
-    const webhookAuthSecret = getEnv('WEBHOOK_AUTH_SECRET');
-    let forwardedCount = 0;
-    let forwardRetries = 0;
-    let forwardFailures = 0;
+    // Write notifications directly to DynamoDB meetings table (change data feed pattern)
+    const meetingsTableName = getEnv('MEETINGS_TABLE_NAME');
+    let dynamoWriteCount = 0;
+    let dynamoWriteErrors = 0;
 
-    if (adminWebhookUrl && webhookAuthSecret && allEvents.length > 0) {
+    if (meetingsTableName && allEvents.length > 0) {
       for (const evt of allEvents) {
         const body = evt.body;
-        // Normalize: wrap single notifications in { value: [...] } format
-        const notificationPayload = body && body.value
-          ? body
-          : { value: body ? [body] : [] };
+        // Normalize: handle both { value: [...] } batches and single notifications
+        const notifications = body && body.value ? body.value : (body ? [body] : []);
 
-        if (notificationPayload.value.length > 0) {
-          const result = await forwardWithRetry(adminWebhookUrl, webhookAuthSecret, notificationPayload, 3, key);
-          if (result.success) {
-            forwardedCount += notificationPayload.value.length;
-          } else {
-            forwardFailures++;
+        for (const notification of notifications) {
+          try {
+            const result = await writeMeetingNotification(meetingsTableName, notification);
+            if (result.written) {
+              dynamoWriteCount++;
+            }
+          } catch (err) {
+            dynamoWriteErrors++;
+            console.error(`Failed to write meeting notification to DynamoDB: ${err.message}`);
           }
-          forwardRetries += (result.attempts - 1);
         }
       }
-      console.log(`Forwarded ${forwardedCount} notifications to admin app (${forwardRetries} retries, ${forwardFailures} failures)`);
-    } else if (allEvents.length > 0 && !adminWebhookUrl) {
-      console.log('ADMIN_APP_WEBHOOK_URL not set - skipping notification forwarding');
+      console.log(`Wrote ${dynamoWriteCount} meeting notifications to DynamoDB (${dynamoWriteErrors} errors)`);
+    } else if (allEvents.length > 0 && !meetingsTableName) {
+      console.log('MEETINGS_TABLE_NAME not set - skipping direct DynamoDB writes');
     }
 
     return {
@@ -474,9 +488,8 @@ exports.handler = async (event, context) => {
         processingMode,
         consumerGroup,
         eventCount: allEvents.length,
-        forwardedCount,
-        forwardRetries,
-        forwardFailures,
+        dynamoWriteCount,
+        dynamoWriteErrors,
         checkpointUpdated: shouldUpdateCheckpoint,
         key,
       }),

@@ -79,6 +79,28 @@ resource "aws_iam_role_policy" "eventhub_sns" {
   })
 }
 
+resource "aws_iam_role_policy" "eventhub_meetings" {
+  count = var.meetings_table_arn != "" ? 1 : 0
+  name  = "${var.function_name}-meetings"
+  role  = aws_iam_role.eventhub_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ]
+        Resource = var.meetings_table_arn
+      }
+    ]
+  })
+}
+
 resource "aws_lambda_function" "eventhub" {
   function_name = var.function_name
   role          = aws_iam_role.eventhub_role.arn
@@ -106,8 +128,7 @@ resource "aws_lambda_function" "eventhub" {
         AZURE_CLIENT_SECRET           = var.azure_client_secret
       },
       var.sns_topic_arn != null ? { SNS_TOPIC_ARN = var.sns_topic_arn } : {},
-      var.admin_app_webhook_url != "" ? { ADMIN_APP_WEBHOOK_URL = var.admin_app_webhook_url } : {},
-      var.webhook_auth_secret != "" ? { WEBHOOK_AUTH_SECRET = var.webhook_auth_secret } : {}
+      var.meetings_table_name != "" ? { MEETINGS_TABLE_NAME = var.meetings_table_name } : {}
     )
   }
 

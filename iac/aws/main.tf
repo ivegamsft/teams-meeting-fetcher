@@ -242,8 +242,10 @@ module "eventhub_processor" {
   azure_client_id              = module.security.eventhub_reader_client_id
   azure_client_secret          = module.security.eventhub_reader_client_secret
   sns_topic_arn                = module.notifications.topic_arn
-  admin_app_webhook_url        = var.admin_app_webhook_url
-  webhook_auth_secret          = var.webhook_auth_secret
+  admin_app_webhook_url        = ""
+  webhook_auth_secret          = ""
+  meetings_table_name          = module.dynamodb.meetings_table_name
+  meetings_table_arn           = module.dynamodb.meetings_table_arn
 
   tags = local.common_tags
 }
