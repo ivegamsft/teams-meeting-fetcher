@@ -112,6 +112,13 @@ resource "aws_lambda_function" "eventhub" {
   filename         = var.package_path
   source_code_hash = try(filebase64sha256(var.package_path), null)
 
+  // Code is deployed by a separate workflow — IaC manages infra only.
+  // The placeholder zip satisfies initial creation; real code is pushed
+  // via `aws lambda update-function-code` in the deploy-eventhub workflow.
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+
   environment {
     variables = merge(
       {
