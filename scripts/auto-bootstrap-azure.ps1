@@ -115,6 +115,84 @@ try {
 
 Write-Host "  [OK] Contributor (already assigned)" -ForegroundColor Green
 
+# ─── Teams Application Access Policy ────────────────────────────────────────
+# Required for Graph API app-only access to /users/{id}/onlineMeetings,
+# transcripts, and recordings. No REST API exists — Teams PowerShell only.
+# See: https://learn.microsoft.com/en-us/graph/cloud-communication-online-meeting-application-access-policy
+
+Write-Host ""
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "Teams Application Access Policy" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "This policy allows the app to access OnlineMeetings, Transcripts,"
+Write-Host "and Recordings via Graph API. Without it, those endpoints return 403."
+Write-Host "NOTE: No REST API exists for this — Teams PowerShell is the only option."
+Write-Host ""
+
+$createTeamsPolicy = Read-Host "Create Teams Application Access Policy? (y/n)"
+
+if ($createTeamsPolicy -eq 'y') {
+    # Ensure MicrosoftTeams module is available
+    if (-not (Get-Module -ListAvailable -Name MicrosoftTeams)) {
+        Write-Host "Installing MicrosoftTeams PowerShell module..." -ForegroundColor Yellow
+        Install-Module -Name MicrosoftTeams -Force -Scope CurrentUser
+    }
+    Import-Module MicrosoftTeams
+
+    # Connect to Teams (requires interactive browser auth)
+    Write-Host "Connecting to Microsoft Teams (browser auth)..." -ForegroundColor Yellow
+    try {
+        Get-CsTenant -ErrorAction Stop | Out-Null
+        Write-Host "  Already connected to Teams." -ForegroundColor Green
+    } catch {
+        Connect-MicrosoftTeams -TenantId $tenantId
+    }
+
+    $policyName = "MeetingFetcher-Policy"
+
+    # Create or verify the policy
+    $existingPolicy = $null
+    try {
+        $existingPolicy = Get-CsApplicationAccessPolicy -Identity $policyName -ErrorAction Stop
+    } catch { }
+
+    if ($null -eq $existingPolicy) {
+        Write-Host "  Creating Application Access Policy '$policyName'..." -ForegroundColor Cyan
+        New-CsApplicationAccessPolicy `
+            -Identity $policyName `
+            -AppIds $appId `
+            -Description "Allow TMF app to access online meetings, transcripts, and recordings via Graph API"
+        Write-Host "  [OK] Policy created" -ForegroundColor Green
+    } else {
+        $existingAppIds = $existingPolicy.AppIds
+        if ($existingAppIds -contains $appId) {
+            Write-Host "  [OK] Policy '$policyName' already exists with app $appId" -ForegroundColor Green
+        } else {
+            Write-Host "  Adding app $appId to existing policy..." -ForegroundColor Yellow
+            Set-CsApplicationAccessPolicy `
+                -Identity $policyName `
+                -AppIds ($existingAppIds + $appId)
+            Write-Host "  [OK] Policy updated" -ForegroundColor Green
+        }
+    }
+
+    # Grant globally
+    Write-Host "  Granting policy globally..." -ForegroundColor Cyan
+    Grant-CsApplicationAccessPolicy -PolicyName $policyName -Global
+    Write-Host "  [OK] Policy granted globally" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  NOTE: Policy takes up to 30 minutes to propagate." -ForegroundColor Yellow
+    Write-Host "  Test with: GET /v1.0/users/{id}/onlineMeetings" -ForegroundColor Yellow
+} else {
+    Write-Host ""
+    Write-Host "[SKIP] Teams policy not created. You can run it later:" -ForegroundColor Yellow
+    Write-Host "  .\scripts\setup\setup-teams-policies.ps1 \" -ForegroundColor Gray
+    Write-Host "    -GroupId `"<GROUP-ID>`" \" -ForegroundColor Gray
+    Write-Host "    -CatalogAppId `"<CATALOG-APP-ID>`" \" -ForegroundColor Gray
+    Write-Host "    -BotAppId `"$appId`"" -ForegroundColor Gray
+}
+
 # Output credentials
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan

@@ -271,6 +271,20 @@ Two helper scripts automate the setup and verification:
   2. Creates DynamoDB table with `LockID` partition key and PAY_PER_REQUEST billing
   3. Sets GitHub variables (`TF_STATE_BUCKET`, `TF_STATE_KEY`, `TF_STATE_REGION`, `TF_STATE_LOCK_TABLE`) automatically
 
+**Azure bootstrap script** — Creates SPN, Graph permissions, and Teams policies
+- **Path:** `scripts/auto-bootstrap-azure.ps1`
+- **Usage:** `.\scripts\auto-bootstrap-azure.ps1`
+- **Requires:** Azure CLI logged in, Teams Admin role for the Teams policy step
+- **What it does:**
+  1. Creates or resets Service Principal for Terraform
+  2. Adds all 6 Graph API application permissions (Calendars.Read, Group.Read.All, User.Read.All, OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All)
+  3. Grants admin consent
+  4. Assigns RBAC roles (Contributor, User Access Administrator)
+  5. **Creates Teams Application Access Policy** — required for Graph API access to OnlineMeetings, transcripts, and recordings (no REST API exists; Teams PowerShell only)
+  6. Generates `terraform.tfvars`
+
+> **Note:** The Teams Application Access Policy (step 5) takes up to 30 minutes to propagate after creation.
+
 **Verify script** — Validates that S3 and DynamoDB are correctly configured
 - **Path:** `scripts/verify/verify-terraform-backend.ps1` (PowerShell) or `.sh` (Bash)
 - **Usage:** `./verify-terraform-backend.ps1` or `./verify-terraform-backend.sh`
