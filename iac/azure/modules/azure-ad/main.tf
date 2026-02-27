@@ -13,14 +13,17 @@ locals {
 
   // Hard-coded Graph API app role IDs (from Microsoft Graph)
   graph_app_role_ids = {
-    calendars_readwrite                = "ef54d2bf-783f-4e0f-bca1-3210c0444d99"
+    calendars_read                     = "798ee544-9d2d-430c-a058-570e29e34338"
+    online_meetings_read_all           = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
     online_meeting_transcript_read_all = "a4a80d8d-d283-4bd8-8504-555ec3870630"
     online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
-    online_meetings_readwrite_all      = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
     group_read_all                     = "5b567255-7703-4780-807c-7be8301ae99b"
     user_read_all                      = "df021288-bdef-4463-88db-98f22de89214"
-    calls_join_group_call_all          = "f6b49018-60ab-4f81-83bd-22caeabfed2d"
-    calls_initiate_all                 = "284383ee-7f6e-4e40-a2a8-e85dcb029101"
+    subscription_readwrite_all         = "482be48f-8d13-42ab-b51e-677fdd881820"
+    // Bot-only permissions (not used by TMF SPN)
+    online_meetings_readwrite_all = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
+    calls_join_group_call_all     = "f6b49018-60ab-4f81-83bd-22caeabfed2d"
+    calls_initiate_all            = "284383ee-7f6e-4e40-a2a8-e85dcb029101"
   }
 
   bot_graph_app_role_ids = {
@@ -39,10 +42,21 @@ resource "azuread_application" "tmf_app" {
   required_resource_access {
     resource_app_id = local.graph_client_id
 
-    // Note: Terraform azuread_application doesn't support dynamic blocks for resource_access
-    // Each permission must be explicitly declared
+    // TMF SPN: 7 Graph API application permissions (verified 2026-02-27)
     resource_access {
-      id   = local.graph_app_role_ids.calendars_readwrite
+      id   = local.graph_app_role_ids.calendars_read
+      type = "Role"
+    }
+    resource_access {
+      id   = local.graph_app_role_ids.group_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.graph_app_role_ids.user_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.graph_app_role_ids.online_meetings_read_all
       type = "Role"
     }
     resource_access {
@@ -54,15 +68,7 @@ resource "azuread_application" "tmf_app" {
       type = "Role"
     }
     resource_access {
-      id   = local.graph_app_role_ids.online_meetings_readwrite_all
-      type = "Role"
-    }
-    resource_access {
-      id   = local.graph_app_role_ids.group_read_all
-      type = "Role"
-    }
-    resource_access {
-      id   = local.graph_app_role_ids.user_read_all
+      id   = local.graph_app_role_ids.subscription_readwrite_all
       type = "Role"
     }
   }

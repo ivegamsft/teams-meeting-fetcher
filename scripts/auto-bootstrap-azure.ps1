@@ -60,10 +60,13 @@ $graphApiId = "00000003-0000-0000-c000-000000000000"
 
 # Required Graph API permissions for nobots workflow
 $permissions = @{
-    "Calendars.Read" = "798ee544-9d2d-430c-a058-570e29e34338"
-    "OnlineMeetings.Read.All" = "6931bccd-447a-43d1-b442-00a195474933"
-    "OnlineMeetingTranscript.Read.All" = "a4a80d8d-d9a0-4b0a-b5b4-6c0c8e20c2f8"
-    "User.Read.All" = "df021288-bdef-4463-88db-98f22de89214"
+    "Calendars.Read"                     = "798ee544-9d2d-430c-a058-570e29e34338"
+    "Group.Read.All"                     = "5b567255-7703-4780-807c-7be8301ae99b"
+    "User.Read.All"                      = "df021288-bdef-4463-88db-98f22de89214"
+    "OnlineMeetings.Read.All"            = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
+    "OnlineMeetingTranscript.Read.All"   = "a4a80d8d-d283-4bd8-8504-555ec3870630"
+    "OnlineMeetingRecording.Read.All"    = "a4a08342-c95d-476b-b943-97e100569c8d"
+    "Subscription.ReadWrite.All"         = "482be48f-8d13-42ab-b51e-677fdd881820"
 }
 
 Write-Host ""

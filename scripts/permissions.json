@@ -5,11 +5,38 @@
       "resourceAccess": [
         {
           "id": "798ee544-9d2d-430c-a058-570e29e34338",
-          "type": "Role"
+          "type": "Role",
+          "_comment": "Calendars.Read"
+        },
+        {
+          "id": "5b567255-7703-4780-807c-7be8301ae99b",
+          "type": "Role",
+          "_comment": "Group.Read.All"
+        },
+        {
+          "id": "df021288-bdef-4463-88db-98f22de89214",
+          "type": "Role",
+          "_comment": "User.Read.All"
+        },
+        {
+          "id": "c1684f21-1984-47fa-9d61-2dc8c296bb70",
+          "type": "Role",
+          "_comment": "OnlineMeetings.Read.All"
         },
         {
           "id": "a4a80d8d-d283-4bd8-8504-555ec3870630",
-          "type": "Role"
+          "type": "Role",
+          "_comment": "OnlineMeetingTranscript.Read.All"
+        },
+        {
+          "id": "a4a08342-c95d-476b-b943-97e100569c8d",
+          "type": "Role",
+          "_comment": "OnlineMeetingRecording.Read.All"
+        },
+        {
+          "id": "482be48f-8d13-42ab-b51e-677fdd881820",
+          "type": "Role",
+          "_comment": "Subscription.ReadWrite.All"
         }
       ]
     }

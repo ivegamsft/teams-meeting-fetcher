@@ -3,5 +3,5 @@
   "consentType": "AllPrincipals",
   "principalId": null,
   "resourceId": "db061d5f-aa5f-45f7-8982-e78b72723721",
-  "scope": "Calendars.Read OnlineMeetingTranscript.Read.All"
+  "scope": "Calendars.Read Group.Read.All User.Read.All OnlineMeetings.Read.All OnlineMeetingTranscript.Read.All OnlineMeetingRecording.Read.All Subscription.ReadWrite.All"
 }

@@ -31,14 +31,12 @@ $graphSpn = "00000003-0000-0000-c000-000000000000"
 
 # Permission IDs from Microsoft Graph
 $permissions = @{
-    "Calendars.ReadWrite"                = "ef54d2bf-783f-4e0f-bca1-3210c0444d99"
-    "OnlineMeetingTranscript.Read.All"   = "a4a80d8d-d283-4bd8-8504-555ec3870630"
-    "OnlineMeetingRecording.Read.All"    = "a4a80d8d-d9a0-4b0a-b5b4-6c0c8e20c2f8"
-    "OnlineMeetings.ReadWrite.All"       = "88d21fd4-8e5a-4c32-b5e2-4a1c95f34f72"
+    "Calendars.Read"                     = "798ee544-9d2d-430c-a058-570e29e34338"
     "Group.Read.All"                     = "5b567255-7703-4780-807c-7be8301ae99b"
     "User.Read.All"                      = "df021288-bdef-4463-88db-98f22de89214"
-    "Calls.JoinGroupCall.All"            = "f6e49445-4d04-44a2-d0bf-70906edc8caa"
-    "Calls.Initiate.All"                 = "284383ee-7f6e-4e40-a2a8-e85dcb029101"
+    "OnlineMeetings.Read.All"            = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
+    "OnlineMeetingTranscript.Read.All"   = "a4a80d8d-d283-4bd8-8504-555ec3870630"
+    "OnlineMeetingRecording.Read.All"    = "a4a08342-c95d-476b-b943-97e100569c8d"
     "Subscription.ReadWrite.All"         = "482be48f-8d13-42ab-b51e-677fdd881820"
 }
 
