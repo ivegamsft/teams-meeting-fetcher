@@ -51,3 +51,5 @@
 ## Team Updates
 
 📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed doc references for temp-lambda/tasks — reported by Fenster and Edie — decided by Scribe
+
+📌 Team update (20260227T023500Z): McManus audited Graph permissions and confirmed all 7 now granted on SPN. Fixed `scripts/grant-graph-permissions.ps1` with correct 7-permission set. Fenster fully synchronized IaC (Terraform, permissions.json, auto-bootstrap, consent.json) with all 7 permissions and verified correct Application GUIDs (corrected 2 wrong GUIDs from task brief). Edie updated 5 documentation files (README, CONFIGURATION, TEAMS_ADMIN_CONFIGURATION, scripts/setup/README, scripts/graph/README) with complete 7-permission prerequisites list and reorganized entry points. Outcome: All 7 Graph permissions verified on SPN, IaC consistent, docs unified across all layers. CsApplicationAccessPolicy remains Isaac's action item. — decided by Scribe

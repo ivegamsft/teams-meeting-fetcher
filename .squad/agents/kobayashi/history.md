@@ -1,5 +1,9 @@
 # Kobayashi — History
 
+## Team Updates
+
+📌 Team update (20260227T023500Z): McManus confirmed all 7 Graph API permissions now granted on Teams Meeting Fetcher SPN (63f2f070-e55d-40d3-93f9-f46229544066). Fenster synchronized IaC across Terraform and bootstrap scripts (corrected 2 wrong GUIDs from original task). Edie updated 5 documentation files with complete 7-permission list. Core blockers identified: (1) CsApplicationAccessPolicy still missing (requires Teams Admin PowerShell), (2) Isaac's account not licensed for Teams Premium (only test users). — decided by McManus/Fenster/Edie
+
 ## Project Context
 
 - **Project:** Teams Meeting Fetcher

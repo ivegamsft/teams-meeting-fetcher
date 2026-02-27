@@ -1525,3 +1525,319 @@ Added **retry logic with exponential backoff** to Lambda webhook forwarding:
 
 **Why:** User request — decouples the pipeline so admin-app downtime/IP changes don't break notification ingestion. Eliminates WEBHOOK_URL, retry logic, and the IP-drift problem.
 
+
+
+---
+
+# Decision: Graph API Permissions for Teams Meeting Fetcher SPN
+
+**Date:** 2026-02-27  
+**Author:** McManus  
+**Status:** Executed
+
+## Context
+
+Kobayashi identified 3 missing Graph API permissions on the TMF SPN (63f2f070-e55d-40d3-93f9-f46229544066) needed for transcription/recording access. The existing `scripts/grant-graph-permissions.ps1` used the deprecated AzureAD module and had incorrect permission IDs.
+
+## Findings
+
+After auditing via `az rest` against the Graph appRoleAssignments endpoint:
+- **OnlineMeetingTranscript.Read.All** — already granted (Feb 24)
+- **OnlineMeetingRecording.Read.All** — already granted (Feb 24)
+- **OnlineMeetings.Read.All** — was the only one actually missing
+
+The old script had wrong IDs for OnlineMeetingRecording.Read.All and OnlineMeetings.ReadWrite.All.
+
+## Actions Taken
+
+1. Added OnlineMeetings.Read.All (`c1684f21-1984-47fa-9d61-2dc8c296bb70`) to app registration and granted admin consent via `az` CLI
+2. Fixed `scripts/grant-graph-permissions.ps1`: corrected wrong permission IDs for Recording and ReadWrite, added OnlineMeetings.Read.All
+3. Verified all 7 Graph permissions present via API
+
+## Remaining Blockers (from Kobayashi's analysis)
+
+- CsApplicationAccessPolicy still needs to be created (Teams admin action)
+- Isaac's account not licensed for Teams Premium (only test users are)
+
+## Decision
+
+Use `az` CLI + `az rest` for Graph permission management going forward. The AzureAD PowerShell module is deprecated and should not be used for new operations.
+
+
+---
+
+# Teams Policy Status Assessment — Kobayashi
+
+**Date:** 2026-02-27  
+**Requested by:** Isaac (ivegamsft)  
+**Status:** In Progress — Requires PowerShell Interactive Session
+
+---
+
+## Finding 1: Calendar Cleanup Assessment ✅
+
+### Test User: boldoriole@ibuyspy.net
+- **Calendar Status:** Has 10 active events in calendar (as of 2026-02-27)
+- **Event Types:** Mix of auto-generated test events and real sales calls scheduled for April 2026
+- **Event Age:** Events created 2026-02-26 to 2026-02-27 (recent test generation)
+- **Recent Event:** "E2E DynamoDB Direct Write 005135" created today at 00:51:36 UTC
+
+### Test User: trustingboar@ibuyspy.net
+- **Status:** Not yet queried (requires Graph API call in interactive context)
+
+### Recommendation: ⚠️ CONDITIONAL CLEANUP
+**If starting fresh transcription tests:**
+- The "E2E DynamoDB Direct Write" events are clutter from previous e2e test runs
+- The April sales call events are test fixtures — not real meetings
+- **Action:** Delete auto-generated test events from boldoriole calendar before starting new transcription test runs
+- **Impact:** Minimal; these are not interfering with functionality, just cluttering the calendar for manual verification
+
+**If calendar is clean enough:**
+- No action needed if tests can filter by creation date or use a dedicated test calendar
+
+---
+
+## Finding 2: Teams Policy Configuration Status ⚠️
+
+### Data Extracted from Configuration Files
+
+| Component | Value | Location |
+|-----------|-------|----------|
+| **Group ID (Test Users)** | `2e572630-7b65-470d-82f2-0387ebb04524` | `.env.local.azure:29` |
+| **Admin Group ID (Alternate)** | `5e7708f8-b0d2-467d-97f9-d9da4818084a` | `.env.local.azure:20` |
+| **Bot App ID (for Graph)** | `63f2f070-e55d-40d3-93f9-f46229544066` | `.env.local.azure:8` |
+| **Teams Bot App ID** | `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` | `.env.local.azure:49` |
+| **Catalog App ID** | **UNKNOWN** — Needs PowerShell Query | — |
+| **Policy Names** | "Recorded Line" (Setup + Meeting) | Script at line 56 |
+| **App Access Policy Name** | "MeetingFetcher-Policy" | Script at line 173 |
+
+### What We Know from My History
+From my previous investigation (2026-02-27):
+- **Critical Issue Found:** Application Access Policy is MISSING
+  - Error: `403 "No application access policy found for this app"` when Graph queries `/users/{userId}/onlineMeetings`
+  - This blocks ALL meeting transcription retrieval, even if recording works
+
+### Next Steps (REQUIRES INTERACTIVE POWERSHELL)
+
+**Step 1: Get Catalog App ID**
+```powershell
+Connect-MicrosoftTeams
+Get-TeamsApp -DistributionMethod Organization | Where-Object { $_.DisplayName -like "*Meeting*" } | Format-Table Id, DisplayName
+# Look for "Teams Meeting Fetcher" or similar
+# Copy the ID to use below
+```
+
+**Step 2: Run DryRun Check**
+```powershell
+.\scripts\setup\setup-teams-policies.ps1 `
+  -GroupId "2e572630-7b65-470d-82f2-0387ebb04524" `
+  -CatalogAppId "<CATALOG-ID-FROM-STEP-1>" `
+  -BotAppId "63f2f070-e55d-40d3-93f9-f46229544066" `
+  -DryRun
+```
+
+This will show:
+- Whether policies "Recorded Line" already exist
+- Whether Application Access Policy "MeetingFetcher-Policy" exists
+- What would be assigned to the group
+
+**Step 3: If DryRun Shows Missing Policies**
+```powershell
+.\scripts\setup\setup-teams-policies.ps1 `
+  -GroupId "2e572630-7b65-470d-82f2-0387ebb04524" `
+  -CatalogAppId "<CATALOG-ID>" `
+  -BotAppId "63f2f070-e55d-40d3-93f9-f46229544066"
+```
+
+Note: Changes take 4-24 hours to propagate to users.
+
+---
+
+## Configuration Files Reference
+
+- **Script:** `scripts/setup/setup-teams-policies.ps1` (comprehensive policy setup)
+- **Config:** `.env.local.azure` (all IDs for Terraform deployment)
+- **Docs:** `docs/TEAMS-ADMIN-POLICIES.md` (detailed policy guide)
+- **Calendar Script:** `scripts/graph/list-calendar-events.py` (verify test events)
+
+---
+
+## Summary Table
+
+| Task | Status | Blocker? | Notes |
+|------|--------|----------|-------|
+| Find GroupId | ✅ DONE | No | `2e572630-7b65-470d-82f2-0387ebb04524` |
+| Find BotAppId | ✅ DONE | No | `63f2f070-e55d-40d3-93f9-f46229544066` |
+| Find CatalogAppId | ⏳ PENDING | Yes | Requires PowerShell query |
+| Check policies exist | ⏳ PENDING | Yes | Requires PowerShell interactive |
+| Calendar cleanup needed? | ⚠️ CONDITIONAL | No | Events exist but non-blocking |
+| Application Access Policy | ⚠️ CRITICAL | Yes | Known missing from prior check |
+
+---
+
+## Decision
+
+**Recommendation to Isaac:**
+1. Run PowerShell script `scripts/temp-check-policies.ps1` (in Teams Admin account) to get current policy state
+2. Get the Catalog App ID from `Get-TeamsApp` output
+3. Run the setup script in DryRun mode to see what needs to be configured
+4. If Application Access Policy is missing, run non-DryRun to create it
+5. Calendar cleanup is optional—only if test events are cluttering manual verification
+
+
+---
+
+# Decision: TMF SPN Graph Permissions Fully Declared in IaC
+
+**Author:** Fenster  
+**Date:** 2026-02-27  
+**Status:** Implemented
+
+## Context
+
+McManus confirmed 7 Graph API application permissions on the Teams Meeting Fetcher SPN (63f2f070-e55d-40d3-93f9-f46229544066). Several IaC files and bootstrap scripts were out of sync — some had wrong GUIDs, missing permissions, or stale entries.
+
+## Decision
+
+All 7 TMF SPN permissions are now declared consistently across Terraform and bootstrap scripts:
+
+| Permission | Application GUID |
+|---|---|
+| Calendars.Read | 798ee544-9d2d-430c-a058-570e29e34338 |
+| Group.Read.All | 5b567255-7703-4780-807c-7be8301ae99b |
+| User.Read.All | df021288-bdef-4463-88db-98f22de89214 |
+| OnlineMeetings.Read.All | c1684f21-1984-47fa-9d61-2dc8c296bb70 |
+| OnlineMeetingTranscript.Read.All | a4a80d8d-d283-4bd8-8504-555ec3870630 |
+| OnlineMeetingRecording.Read.All | a4a08342-c95d-476b-b943-97e100569c8d |
+| Subscription.ReadWrite.All | 482be48f-8d13-42ab-b51e-677fdd881820 |
+
+## Files Changed
+
+- `iac/azure/modules/azure-ad/main.tf` — TMF app resource now declares all 7 (Calendars.Read replaces ReadWrite, OnlineMeetings.Read.All replaces ReadWrite.All, Subscription.ReadWrite.All added)
+- `scripts/grant-graph-permissions.ps1` — Reduced from 10 to exactly 7 correct permissions
+- `scripts/permissions.json` — Expanded from 2 to 7 entries
+- `scripts/auto-bootstrap-azure.ps1` — Fixed wrong GUIDs, expanded to 7
+- `scripts/consent.json` — Scope expanded to all 7 names
+
+## Not Changed
+
+- Bot app Terraform resource (separate permission set, not in scope)
+- `scripts/setup/bootstrap-azure-spn.ps1` / `.sh` (Terraform deploy SPN, not TMF SPN)
+- GitHub Actions workflows (none manage Graph permissions)
+
+## Key Finding
+
+Two permission GUIDs from the task brief were incorrect: OnlineMeetings.Read.All and OnlineMeetingRecording.Read.All. Verified correct Application-type GUIDs against graphpermissions.merill.net reference data.
+
+
+---
+
+# Documentation Update: Complete Prerequisites & Graph API Permissions
+
+**Author:** Edie (Documentation Specialist)  
+**Date:** 2026-02-28  
+**Status:** Complete
+
+## Decision
+
+Updated all project documentation to clearly list the **complete 7 Graph API permissions** required by Teams Meeting Fetcher, and reorganized prerequisite information for clarity.
+
+### Changes Made
+
+#### 1. **docs/TEAMS_ADMIN_CONFIGURATION.md** (Layer 3 updated)
+
+- **Before:** Listed only 3 Graph API permissions (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All)
+- **After:** Now lists all 7 required permissions with descriptions:
+  1. Calendars.Read
+  2. Group.Read.All
+  3. User.Read.All
+  4. OnlineMeetings.Read.All
+  5. OnlineMeetingTranscript.Read.All
+  6. OnlineMeetingRecording.Read.All
+  7. Subscription.ReadWrite.All
+- Added reference to `scripts/grant-graph-permissions.ps1` for automated granting
+- Updated verification checklist to check all 7 permissions
+- Updated troubleshooting to reference all 7 permissions
+
+#### 2. **CONFIGURATION.md** (Teams Admin Configuration section)
+
+- Updated the cross-reference to Layer 3 to list all 7 permissions
+- Corrected the "Security Best Practices" section to document the 7 permissions instead of outdated permission names
+
+#### 3. **README.md** (New Prerequisites section)
+
+- Added comprehensive "Prerequisites" section with three subsections:
+  - **Organizational Requirements:** Teams admin role, Global Admin role, target Entra group, Teams Premium license
+  - **Technical Requirements:** Node.js 18+, HTTPS, outbound access
+  - **Teams Admin Configuration:** Emphasized the CRITICAL admin setup with link to full guide and the 7 permissions listed
+  - **Optional Cloud Deployment:** AWS/Azure for cloud infrastructure
+- Added warning banner in Quick Start directing to admin configuration guide BEFORE development
+- Positioned prerequisites BEFORE the interactive workflow section
+
+#### 4. **scripts/setup/README.md**
+
+- Documented `grant-graph-permissions.ps1` with full section including usage, what it does, prerequisites, when to use
+- Integrated script into "Recommended Setup Sequence" as step 4 (after Terraform apply, before bot app consent)
+- Updated setup timing estimate to reflect new step
+
+#### 5. **scripts/graph/README.md**
+
+- Added "Prerequisites" section at top with link to Teams Admin Configuration guide
+- Clarified that all Layer 1-4 requirements must be met before running Graph scripts
+- Expanded environment variable documentation
+- Updated Quick Start section to reference admin setup
+
+### Rationale
+
+**Why these changes?**
+
+1. **Completeness:** Users were seeing conflicting permission lists. Now they see all 7 permissions consistently across all entry points.
+2. **Automation:** The `grant-graph-permissions.ps1` script existed but was undocumented. It's now integrated into the setup sequence.
+3. **Clarity:** Prerequisites were scattered. Now they're:
+   - Prominent in README
+   - Structured clearly (organizational/technical/config)
+   - Cross-referenced in all relevant docs
+4. **Discoverability:** Teams admin guide is now referenced in:
+   - README (in Prerequisites section and Quick Start)
+   - CONFIGURATION.md (top of Teams Admin Configuration section)
+   - scripts/setup/README.md (in setup sequence)
+   - scripts/graph/README.md (in prerequisites)
+
+### Entry Points for Prerequisite Information
+
+- **README.md** → New "Prerequisites" section (comprehensive)
+- **CONFIGURATION.md** → Teams Admin Configuration section (detailed permissions list)
+- **docs/TEAMS_ADMIN_CONFIGURATION.md** → Full step-by-step guide (Layer 1-4, 60 minutes)
+- **scripts/setup/README.md** → Recommended setup sequence (automation scripts)
+- **scripts/graph/README.md** → Graph script prerequisites (what's needed before scripts work)
+
+### Next Steps for Teams
+
+1. **Developers** → Start with README, follow Prerequisites section
+2. **Teams Admins** → Go directly to docs/TEAMS_ADMIN_CONFIGURATION.md (guides them through all 4 layers)
+3. **DevOps/Automation** → Use scripts/setup/README.md for setup sequence and grant-graph-permissions.ps1
+4. **Graph API Testing** → scripts/graph/README.md prerequisites section + numbered workflow scripts
+
+### Impact
+
+- ✅ No functional changes to code or scripts
+- ✅ No breaking changes to configuration
+- ✅ Only documentation reorganization and clarification
+- ✅ All 7 permissions now clearly documented in one consistent format
+- ✅ Prerequisite flow is clearer for new users
+
+### Testing/Verification
+
+Documentation is internal and doesn't require functional testing. Changes verified by:
+1. Reviewing all updated files for consistency
+2. Verifying all 7 permissions appear the same way across docs
+3. Confirming all entry points have clear paths to prerequisites
+
+---
+
+**Approval:** Ready for merge to main; supersedes any outdated permission lists in older docs.
+
+
+---
+
+
