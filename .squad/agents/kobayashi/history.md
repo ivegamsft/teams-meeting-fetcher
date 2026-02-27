@@ -130,3 +130,36 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
    - If policies missing, run non-DryRun to create them (4-24 hour propagation delay)
 
 **Decision:** Documented full status and runbook in `.squad/decisions/inbox/kobayashi-policy-status.md`. Calendar cleanup is optional; policy verification/setup is required.
+
+### 2026-02-28: Transcript Fetching Architecture Design
+
+**Context:** Admin app shows 1,105 meetings but 0 transcripts. CsApplicationAccessPolicy is working (Graph returns 200 with VTT). All meetings stuck at "scheduled" status. Isaac requested architecture design for the transcript pipeline.
+
+**Key Findings:**
+
+1. **The code exists but nothing calls it:**
+   - `meetingService.checkForTranscript(meeting)` is fully implemented — queries Graph for transcripts and calls `transcriptService.fetchAndStore()`.
+   - `transcriptService.fetchAndStore()` downloads VTT content, stores to S3 (raw + sanitized), updates DynamoDB.
+   - But no cron, event handler, or route ever invokes `checkForTranscript()`.
+
+2. **Missing prerequisite data:**
+   - `onlineMeetingId` is only populated when `fetchDetails()` is called on a meeting.
+   - Most of the 1,105 meetings have never had `fetchDetails()` called, so `onlineMeetingId` is empty.
+   - Without `onlineMeetingId`, the Graph transcript API path cannot be constructed.
+
+3. **Calendar events don't signal meeting end:**
+   - EventHub subscription monitors `groups/{groupId}/calendar/events` with `changeType: created,updated`.
+   - These notify about scheduling changes, NOT meeting lifecycle (join/leave/end).
+   - Meeting end must be inferred from `endTime < now` (poll-based).
+
+4. **Graph API transcript path:**
+   - List: `GET /communications/onlineMeetings/{onlineMeetingId}/transcripts`
+   - Content: `GET /communications/onlineMeetings/{onlineMeetingId}/transcripts/{transcriptId}/content`
+   - Transcripts available 1-5 min after meeting end (up to 20 min for long meetings).
+
+5. **Recommended architecture: Hybrid**
+   - Phase 1: Scheduled poller (every 10 min) queries meetings past their `endTime` with no transcript, calls `checkForTranscript()`.
+   - Phase 2: Add `getAllTranscripts` Graph subscription for near-instant capture; poller becomes fallback.
+   - Immediate action: Batch-enrich all 1,105 meetings via `POST /meetings/batch-fetch-details` to populate `onlineMeetingId`.
+
+**Decision:** Architecture proposal written to `.squad/decisions/inbox/kobayashi-transcript-architecture.md`. Phase 1 (poller) recommended for immediate implementation. Phase 2 (event-driven) for future scale.
