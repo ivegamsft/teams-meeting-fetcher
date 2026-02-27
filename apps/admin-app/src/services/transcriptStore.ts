@@ -38,13 +38,20 @@ export const transcriptStore = {
   },
 
   async getByMeetingId(meetingId: string): Promise<Transcript | null> {
-    const result = await dynamoDb.send(new ScanCommand({
+    const scanParams: Record<string, unknown> = {
       TableName: TABLE,
       FilterExpression: 'meetingId = :mid',
       ExpressionAttributeValues: { ':mid': meetingId },
-    }));
-    const items = result.Items as Transcript[];
-    return items && items.length > 0 ? items[0] : null;
+    };
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      if (lastKey) scanParams.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(scanParams as any));
+      const items = result.Items as Transcript[];
+      if (items && items.length > 0) return items[0];
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return null;
   },
 
   async listAll(filters?: { status?: string }): Promise<Transcript[]> {
@@ -56,8 +63,16 @@ export const transcriptStore = {
       scanParams.ExpressionAttributeValues = { ':status': filters.status };
     }
 
-    const result = await dynamoDb.send(new ScanCommand(scanParams as any));
-    return (result.Items as Transcript[]) || [];
+    // Paginate through all scan results (DynamoDB returns max 1MB per call)
+    const allItems: Transcript[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      if (lastKey) scanParams.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(scanParams as any));
+      if (result.Items) allItems.push(...(result.Items as Transcript[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return allItems;
   },
 
   async updateStatus(id: string, status: string, errorMessage?: string): Promise<void> {

@@ -1,26 +1,19 @@
 ---
-updated_at: 2026-02-27T02:26:00.000Z
-focus_area: Transcription pipeline — resolving admin blockers
+updated_at: 2026-02-27T18:28:00.000Z
+focus_area: DynamoDB scan pagination fix — admin app data visibility
 active_issues: []
 ---
 
 # What We're Focused On
 
-🔧 **Transcription pipeline — resolving admin blockers**
+🔧 **DynamoDB scan pagination fix — admin app screens not updating**
 
-Meetings pipeline is fully operational (Graph → EventHub → Lambda → DynamoDB). Now enabling the transcript pipeline.
+Fixed all 6 unpaginated DynamoDB Scan calls across meetingStore, transcriptStore, and subscriptionStore. DynamoDB Scan returns max 1MB per call — without `ExclusiveStartKey` pagination, records beyond 1MB were silently dropped.
 
-**3 Admin Blockers (require manual action):**
+**Completed:**
+- All admin blockers resolved (CsApplicationAccessPolicy, Graph permissions, meeting policies)
+- Transcript access verified working (200 with VTT content)
+- DynamoDB scan pagination fix applied to all 3 stores (6 scan operations)
+- Bootstrap scripts separated (Azure vs Teams policies)
 
-1. **CsApplicationAccessPolicy** — MISSING. Graph API returns 403 on OnlineMeetings endpoint. Must create via `New-CsApplicationAccessPolicy` and grant globally. 30 min propagation.
-2. **Graph API permissions** — Missing `OnlineMeetings.Read.All`, `OnlineMeetingTranscript.Read.All`, `OnlineMeetingRecording.Read.All`. Add in Azure Portal, admin-consent.
-3. **Teams meeting policies** — Verify `AllowTranscription=True`, `AllowCloudRecording=True` in Teams Admin Center.
-
-**Completed this session:**
-- Kobayashi: Investigated all 4 config layers, identified blockers
-- Edie: Created `docs/TEAMS_ADMIN_CONFIGURATION.md` — repeatable setup guide
-- Scribe: Merged decisions, committed .squad/ state
-
-**Key directive:** Only test users (trustingboar@ibuyspy.net, boldoriole@ibuyspy.net) are licensed. Isaac's account is NOT monitored.
-
-**Next:** After blockers resolved → test Graph API access to OnlineMeetings → implement transcript fetching end-to-end.
+**Next:** Deploy admin app with pagination fix, then move to transcript scanning functionality.

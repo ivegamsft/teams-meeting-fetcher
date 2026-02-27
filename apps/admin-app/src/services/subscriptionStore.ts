@@ -38,34 +38,56 @@ export const subscriptionStore = {
   },
 
   async listAll(): Promise<Subscription[]> {
-    const result = await dynamoDb.send(new ScanCommand({
-      TableName: TABLE,
-    }));
-    return (result.Items as Subscription[]) || [];
+    const allItems: Subscription[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const params: Record<string, unknown> = { TableName: TABLE };
+      if (lastKey) params.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(params as any));
+      if (result.Items) allItems.push(...(result.Items as Subscription[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return allItems;
   },
 
   async listByStatus(status: string): Promise<Subscription[]> {
-    const result = await dynamoDb.send(new ScanCommand({
-      TableName: TABLE,
-      FilterExpression: '#status = :status',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: { ':status': status },
-    }));
-    return (result.Items as Subscription[]) || [];
+    const allItems: Subscription[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const params: Record<string, unknown> = {
+        TableName: TABLE,
+        FilterExpression: '#status = :status',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: { ':status': status },
+      };
+      if (lastKey) params.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(params as any));
+      if (result.Items) allItems.push(...(result.Items as Subscription[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return allItems;
   },
 
   async listExpiringSoon(withinHours: number = 48): Promise<Subscription[]> {
     const cutoff = new Date(Date.now() + withinHours * 60 * 60 * 1000).toISOString();
-    const result = await dynamoDb.send(new ScanCommand({
-      TableName: TABLE,
-      FilterExpression: '#status = :active AND expirationDateTime < :cutoff',
-      ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: {
-        ':active': 'active',
-        ':cutoff': cutoff,
-      },
-    }));
-    return (result.Items as Subscription[]) || [];
+    const allItems: Subscription[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const params: Record<string, unknown> = {
+        TableName: TABLE,
+        FilterExpression: '#status = :active AND expirationDateTime < :cutoff',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':active': 'active',
+          ':cutoff': cutoff,
+        },
+      };
+      if (lastKey) params.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(params as any));
+      if (result.Items) allItems.push(...(result.Items as Subscription[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return allItems;
   },
 
   async updateStatus(id: string, status: string, errorMessage?: string): Promise<void> {

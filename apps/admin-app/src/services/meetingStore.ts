@@ -76,8 +76,15 @@ export const meetingStore = {
       scanParams.ExpressionAttributeValues = exprAttrValues;
     }
 
-    const result = await dynamoDb.send(new ScanCommand(scanParams as any));
-    const allMeetings = (result.Items as Meeting[]) || [];
+    // Paginate through all scan results (DynamoDB returns max 1MB per call)
+    const allMeetings: Meeting[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      if (lastKey) scanParams.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(scanParams as any));
+      if (result.Items) allMeetings.push(...(result.Items as Meeting[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
 
     allMeetings.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
