@@ -1840,4 +1840,46 @@ Documentation is internal and doesn't require functional testing. Changes verifi
 
 ---
 
+## 2026-02-27: Lambda Code Must Be Built Before Terraform Apply
+
+**By:** Redfoot (E2E Tester)  
+**Status:** DECISION NEEDED
+
+### Summary
+
+Today's Terraform apply deployed a 190-byte placeholder Lambda zip to `tmf-eventhub-processor-dev`, causing `Runtime.ImportModuleError: Cannot find module 'handler'` on every invocation. The fix requires building the Lambda code before running `terraform apply`.
+
+### Root Cause
+
+The Terraform `aws_lambda_function` resource in `iac/aws/` references a zip file that does not exist or is out of date at plan time. The Lambda code at `apps/aws-lambda-eventhub/` requires:
+1. `npm install --production` 
+2. Compression into a `lambda-deploy.zip` (15.8MB)
+3. Manual deployment via `aws lambda update-function-code`
+
+Without these steps completed first, `terraform apply` deploys whatever placeholder exists, breaking the EventHub → Lambda → DynamoDB pipeline.
+
+### E2E Verification After Manual Fix
+
+- Graph calendar event creation: ✅ Instant
+- Graph notification → EventHub: ✅ ~20s
+- Lambda polls EventHub: ✅ ~10s cycle
+- Write to DynamoDB: ✅ ~32s total end-to-end
+- DynamoDB item count: 1103 → 1105 (2 new test events verified)
+
+### Decision Options
+
+1. **Add Terraform pre-build step:** Use `null_resource` with `local-exec` provisioner to auto-build the zip before `aws_lambda_function` deployment
+2. **Add CI/CD pre-step:** Build Lambda zip in `deploy-aws.yml` before `terraform apply`
+3. **Document in runbook:** Require manual `apps/aws-lambda-eventhub/package.ps1` before any deploy
+4. **Hybrid:** Terraform builds locally; CI/CD pre-builds for GitHub Actions runner
+
+**Recommended:** Option 1 or 2 to prevent human error. This is a deployment reliability blocker — anyone running `terraform apply` without prior build will break the pipeline.
+
+### Action Items
+
+- **DevOps (Fenster):** Evaluate and implement a pre-build automation (Terraform or CI/CD)
+- **Deployment Runbook:** Add explicit step to build Lambda before `terraform apply`
+
+---
+
 
