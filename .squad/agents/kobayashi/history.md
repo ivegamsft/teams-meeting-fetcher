@@ -14,6 +14,10 @@
 
 ## Learnings
 
+### 2026-02-27: Transcript Fetching Architecture — Phase 1 + Phase 2 Recommendation
+
+📌 Team update (2026-02-27T19:25:31Z): Designed hybrid transcript architecture after McManus identified pipeline gap. Phase 1: scheduled poller (every 5-15 min, query meetings where endTime < now - 5min, call checkForTranscript()). Phase 2: event-driven via getAllTranscripts subscription (fallback). Coordinator implemented Phase 1, live at 98.92.64.148:3000. Next: batch-enrich 1105 meetings to populate onlineMeetingId, verify poller finds transcripts. — decided by Kobayashi/McManus
+
 ### 2026-02-25: Nobots-EventHub Environment Configuration for 8akfpg Deployment
 
 **Context:** Updated environment configuration files for the new `8akfpg` deployment suffix after a fresh Terraform apply. The previous deployment used suffix `6an5wk`.
