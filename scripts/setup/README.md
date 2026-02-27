@@ -283,20 +283,47 @@ gh secret set AWS_ROLE_ARN --body '<value>'
 
 ## Teams Policy Scripts
 
-### `setup-teams-policies.ps1`
+### `bootstrap-teams-policies.ps1` (in `scripts/`)
 
-Configures Microsoft Teams policies to allow the Bot to join meetings and enable transcription.
+Standalone bootstrap for the Teams admin layer. Creates the Application Access Policy
+and optionally creates meeting policies with group assignments. Designed to be run by
+a Teams/UC admin (separate from the Azure infra team).
 
 **Usage**:
 
 ```powershell
-.\scripts\setup\setup-teams-policies.ps1
+# Minimal — just the Application Access Policy
+.\scripts\bootstrap-teams-policies.ps1 -AppId "<APP-CLIENT-ID>"
+
+# Full setup with meeting policies assigned to a group
+.\scripts\bootstrap-teams-policies.ps1 `
+    -AppId "<APP-CLIENT-ID>" `
+    -TenantId "<TENANT-ID>" `
+    -GroupId "<SECURITY-GROUP-ID>"
+
+# Dry run
+.\scripts\bootstrap-teams-policies.ps1 -AppId "<APP-CLIENT-ID>" -DryRun
 ```
+
+**What it does**:
+
+1. Connects to Microsoft Teams PowerShell (interactive browser auth)
+2. Creates `MeetingFetcher-Policy` CsApplicationAccessPolicy
+3. Grants the policy globally
+4. Optionally creates "Recorded Line" meeting policy (auto-recording + transcription)
+5. Optionally assigns meeting policy to a security group
 
 **Prerequisites**:
 
-- Teams administrator role
-- MicrosoftTeams PowerShell module installed
+- Teams Service Administrator or Global Administrator role
+- MicrosoftTeams PowerShell module (auto-installed if missing)
+
+> **Note**: No REST API exists for CsApplicationAccessPolicy. Teams PowerShell is the only supported method.
+
+### `setup-teams-policies.ps1` (in `scripts/setup/`)
+
+Full Teams policy setup with app installation, meeting policies, and group assignments.
+Use `bootstrap-teams-policies.ps1` for a quicker setup focused on the access policy.
 
 ---
 
@@ -375,10 +402,11 @@ python scripts/graph/02-create-webhook-subscription.py
    .\scripts\setup\regrant-bot-app-consent.ps1
    ```
 
-6. **Configure Teams policies** (5 min):
+6. **Configure Teams policies** (5 min, run by Teams admin):
 
    ```powershell
-   .\scripts\setup\setup-teams-policies.ps1
+   .\scripts\bootstrap-teams-policies.ps1 -AppId "<APP-CLIENT-ID>" -TenantId "<TENANT-ID>"
+   # Wait 30 min for policy propagation
    ```
 
 7. **Setup GitHub workflows** (optional, 5 min):

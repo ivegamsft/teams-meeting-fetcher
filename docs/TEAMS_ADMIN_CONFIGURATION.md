@@ -124,7 +124,7 @@ Get-CsTeamsMeetingPolicy -Identity Global | Select-Object `
 
 This layer allows the Teams Meeting Fetcher app to read online meetings via the Graph API. **This is required for the transcription pipeline to function.**
 
-> **Bootstrap:** This policy is created automatically when you run `scripts/auto-bootstrap-azure.ps1` and answer 'y' at the Teams policy prompt. The manual steps below are for reference or if you skipped the bootstrap step.
+> **Bootstrap:** This policy is created automatically when you run `scripts/bootstrap-teams-policies.ps1 -AppId "<APP-ID>"`. The manual steps below are for reference or if you need to customize the setup.
 >
 > **No REST API exists** for this operation — Teams PowerShell is the only supported method (as of 2025).
 

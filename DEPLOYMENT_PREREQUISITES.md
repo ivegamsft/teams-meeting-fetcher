@@ -271,19 +271,29 @@ Two helper scripts automate the setup and verification:
   2. Creates DynamoDB table with `LockID` partition key and PAY_PER_REQUEST billing
   3. Sets GitHub variables (`TF_STATE_BUCKET`, `TF_STATE_KEY`, `TF_STATE_REGION`, `TF_STATE_LOCK_TABLE`) automatically
 
-**Azure bootstrap script** — Creates SPN, Graph permissions, and Teams policies
+**Azure bootstrap script** — Creates SPN, Graph permissions, RBAC roles
 - **Path:** `scripts/auto-bootstrap-azure.ps1`
 - **Usage:** `.\scripts\auto-bootstrap-azure.ps1`
-- **Requires:** Azure CLI logged in, Teams Admin role for the Teams policy step
+- **Requires:** Azure CLI logged in as a Global Admin or Application Administrator
 - **What it does:**
   1. Creates or resets Service Principal for Terraform
   2. Adds all 6 Graph API application permissions (Calendars.Read, Group.Read.All, User.Read.All, OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All)
   3. Grants admin consent
   4. Assigns RBAC roles (Contributor, User Access Administrator)
-  5. **Creates Teams Application Access Policy** — required for Graph API access to OnlineMeetings, transcripts, and recordings (no REST API exists; Teams PowerShell only)
-  6. Generates `terraform.tfvars`
+  5. Generates `terraform.tfvars`
 
-> **Note:** The Teams Application Access Policy (step 5) takes up to 30 minutes to propagate after creation.
+**Teams admin bootstrap script** — Creates Application Access Policy and meeting policies
+- **Path:** `scripts/bootstrap-teams-policies.ps1`
+- **Usage:** `.\scripts\bootstrap-teams-policies.ps1 -AppId "<APP-CLIENT-ID>"`
+- **Requires:** Teams Admin role (interactive browser auth via `Connect-MicrosoftTeams`)
+- **Typically run by:** Teams/UC admin team (separate from Azure infra team)
+- **What it does:**
+  1. Creates CsApplicationAccessPolicy for Graph API access to OnlineMeetings, transcripts, and recordings
+  2. Grants the policy globally
+  3. Optionally creates meeting policies (auto-recording, transcription) when `-GroupId` is provided
+  4. Optionally assigns meeting policies to a security group
+
+> **Note:** No REST API exists for CsApplicationAccessPolicy — Teams PowerShell is the only supported method. The policy takes up to 30 minutes to propagate after creation.
 
 **Verify script** — Validates that S3 and DynamoDB are correctly configured
 - **Path:** `scripts/verify/verify-terraform-backend.ps1` (PowerShell) or `.sh` (Bash)
