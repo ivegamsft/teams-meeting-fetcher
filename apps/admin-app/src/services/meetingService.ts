@@ -78,16 +78,29 @@ export const meetingService = {
       const organizerEmail = eventData.organizer?.emailAddress?.address || '';
       if (organizerEmail) {
         try {
+          // Decode the joinWebUrl for the OData filter (Graph stores the decoded form)
+          const decodedUrl = decodeURIComponent(joinWebUrl);
           const resp = await client
             .api(`/users/${organizerEmail}/onlineMeetings`)
-            .filter(`JoinWebUrl eq '${joinWebUrl}'`)
+            .filter(`JoinWebUrl eq '${decodedUrl}'`)
             .get();
           if (resp.value && resp.value.length > 0) {
             onlineMeetingId = resp.value[0].id;
             console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl`);
+          } else {
+            // Try with encoded URL as fallback
+            const resp2 = await client
+              .api(`/users/${organizerEmail}/onlineMeetings`)
+              .filter(`JoinWebUrl eq '${joinWebUrl}'`)
+              .get();
+            if (resp2.value && resp2.value.length > 0) {
+              onlineMeetingId = resp2.value[0].id;
+              console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via encoded joinWebUrl`);
+            }
           }
         } catch (err: any) {
-          console.warn(`[MeetingService] Failed to resolve onlineMeetingId for ${meetingId}: ${err.message}`);
+          const errDetail = err.statusCode || err.code || err.message || JSON.stringify(err).substring(0, 200);
+          console.warn(`[MeetingService] Failed to resolve onlineMeetingId for ${meetingId}: ${errDetail}`);
         }
       }
     }
