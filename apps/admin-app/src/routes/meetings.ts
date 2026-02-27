@@ -101,6 +101,21 @@ router.post('/poll-transcripts', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/discover-transcripts', async (req: Request, res: Response) => {
+  try {
+    const { userEmail } = req.body;
+    if (!userEmail) {
+      res.status(400).json({ error: 'userEmail is required' });
+      return;
+    }
+    const found = await meetingService.discoverTranscriptsForUser(userEmail);
+    res.json({ success: true, transcriptsFound: found });
+  } catch (err: any) {
+    console.error('Failed to discover transcripts:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/batch-fetch-details', async (req: Request, res: Response) => {
   try {
     const { meetingIds } = req.body;

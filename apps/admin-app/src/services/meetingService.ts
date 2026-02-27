@@ -236,4 +236,87 @@ export const meetingService = {
       throw new Error(`Unable to update transcription settings: ${err.message}`);
     }
   },
+
+  /**
+   * Directly discover online meetings with transcripts for a user via Graph API.
+   * Bypasses calendar event → onlineMeetingId resolution entirely.
+   */
+  async discoverTranscriptsForUser(userEmail: string): Promise<number> {
+    const client = getGraphClient();
+    let found = 0;
+
+    try {
+      // Get recent online meetings for this user
+      const meetings = await client
+        .api(`/users/${userEmail}/onlineMeetings`)
+        .top(50)
+        .orderby('startDateTime desc')
+        .get();
+
+      if (!meetings.value || meetings.value.length === 0) {
+        console.log(`[MeetingService] No online meetings found for ${userEmail}`);
+        return 0;
+      }
+
+      console.log(`[MeetingService] Found ${meetings.value.length} online meetings for ${userEmail}`);
+
+      for (const om of meetings.value) {
+        try {
+          // Check if this meeting has transcripts
+          const transcripts = await client
+            .api(`/users/${userEmail}/onlineMeetings/${om.id}/transcripts`)
+            .get();
+
+          if (transcripts.value && transcripts.value.length > 0) {
+            console.log(`[MeetingService] Found ${transcripts.value.length} transcript(s) for meeting "${om.subject}" (${om.id})`);
+
+            // Create or update meeting record in DynamoDB
+            const meetingId = om.id;
+            const existing = await meetingStore.get(meetingId);
+            const now = new Date().toISOString();
+
+            const meeting: Meeting = {
+              ...(existing || {}),
+              meeting_id: meetingId,
+              tenantId: config.graph.tenantId,
+              subject: om.subject || 'Online Meeting',
+              description: '',
+              startTime: om.startDateTime || '',
+              endTime: om.endDateTime || '',
+              organizerId: userEmail,
+              organizerEmail: userEmail,
+              organizerDisplayName: '',
+              attendees: [],
+              status: 'completed',
+              subscriptionId: existing?.subscriptionId || '',
+              changeType: existing?.changeType || 'updated',
+              resource: existing?.resource || '',
+              onlineMeetingId: om.id,
+              joinWebUrl: om.joinWebUrl || '',
+              detailsFetched: true,
+              createdAt: existing?.createdAt || now,
+              updatedAt: now,
+            };
+
+            await meetingStore.put(meeting);
+
+            // Fetch and store the transcript
+            const latest = transcripts.value[transcripts.value.length - 1];
+            await transcriptService.fetchAndStore(meeting, latest.id);
+            found++;
+          }
+        } catch (err: any) {
+          if (err.statusCode !== 404 && err.statusCode !== 403) {
+            console.warn(`[MeetingService] Error checking transcripts for meeting ${om.id}: ${err.statusCode || err.message}`);
+          }
+        }
+        // Rate limit
+        await new Promise(r => setTimeout(r, 200));
+      }
+    } catch (err: any) {
+      console.error(`[MeetingService] Failed to discover meetings for ${userEmail}: ${err.statusCode || err.message}`);
+    }
+
+    return found;
+  },
 };

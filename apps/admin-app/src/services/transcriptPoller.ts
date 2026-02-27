@@ -1,5 +1,6 @@
 import { meetingService } from './meetingService';
 import { meetingStore } from './meetingStore';
+import { subscriptionStore } from './subscriptionStore';
 import { Meeting } from '../models';
 
 const POLL_INTERVAL_MS = parseInt(process.env.TRANSCRIPT_POLL_INTERVAL_MS || '300000', 10);
@@ -117,6 +118,26 @@ export const transcriptPoller = {
           }
         }
         await sleep(RATE_LIMIT_MS);
+      }
+
+      // Phase 3: Direct transcript discovery from Graph online meetings API
+      // Bypasses calendar event enrichment entirely
+      if (isCatchUp) {
+        console.log(`[TranscriptPoller] Phase 3 (${mode}): Discovering transcripts from Graph online meetings API`);
+        const subscriptions = await subscriptionStore.listAll();
+        const userEmails = [...new Set(subscriptions.filter(s => s.userEmail).map(s => s.userEmail!))];
+        console.log(`[TranscriptPoller] Phase 3: Checking ${userEmails.length} subscribed users`);
+
+        for (const email of userEmails) {
+          try {
+            const discovered = await meetingService.discoverTranscriptsForUser(email);
+            transcriptsFound += discovered;
+            console.log(`[TranscriptPoller] Phase 3: ${email} — found ${discovered} transcript(s)`);
+          } catch (err: any) {
+            errors++;
+            console.error(`[TranscriptPoller] Phase 3 error for ${email}: ${err.message}`);
+          }
+        }
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
