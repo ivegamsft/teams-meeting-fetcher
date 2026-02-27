@@ -166,6 +166,12 @@ resource "azuread_application" "tmf_admin_app" {
     redirect_uris = []
   }
 
+  // Redirect URIs are dynamically set by deploy-admin-app.yml after IP discovery.
+  // Terraform must not reset them on subsequent applies.
+  lifecycle {
+    ignore_changes = [web[0].redirect_uris]
+  }
+
   optional_claims {
     id_token {
       name = "groups"
