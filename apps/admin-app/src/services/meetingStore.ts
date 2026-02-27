@@ -122,6 +122,19 @@ export const meetingStore = {
     }));
   },
 
+  async listAll(): Promise<Meeting[]> {
+    const scanParams: Record<string, unknown> = { TableName: TABLE };
+    const allMeetings: Meeting[] = [];
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      if (lastKey) scanParams.ExclusiveStartKey = lastKey;
+      const result = await dynamoDb.send(new ScanCommand(scanParams as any));
+      if (result.Items) allMeetings.push(...(result.Items as Meeting[]));
+      lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+    } while (lastKey);
+    return allMeetings;
+  },
+
   async setTranscriptionId(id: string, transcriptionId: string): Promise<void> {
     const key = await this._resolveKey(id);
     if (!key) throw new Error(`Meeting ${id} not found`);

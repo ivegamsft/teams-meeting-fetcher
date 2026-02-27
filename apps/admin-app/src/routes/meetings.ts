@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { meetingService } from '../services/meetingService';
 import { transcriptService } from '../services/transcriptService';
+import { transcriptPoller } from '../services/transcriptPoller';
 
 const router = Router();
 
@@ -85,6 +86,16 @@ router.get('/:id/transcript/download', async (req: Request, res: Response) => {
     res.send(content);
   } catch (err: any) {
     console.error('Failed to download transcript:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/poll-transcripts', async (req: Request, res: Response) => {
+  try {
+    const result = await transcriptPoller.runCycle();
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('Failed to run transcript poll cycle:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
