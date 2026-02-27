@@ -92,7 +92,8 @@ router.get('/:id/transcript/download', async (req: Request, res: Response) => {
 
 router.post('/poll-transcripts', async (req: Request, res: Response) => {
   try {
-    const result = await transcriptPoller.runCycle();
+    const catchUp = req.query.catchUp === 'true';
+    const result = await transcriptPoller.runCycle(catchUp);
     res.json({ success: true, ...result });
   } catch (err: any) {
     console.error('Failed to run transcript poll cycle:', err.message);
