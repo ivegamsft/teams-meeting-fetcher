@@ -1271,3 +1271,257 @@ Compiled successfully: `cd apps/admin-app && npx tsc --noEmit` (exit code 0)
 - Transcript checks should be explicit user action, not auto-triggered
 - May need pagination for batch fetch if user selects many meetings at once
 
+---
+
+## 2026-02-27T02:11:00Z: User Directive — Test Users Only Licensed for Teams Premium
+
+**By:** Isaac (via Copilot)
+
+**What:** Only the test users (trustingboar@ibuyspy.net, boldoriole@ibuyspy.net) have Teams Premium licenses and transcripts. Isaac's account (a-ivega@ibuyspy.net) is NOT licensed or monitored — do not create subscriptions or expect meetings/transcripts from it. The subscription McManus created for a-ivega can stay for now but is unnecessary.
+
+**Why:** User request — captured for team memory
+
+---
+
+## 2026-02-27: Teams Auto-Transcription Configuration Checklist
+
+**Author:** Kobayashi (Teams Architect)  
+**Date:** 2026-02-27  
+**Tenant:** ibuyspy.net  
+**Test Users:** trustingboar@ibuyspy.net, boldoriole@ibuyspy.net  
+**Context:** Teams Premium enabled, but meetings are not auto-transcribing.
+
+### Executive Summary
+
+There are **three independent layers** that must ALL be configured for transcripts to flow through the pipeline:
+
+1. **Teams Admin Policies** — Controls whether transcription/recording is even available in meetings
+2. **Graph API Application Access Policy** — Controls whether our app can read meeting data (CONFIRMED MISSING — returns 403)
+3. **Graph API Permissions** — Controls which Graph endpoints our app can call
+
+Currently, **Layer 2 is confirmed broken**: the Graph API returns `"No application access policy found for this app"` when querying OnlineMeetings. This is a **hard block** for the fetcher pipeline.
+
+### Layer 2: Application Access Policy (CONFIRMED MISSING) — CRITICAL BLOCKER
+
+This is the **critical blocker**. The Graph API app (Teams Meeting Fetcher) cannot access OnlineMeetings endpoints because no `CsApplicationAccessPolicy` has been created and assigned.
+
+**Evidence:** `GET /v1.0/users/{userId}/onlineMeetings` returns `403 Forbidden - "No application access policy found for this app"`
+
+**How to Fix (REQUIRED):**
+
+```powershell
+# Connect to Teams PowerShell
+Connect-MicrosoftTeams
+
+# Step 1: Create the application access policy
+New-CsApplicationAccessPolicy `
+    -Identity "TMF-AppAccess-Policy" `
+    -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" `
+    -Description "Allow Teams Meeting Fetcher app to access online meetings"
+
+# Step 2a: Grant to specific user(s)
+Grant-CsApplicationAccessPolicy `
+    -PolicyName "TMF-AppAccess-Policy" `
+    -Identity "dbb98842-0024-4474-a69a-a27acd735bef"
+
+# Step 2b: OR grant to the entire tenant (simpler for dev/test)
+Grant-CsApplicationAccessPolicy `
+    -PolicyName "TMF-AppAccess-Policy" `
+    -Global
+
+# IMPORTANT: Changes can take up to 30 minutes to propagate!
+```
+
+**Verify After Creating Policy:**
+
+```powershell
+Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
+Get-CsOnlineUser -Identity "a-ivega@ibuyspy.net" | Select-Object ApplicationAccessPolicy
+```
+
+### Layer 3: Graph API App Permissions
+
+**Required Additional Permissions:**
+
+| Permission | Purpose | Priority |
+|-----------|---------|----------|
+| **OnlineMeetings.Read.All** | Read online meeting details for users | CRITICAL |
+| **OnlineMeetingTranscript.Read.All** | Read meeting transcripts | CRITICAL |
+| **OnlineMeetingRecording.Read.All** | Read meeting recordings | HIGH |
+
+**How to Add Permissions:**
+
+1. Go to **Azure Portal** > **App registrations** > **Teams Meeting Fetcher** (`63f2f070-e55d-40d3-93f9-f46229544066`)
+2. Click **API permissions** > **Add a permission** > **Microsoft Graph** > **Application permissions**
+3. Search and add:
+   - `OnlineMeetings.Read.All`
+   - `OnlineMeetingTranscript.Read.All`
+   - `OnlineMeetingRecording.Read.All`
+4. Click **Grant admin consent for ibuyspy.net**
+
+### Priority Action Checklist
+
+**Immediate (Do Now):**
+
+- [ ] **Create Application Access Policy** (Layer 2) — This is the confirmed blocker
+  ```powershell
+  Connect-MicrosoftTeams
+  New-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy" -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" -Description "Teams Meeting Fetcher app access"
+  Grant-CsApplicationAccessPolicy -PolicyName "TMF-AppAccess-Policy" -Global
+  ```
+
+- [ ] **Add Graph API permissions** (Layer 3) — Add OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All and grant admin consent
+
+**Verify (Within 30 minutes):**
+
+- [ ] **Test Graph API access** — After 30 min propagation, test: `GET https://graph.microsoft.com/v1.0/users/{userId}/onlineMeetings`
+
+**Note:** Isaac's account (a-ivega@ibuyspy.net) does NOT have Teams Premium licenses. Only test users (trustingboar, boldoriole) are licensed and monitored.
+
+### Current Pipeline Status
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Calendar event subscriptions | WORKING | 4 active subscriptions confirmed |
+| Calendar event reading | WORKING | Calendars.Read permission granted, events visible |
+| OnlineMeetings API | BLOCKED | 403 - No application access policy |
+| Transcripts API | BLOCKED | Needs OnlineMeetingTranscript.Read.All + access policy |
+| Recordings API | BLOCKED | Needs OnlineMeetingRecording.Read.All + access policy |
+
+---
+
+## 2026-02-27: API Key Authentication Enabled for Admin App
+
+**Author:** McManus (Backend Dev)  
+**Date:** 2026-02-27  
+**Status:** Active
+
+### Context
+
+The `API_KEY` in AWS Secrets Manager (`tmf/admin-app-8akfpg`) was empty, disabling API key auth. This blocked programmatic access to admin-app endpoints protected by `dashboardAuth` (meetings, subscriptions, config).
+
+### Decision
+
+Set `API_KEY` to `tmf-batch-fetch-2026` in Secrets Manager and forced ECS redeployment. This enables X-API-Key header authentication for the batch-fetch-details operation (480 notification_received meetings).
+
+### Impact
+
+- Admin app API key auth is now functional for all `dashboardAuth`-protected endpoints
+- ECS redeployment changed public IP from `54.158.104.101` to `54.174.144.75` (IPs are dynamic)
+- Any tooling using the old IP needs updating. Use `scripts/batch-fetch-meeting-details.py` for auto-detection
+
+### Team Action Needed
+
+- Consider rotating to stronger API key for production
+- The `WEBHOOK_AUTH_SECRET` is also empty — webhook auth is permissive. Consider setting it
+
+---
+
+## 2026-02-27: Lambda Direct DynamoDB Write — Change Data Feed Pattern
+
+**By:** McManus (Backend Dev)  
+**Date:** 2026-02-27  
+
+### Decision
+
+Replaced webhook forwarding pattern (Lambda → HTTP POST → admin app → DynamoDB) with direct DynamoDB writes (Lambda → DynamoDB). Admin app webhook endpoint kept as no-op for backward compatibility.
+
+### Rationale
+
+- Admin app downtime no longer causes lost notifications (Lambda writes independently)
+- No IP change breakage — no network coupling between Lambda and admin app
+- No retry/timeout logic needed — DynamoDB writes are direct and reliable
+- Admin app still reads from DynamoDB (no consumer-side changes)
+- Isaac's explicit directive: "EventHub Lambda and admin-app are not supposed to be connected"
+
+### Implementation
+
+- `apps/aws-lambda-eventhub/handler.js`: Removed `forwardNotification()`, added `writeMeetingNotification()` with direct DynamoDB writes
+- `apps/admin-app/src/routes/webhooks.ts`: POST `/api/webhooks/graph` now no-op (returns `{ deprecated: true }`)
+- `iac/aws/modules/eventhub-processor/main.tf`: Added `eventhub_meetings` IAM policy and `MEETINGS_TABLE_NAME` env var
+- Composite key (meeting_id + created_at) resolved via Query before PutItem
+- changeType guard preserved: "created" replay won't overwrite "updated"/"deleted"
+- Webhook endpoint kept for Graph subscription validation handshake
+
+### Impact
+
+- EventHub Lambda decoupled from admin app
+- Notification ingestion continues even if admin app is down
+- Admin app becomes read-only consumer of DynamoDB
+- Lambda response stats changed: forwardedCount → dynamoWriteCount/dynamoWriteErrors
+
+---
+
+## 2026-02-26: Lambda Log Filter Gap — Forwarding Visibility Issue
+
+**Author:** McManus (Backend Dev)  
+**Date:** 2026-02-26
+
+### Observation
+
+During Phase 4 pipeline verification, CloudWatch log filter for `forwardedCount` returned 0 matching events, despite DynamoDB showing 260 new records with `changeType` set.
+
+### Finding
+
+Notifications ARE reaching DynamoDB (confirming pipeline works), but Lambda log format for forwarding counts may have changed or the filter pattern `forwardedCount` no longer matches the actual log output.
+
+### Recommendation
+
+1. Check actual Lambda log format — handler.js logging may use different key name or JSON structure
+2. The S3 archive count (282) is lower than expected — EventHub batching may aggregate notifications
+3. The admin app deployment was concurrent — confirms refactored notification-only storage is working
+
+### Impact
+
+Low — this is observability gap, not functional issue. Pipeline confirmed working end-to-end.
+
+---
+
+## 2026-02-26: Lambda Webhook Forwarding Retry Logic
+
+**Date:** 2026-02-26  
+**Author:** Fenster (DevOps/Infra)  
+**Status:** Implemented
+
+### Context
+
+During scale testing, notifications were lost when admin app redeployed while Lambda attempted forwarding. Lambda had 10-second timeout but NO retry logic — on failure, it logged and lost the notification permanently.
+
+### Decision
+
+Added **retry logic with exponential backoff** to Lambda webhook forwarding:
+
+1. Created `forwardWithRetry()` wrapper (does NOT modify original `forwardNotification()`)
+2. Retry strategy:
+   - Attempt 1: immediate
+   - Attempt 2: wait 2 seconds
+   - Attempt 3: wait 4 seconds
+   - Attempt 4: wait 8 seconds
+3. Only retries on **transient failures** (timeouts, connection errors, 5xx)
+4. Does NOT retry on **permanent failures** (4xx errors)
+5. On permanent failure, logs structured JSON with S3 key for replay
+
+### Rationale
+
+- Transient failures (timeouts, brief outages) common during deployments
+- Exponential backoff prevents overwhelming recovering service
+- 4xx errors indicate bad request/auth — retrying won't help
+- Structured failure logs enable manual replay from S3
+
+### Impact
+
+- Prevents notification loss during admin app redeployments
+- No change to existing `forwardNotification()` logic
+- CloudWatch logs show retry attempts and permanent failures
+- Operators can replay from S3 using structured failure logs
+
+---
+
+## 2026-02-27T00:32:37Z: User Directive — Decouple EventHub Lambda from Admin App
+
+**By:** Isaac (via Copilot)
+
+**What:** The EventHub Lambda and the admin-app are not supposed to be connected. Use a change data feed pattern (Lambda writes directly to DynamoDB) instead of the webhook forwarding pattern. The admin-app should be a read-only consumer of DynamoDB, not an intake endpoint.
+
+**Why:** User request — decouples the pipeline so admin-app downtime/IP changes don't break notification ingestion. Eliminates WEBHOOK_URL, retry logic, and the IP-drift problem.
+

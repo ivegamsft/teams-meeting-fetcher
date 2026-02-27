@@ -64,3 +64,35 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
 - Blob storage endpoint (`https://tmfsteus8akfpg.blob.core.windows.net`) is required for rich notifications
 
 **Decision:** Store secrets directly in scenario-specific `.env` files, not in Key Vault retrieval scripts. Terraform outputs are the source of truth for application secrets.
+
+### 2026-02-27: Teams Auto-Transcription Configuration Investigation
+
+**Context:** Isaac enabled Teams Premium for ibuyspy.net tenant but meetings are not auto-transcribing. Investigated the full configuration stack required.
+
+**Key Findings:**
+
+1. **Application Access Policy is MISSING (Critical Blocker):**
+   - Graph API returns `403 "No application access policy found for this app"` when querying `/users/{userId}/onlineMeetings`
+   - The app `63f2f070-e55d-40d3-93f9-f46229544066` needs a `CsApplicationAccessPolicy` created via Teams PowerShell
+   - This is a Teams-specific requirement beyond normal Graph API permissions
+   - Fix: `New-CsApplicationAccessPolicy` + `Grant-CsApplicationAccessPolicy` (takes up to 30 min to propagate)
+
+2. **Graph API Permissions Gaps:**
+   - App currently has: Calendars.Read, Group.Read.All, User.Read.All (all confirmed working)
+   - App is MISSING: OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All
+   - These must be added in Azure Portal and admin-consented
+
+3. **Teams Meeting Policy Settings Required:**
+   - AllowCloudRecording = True, AllowTranscription = True (check Global policy)
+   - AutoRecording = Enabled (allows per-meeting auto-record option)
+   - Auto-transcription is per-meeting, not global; use Meeting Templates to enforce
+
+4. **Three Independent Layers Must All Be Configured:**
+   - Layer 1: Teams Admin policies (AllowTranscription, AllowCloudRecording, etc.)
+   - Layer 2: CsApplicationAccessPolicy (confirmed missing)
+   - Layer 3: Graph API application permissions (partially missing)
+
+**User (a-ivega@ibuyspy.net):** ID = `dbb98842-0024-4474-a69a-a27acd735bef`
+**Active Subscriptions:** 4 calendar event subscriptions confirmed working.
+
+**Decision:** Full configuration checklist written to `.squad/decisions/inbox/kobayashi-teams-transcription-config.md`. Application Access Policy creation is the #1 priority action item.

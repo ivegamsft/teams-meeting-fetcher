@@ -48,6 +48,7 @@ After every substantial work session:
 
 5. **Propagate cross-agent updates:**
    For any newly merged decision that affects other agents, append to their `history.md`:
+
    ```
    📌 Team update ({timestamp}): {summary} — decided by {Name}
    ```
@@ -61,6 +62,7 @@ After every substantial work session:
    - Check for staged changes: `git diff --cached --quiet`
      If exit code is 0, no changes — skip silently.
    - Write the commit message to a temp file, then commit with `-F`:
+
      ```
      $msg = @"
      docs(ai-team): {brief summary}
@@ -77,6 +79,7 @@ After every substantial work session:
      git commit -F $msgFile
      Remove-Item $msgFile
      ```
+
    - **Verify the commit landed:** Run `git log --oneline -1` and confirm the
      output matches the expected message. If it doesn't, report the error.
 
