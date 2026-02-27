@@ -29,3 +29,5 @@
 📌 Team update (2026-02-26T18:17:56Z): Meeting notification storage refactored to privacy-preserving model: raw notifications stored immediately (no Graph API auto-fetch), meeting details fetched only on deliberate user action via new fetch-details endpoints. Frontend needs UI for "fetch details" action on meetings with `notification_received` status. — decided by McManus
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+📌 Team update (2026-02-27T18:28:00Z): DynamoDB pagination vulnerability investigated and fixed. Root cause: 6 unpaginated Scan operations across meetingStore, transcriptStore, and subscriptionStore silently truncate at 1MB limit, losing datasets >1MB. Coordinator applied ExclusiveStartKey pagination to all operations (commit 5e42f63, pushed). Pagination pattern now the store-layer standard to prevent data loss at scale. — coordinated by Keaton & McManus
