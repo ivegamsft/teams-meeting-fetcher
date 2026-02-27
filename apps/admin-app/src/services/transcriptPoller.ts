@@ -59,12 +59,9 @@ export const transcriptPoller = {
 
       // Phase 1: Enrich meetings that haven't been fetched from Graph yet
       const unenriched = allMeetings.filter(m => !m.detailsFetched && m.resource);
-      // Also re-enrich meetings that have joinWebUrl but no onlineMeetingId
-      const needsIdResolution = allMeetings.filter(m => m.detailsFetched && m.joinWebUrl && !m.onlineMeetingId);
-      const toEnrich = [...unenriched, ...needsIdResolution];
-      const enrichBatch = isCatchUp ? toEnrich : toEnrich.slice(0, batchLimit);
+      const enrichBatch = isCatchUp ? unenriched : unenriched.slice(0, batchLimit);
       if (enrichBatch.length > 0) {
-        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} (${unenriched.length} new + ${needsIdResolution.length} re-enrich for onlineMeetingId)`);
+        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} of ${unenriched.length} meetings`);
       }
 
       for (const meeting of enrichBatch) {

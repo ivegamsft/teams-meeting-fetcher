@@ -239,82 +239,91 @@ export const meetingService = {
 
   /**
    * Directly discover online meetings with transcripts for a user via Graph API.
-   * Bypasses calendar event → onlineMeetingId resolution entirely.
+   * Uses userId (GUID) and JoinWebUrl filter to resolve meetings.
    */
   async discoverTranscriptsForUser(userEmail: string): Promise<number> {
     const client = getGraphClient();
     let found = 0;
 
+    // Resolve userId GUID (required for onlineMeetings API with CsApplicationAccessPolicy)
+    let userId: string;
     try {
-      // Get recent online meetings for this user
-      const meetings = await client
-        .api(`/users/${userEmail}/onlineMeetings`)
-        .top(50)
-        .orderby('startDateTime desc')
-        .get();
+      const user = await client.api(`/users/${userEmail}`).select('id').get();
+      userId = user.id;
+      console.log(`[MeetingService] Resolved ${userEmail} -> userId ${userId}`);
+    } catch (err: any) {
+      console.error(`[MeetingService] Cannot resolve userId for ${userEmail}: ${err.statusCode || err.message}`);
+      return 0;
+    }
 
-      if (!meetings.value || meetings.value.length === 0) {
-        console.log(`[MeetingService] No online meetings found for ${userEmail}`);
-        return 0;
-      }
+    // Get meetings from DynamoDB that have joinWebUrl for this organizer
+    const allMeetings = await meetingStore.listAll();
+    const userMeetings = allMeetings.filter(m =>
+      m.joinWebUrl &&
+      !m.transcriptionId &&
+      m.organizerEmail === userEmail
+    );
 
-      console.log(`[MeetingService] Found ${meetings.value.length} online meetings for ${userEmail}`);
+    console.log(`[MeetingService] Checking ${userMeetings.length} meetings with joinWebUrl for ${userEmail}`);
 
-      for (const om of meetings.value) {
-        try {
-          // Check if this meeting has transcripts
-          const transcripts = await client
-            .api(`/users/${userEmail}/onlineMeetings/${om.id}/transcripts`)
-            .get();
+    let checked = 0;
+    for (const meeting of userMeetings) {
+      if (!meeting.joinWebUrl) continue;
+      checked++;
+      if (checked > 20) break; // Limit per cycle to avoid rate limiting
 
-          if (transcripts.value && transcripts.value.length > 0) {
-            console.log(`[MeetingService] Found ${transcripts.value.length} transcript(s) for meeting "${om.subject}" (${om.id})`);
+      try {
+        // Try resolving online meeting ID via JoinWebUrl filter using userId (GUID)
+        const decodedUrl = decodeURIComponent(meeting.joinWebUrl);
+        const resp = await client
+          .api(`/users/${userId}/onlineMeetings`)
+          .filter(`JoinWebUrl eq '${decodedUrl}'`)
+          .get();
 
-            // Create or update meeting record in DynamoDB
-            const meetingId = om.id;
-            const existing = await meetingStore.get(meetingId);
-            const now = new Date().toISOString();
+        if (resp.value && resp.value.length > 0) {
+          const om = resp.value[0];
+          console.log(`[MeetingService] Resolved meeting "${meeting.subject}" -> onlineMeetingId ${om.id}`);
 
-            const meeting: Meeting = {
-              ...(existing || {}),
-              meeting_id: meetingId,
-              tenantId: config.graph.tenantId,
-              subject: om.subject || 'Online Meeting',
-              description: '',
-              startTime: om.startDateTime || '',
-              endTime: om.endDateTime || '',
-              organizerId: userEmail,
-              organizerEmail: userEmail,
-              organizerDisplayName: '',
-              attendees: [],
-              status: 'completed',
-              subscriptionId: existing?.subscriptionId || '',
-              changeType: existing?.changeType || 'updated',
-              resource: existing?.resource || '',
-              onlineMeetingId: om.id,
-              joinWebUrl: om.joinWebUrl || '',
-              detailsFetched: true,
-              createdAt: existing?.createdAt || now,
-              updatedAt: now,
-            };
+          // Update meeting with onlineMeetingId
+          await meetingStore.put({
+            ...meeting,
+            onlineMeetingId: om.id,
+            updatedAt: new Date().toISOString(),
+          });
 
-            await meetingStore.put(meeting);
+          // Check for transcripts
+          try {
+            const transcripts = await client
+              .api(`/users/${userId}/onlineMeetings/${om.id}/transcripts`)
+              .get();
 
-            // Fetch and store the transcript
-            const latest = transcripts.value[transcripts.value.length - 1];
-            await transcriptService.fetchAndStore(meeting, latest.id);
-            found++;
-          }
-        } catch (err: any) {
-          if (err.statusCode !== 404 && err.statusCode !== 403) {
-            console.warn(`[MeetingService] Error checking transcripts for meeting ${om.id}: ${err.statusCode || err.message}`);
+            if (transcripts.value && transcripts.value.length > 0) {
+              console.log(`[MeetingService] Found ${transcripts.value.length} transcript(s) for "${meeting.subject}"`);
+
+              await meetingStore.put({
+                ...meeting,
+                onlineMeetingId: om.id,
+                status: 'completed',
+                updatedAt: new Date().toISOString(),
+              });
+
+              const latest = transcripts.value[transcripts.value.length - 1];
+              await transcriptService.fetchAndStore(meeting, latest.id);
+              found++;
+            }
+          } catch (tErr: any) {
+            if (tErr.statusCode !== 404) {
+              console.warn(`[MeetingService] Transcript check error for ${om.id}: ${tErr.statusCode || tErr.message}`);
+            }
           }
         }
-        // Rate limit
-        await new Promise(r => setTimeout(r, 200));
+      } catch (err: any) {
+        // Log first error in detail for debugging
+        if (checked === 1) {
+          console.warn(`[MeetingService] JoinWebUrl filter for ${userEmail}: status=${err.statusCode}, code=${err.code}, msg=${(err.message || '').substring(0, 100)}`);
+        }
       }
-    } catch (err: any) {
-      console.error(`[MeetingService] Failed to discover meetings for ${userEmail}: ${err.statusCode || err.message}`);
+      await new Promise(r => setTimeout(r, 200));
     }
 
     return found;
