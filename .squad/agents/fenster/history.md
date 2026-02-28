@@ -59,3 +59,6 @@
   - **Root cause:** The 1105 sales-blitz meetings are synthetic calendar events scheduled for Mar-Apr 2026. Nobody has joined them, spoken in them, or started transcription. You cannot have transcripts for meetings that haven't happened. The pipeline is working correctly; there's just no real meeting data to process.
   - **Secondary issue:** The 81 permanently-failed enrichments should be marked stale to stop the retry storm (code fix needed in transcriptPoller.ts).
   - **Prior deployment (rev 48) logs:** Tried "re-enrich for onlineMeetingId" on 793 meetings — all returned 404. Same root cause: the Graph calendar event API can't return onlineMeetingId for events created via Graph API; must use JoinWebUrl resolution instead.
+
+📌 Team update (2026-02-28T06:52:45Z): McManus added enrichmentStatus/enrichmentError fields to Meeting model and markEnrichmentFailed() to meetingStore.ts. Deploy needed to activate retry storm fix. — McManus
+

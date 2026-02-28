@@ -2240,3 +2240,34 @@ Add a new Lambda or extend the EventHub Lambda to:
 ---
 
 
+
+---
+
+# Decision: Permanent Enrichment Failure Marking in TranscriptPoller
+
+**Author:** McManus
+**Date:** 2026-02-28
+**Status:** Implemented
+
+## Context
+
+Fenster identified 81 meetings with stale/deleted Exchange event IDs causing a retry storm every 5-minute poller cycle. Each cycle, all 81 meetings hit Graph API and get 404 "The specified object was not found in the store" — burning API quota for zero value.
+
+## Decision
+
+Added `enrichmentStatus` field to the Meeting model with two values: `'pending'` (default) and `'permanent_failure'`. When the poller encounters a 404 from Graph (stale event ID) or an invalid eventId ("NA"/empty), it marks the meeting as permanently failed via `meetingStore.markEnrichmentFailed()` and never retries it.
+
+Transient errors (429 rate limits, 500 server errors, network timeouts) continue to retry on the next cycle as before.
+
+## Affected Files
+
+- `apps/admin-app/src/models/meeting.ts` — added `enrichmentStatus`, `enrichmentError` fields
+- `apps/admin-app/src/services/meetingStore.ts` — added `markEnrichmentFailed()` method
+- `apps/admin-app/src/services/transcriptPoller.ts` — permanent failure detection + skip logic
+
+## Impact
+
+- Eliminates ~81 wasted Graph API calls per 5-minute cycle (972/hour previously)
+- Meetings marked as permanently failed are still visible in DynamoDB with error details for debugging
+- No data loss — meetings retain all existing fields, just gain the failure marker
+
