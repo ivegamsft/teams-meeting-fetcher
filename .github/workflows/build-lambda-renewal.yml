@@ -1,0 +1,67 @@
+name: Build Lambda - Subscription Renewal
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "scenarios/lambda/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "scenarios/lambda/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Renewal Lambda
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd scenarios/lambda
+          pip install -r requirements.txt -t .
+
+      - name: Validate handler
+        run: |
+          cd scenarios/lambda
+          python -c "import py_compile; py_compile.compile('renewal-function.py', doraise=True)"
+
+      - name: Package Lambda
+        run: |
+          cd scenarios/lambda
+          rm -f renewal-function.zip
+          zip -r renewal-function.zip renewal-function.py requests certifi charset_normalizer idna urllib3 \
+            requests-*.dist-info certifi-*.dist-info charset_normalizer-*.dist-info idna-*.dist-info urllib3-*.dist-info \
+            -x "*.git*" "*.md" "__pycache__/*" "*.pyc"
+
+      - name: Verify package
+        run: |
+          cd scenarios/lambda
+          if [ ! -f renewal-function.zip ]; then
+            echo "Package failed: renewal-function.zip not created"
+            exit 1
+          fi
+          ZIPSIZE=$(stat -f%z renewal-function.zip 2>/dev/null || stat -c%s renewal-function.zip)
+          echo "Renewal Lambda package size: ${ZIPSIZE} bytes"
+          # Verify requests module is included
+          if ! unzip -l renewal-function.zip | grep -q "requests/"; then
+            echo "ERROR: requests module not found in zip"
+            exit 1
+          fi
+
+      - name: Upload Renewal Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-renewal-artifact
+          path: scenarios/lambda/renewal-function.zip
+          retention-days: 30

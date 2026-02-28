@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "scenarios/lambda/renewal-function.py"
+      - "scenarios/lambda/**"
   workflow_dispatch:
 
 permissions:
@@ -51,11 +51,23 @@ jobs:
           LAMBDA_NAME=$(terraform output -raw aws_renewal_function_name)
           echo "lambda_name=$LAMBDA_NAME" >> $GITHUB_OUTPUT
 
+      - name: Use Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          cd scenarios/lambda
+          pip install -r requirements.txt -t .
+
       - name: Package Lambda
         run: |
           cd scenarios/lambda
           rm -f renewal-function.zip
-          zip -j renewal-function.zip renewal-function.py
+          zip -r renewal-function.zip renewal-function.py requests certifi charset_normalizer idna urllib3 \
+            requests-*.dist-info certifi-*.dist-info charset_normalizer-*.dist-info idna-*.dist-info urllib3-*.dist-info \
+            -x "*.git*" "*.md" "__pycache__/*" "*.pyc"
 
       - name: Deploy Lambda code
         run: |
