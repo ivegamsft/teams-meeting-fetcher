@@ -245,3 +245,6 @@ HTML/
 
 # Lock files are committed for reproducible CI builds
 iac/plan-output.txt
+
+# Test scripts with hardcoded credentials
+test-scripts/probe-transcript*.py
