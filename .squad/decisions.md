@@ -1642,6 +1642,57 @@ The subscription renewal Lambda (`tmf-subscription-renewal-dev`) was broken beca
 2. **Added `lifecycle { ignore_changes = [filename, source_code_hash] }` to the Terraform resource** so Terraform manages infrastructure only and code is deployed separately via `aws lambda update-function-code`. This is consistent with the eventhub-processor module pattern.
 3. Terraform's `data.archive_file` remains for initial deployment only; subsequent code deploys use the build script.
 
+---
+
+## 2026-02-28: onlineMeetingId Resolution Requires userId GUID
+
+**By:** McManus (Backend Dev)  
+**Date:** 2026-03-05
+
+**Problem:** The transcript pipeline was stuck at 0 transcripts. Phase 1 enrichment via `fetchDetails()` successfully fetched calendar event data (which includes `joinWebUrl`) but the Calendar API does NOT return `onlineMeetingId`. The fallback resolution code was calling `/users/{organizerEmail}/onlineMeetings?$filter=JoinWebUrl eq '...'` which silently fails because the onlineMeetings endpoint with app-only auth (CsApplicationAccessPolicy) requires a userId GUID, not an email/UPN.
+
+**Decision:** Always resolve the organizer's userId GUID via `GET /users/{email}` (returns `id` field) before calling the onlineMeetings endpoint. This is a hard requirement of CsApplicationAccessPolicy with client_credentials (app-only) auth flow.
+
+**Implementation:**
+- Modified `meetingService.fetchDetails()` to:
+  1. Resolve organizer email → userId GUID via `/users/{email}?$select=id`
+  2. Use GUID in `/users/{userId}/onlineMeetings?$filter=JoinWebUrl eq '...'`
+  3. Escape single quotes in joinWebUrl for OData filter safety
+- Pattern already existed in `discoverTranscriptsForUser()` — now consistent across both code paths.
+
+**Impact:**
+- Unblocks the entire transcript pipeline (Phase 2 candidates depend on `onlineMeetingId` being populated)
+- Adds one extra Graph API call per enrichment (user lookup), but this is cached by the Graph SDK and is a lightweight call
+- No changes to the Meeting model or DynamoDB schema
+
+---
+
+## 2026-02-28: Test-Scripts Secret Protection Hardening
+
+**By:** Fenster (DevOps/Infra)  
+**Date:** 2026-02-28  
+**Status:** Implemented
+
+**Context:** Push Protection blocked pushes due to hardcoded secrets in `test-scripts/probe-transcript*.py` files. Isaac requested a comprehensive cleanup of all test-scripts.
+
+**Findings:**
+- The 5 tracked test-scripts (create-graph-subscription.py, create-meetings.ps1, test-complete-flow.ps1, test-eventhub-flow.py, verify-end-to-end.py) were **already clean** — they use `os.getenv()` / `$env:` with missing-var validation. No code changes needed for tracked files.
+- The hardcoded secrets (`9CD8Q~...` client_secret, tenant_id, client_id) existed only in 3 **untracked** `probe-transcript*.py` files (already gitignored). Cleaned those locally to use `os.environ.get()` with validation.
+- No other files in the repo contain real hardcoded secrets. Test files use `'test-client-secret'` placeholders. Docs use `"xxx"` or `"<placeholder>"` examples.
+
+**Decision:**
+1. Hardened `.gitignore` with broader test-scripts patterns: `*.env`, `*.local`, `*secret*`, `*credential*`, `nobots*/`
+2. Kept all 5 tracked scripts as-is (already secure)
+3. Cleaned probe-transcript files locally (env vars + validation)
+4. Did NOT remove any files from git tracking per Isaac's request
+
+**Impact:**
+- Future untracked files in test-scripts with sensitive names will be auto-ignored
+- Tracked files remain useful and functional — no behavioral changes
+- The exposed secret (`9CD8Q~...`) should still be rotated (it was in git history from the earlier blocked push attempt)
+
+**Credential Rotation Required:** The `9CD8Q~...` client secret appeared in probe-transcript files which, while gitignored, were part of a push that was blocked by Push Protection. If Push Protection logged the attempt, the secret may be exposed. Rotate via Azure Portal > App Registrations > Certificates & secrets.
+
 ### Impact
 
 - Any future Python dependency changes require running `package.ps1` and deploying the zip.

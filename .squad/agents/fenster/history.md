@@ -58,6 +58,14 @@
 - **Secret hygiene audit (2026-02-28):** The 5 tracked test-scripts (create-graph-subscription.py, create-meetings.ps1, test-complete-flow.ps1, test-eventhub-flow.py, verify-end-to-end.py) were already using `os.getenv()` / `$env:` with validation — no hardcoded secrets found in committed code. The actual secrets were in 3 UNTRACKED `probe-transcript*.py` files (already gitignored). Cleaned those locally to use `os.environ.get()` + validation. Hardened `.gitignore` with broader patterns (`*.env`, `*.local`, `*secret*`, `*credential*`, `nobots*/`) for test-scripts directory. The `**/*secret*` global gitignore pattern already existed but test-scripts-specific patterns add defense-in-depth.
 - **Push Protection is the real guardrail:** GitHub Push Protection caught the original secret leak before it reached the remote. `.gitignore` prevents accidental staging of new files, but for already-tracked files, Push Protection + code review are the true defenses.
 
+---
+
+## 2026-02-28 Enrichment & Deployment Round
+
+📌 Team update (20260228T164000Z): Enrichment fix deployed (McManus fixed onlineMeetingId GUID resolution), secrets hardened (Fenster added .gitignore patterns + cleaned probe-transcript files). Build #22524765254 & Deploy #22524783634 passed (16/16 steps green). New IP: 34.238.246.221. Entra URI manually fixed (workflow step unreliable, needs review). onlineMeetingId enrichment improved 40→41+ meetings. — decided by Scribe
+
+**Action item:** Entra URI updates made via workflow (`deploy-unified.yml`) do not always stick; always verify post-deploy with `az ad app show --id <CLIENT_ID>`. The Graph onlineMeetings endpoint now resolves correctly with GUID-based queries; Phase 2 & 3 transcript enrichment unblocked.
+
 ## Learnings (Archived Details)
 
 The following sessions (Feb 24-27) have been archived into Core Context above. Detailed entries remain in git history for reference.
