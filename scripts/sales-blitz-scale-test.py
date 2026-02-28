@@ -1,6 +1,6 @@
 """
-Sales Blitz Scale Test - Create 320 appointments for 2 sales reps
-Tests Event Hub → Lambda → S3/DynamoDB pipeline at scale
+Sales Blitz Scale Test - Create 5 appointments for 1 sales rep
+Tests Event Hub → Lambda → S3/DynamoDB pipeline at small scale
 """
 import sys
 import os
@@ -160,14 +160,12 @@ def create_appointment(rep_email, lead, start_dt, end_dt, index, total, stats):
                 if retry_count > 0:
                     stats['retried_success'] += 1
                 
-                # Print progress every 10 events
-                if index % 10 == 0:
-                    day_name = start_dt.strftime("%a")
-                    time_str = start_dt.strftime("%I:%M %p")
-                    rep_name = rep_email.split('@')[0]
-                    print(f"[{index}/{total}] {rep_name} - {day_name} {time_str}: {payload['subject']} ✅")
-                    rate = stats['created'] / (time.time() - stats['start_time']) if stats['created'] > 0 else 0
-                    print(f"[{index}/{total}] Progress: {stats['created']} created, {stats['retried_success']} retried, {stats['failed']} failed | Rate: {rate:.1f}/sec")
+                day_name = start_dt.strftime("%a")
+                time_str = start_dt.strftime("%I:%M %p")
+                rep_name = rep_email.split('@')[0]
+                print(f"[{index}/{total}] {rep_name} - {day_name} {time_str}: {payload['subject']}")
+                rate = stats['created'] / (time.time() - stats['start_time']) if stats['created'] > 0 else 0
+                print(f"[{index}/{total}] Progress: {stats['created']} created, {stats['retried_success']} retried, {stats['failed']} failed | Rate: {rate:.1f}/sec")
                 
                 return True
                 
@@ -181,20 +179,20 @@ def create_appointment(rep_email, lead, start_dt, end_dt, index, total, stats):
                 else:
                     wait_time = base_wait * (2 ** retry_count)
                 
-                print(f"[{index}/{total}] 🔶 429 Rate Limited - waiting {wait_time}s (retry {retry_count+1}/{max_retries})")
+                print(f"[{index}/{total}] 429 Rate Limited - waiting {wait_time}s (retry {retry_count+1}/{max_retries})")
                 time.sleep(wait_time)
                 retry_count += 1
                 
             else:
-                print(f"[{index}/{total}] ❌ HTTP {response.status_code}: {response.text[:100]}")
+                print(f"[{index}/{total}] HTTP {response.status_code}: {response.text[:100]}")
                 stats['failed'] += 1
                 return False
                 
         except Exception as e:
-            print(f"[{index}/{total}] ❌ Exception: {str(e)[:100]}")
+            print(f"[{index}/{total}] Exception: {str(e)[:100]}")
             if retry_count < max_retries:
                 wait_time = base_wait * (2 ** retry_count)
-                print(f"[{index}/{total}] 🔄 Retrying in {wait_time}s...")
+                print(f"[{index}/{total}] Retrying in {wait_time}s...")
                 time.sleep(wait_time)
                 retry_count += 1
             else:
@@ -202,39 +200,9 @@ def create_appointment(rep_email, lead, start_dt, end_dt, index, total, stats):
                 return False
     
     # Max retries exceeded
-    print(f"[{index}/{total}] ❌ Max retries exceeded")
+    print(f"[{index}/{total}] Max retries exceeded")
     stats['failed'] += 1
     return False
-
-
-def get_daily_slots():
-    """Build the daily slot schedule with breaks.
-
-    Returns list of (hour, minute) tuples for each 15-min appointment start.
-    Schedule:
-      9:00 - 10:30  Morning block     (6 slots)
-      10:30 - 10:45 Morning break
-      10:45 - 12:00 Late morning       (5 slots)
-      12:00 - 1:00  Lunch
-      1:00 - 3:00   Early afternoon    (8 slots)
-      3:00 - 3:15   Afternoon break
-      3:15 - 5:00   Late afternoon     (7 slots)
-    Total: 26 slots per day per rep
-    """
-    slots = []
-    blocks = [
-        (9, 0, 10, 30),    # Morning: 9:00 - 10:30
-        (10, 45, 12, 0),   # Late morning: 10:45 - 12:00
-        (13, 0, 15, 0),    # Early afternoon: 1:00 - 3:00
-        (15, 15, 17, 0),   # Late afternoon: 3:15 - 5:00
-    ]
-    for start_h, start_m, end_h, end_m in blocks:
-        t = start_h * 60 + start_m
-        end = end_h * 60 + end_m
-        while t < end:
-            slots.append((t // 60, t % 60))
-            t += 15
-    return slots
 
 
 def main():
@@ -245,32 +213,27 @@ def main():
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
     
-    # Configuration
+    # Configuration — 1 rep, 1 day, 5 slots
     reps = [
         "trustingboar@ibuyspy.net",
-        "boldoriole@ibuyspy.net"
     ]
     
-    # Week: March 2-6, 2026
+    # Single day: March 2, 2026
     base_date = datetime(2026, 3, 2)  # Monday, March 2, 2026
-    daily_slots = get_daily_slots()
-    slots_per_day = len(daily_slots)  # 26
-    total_slots = 5 * slots_per_day * len(reps)  # 260
+    # 5 morning slots: 9:00, 9:15, 9:30, 9:45, 10:00
+    daily_slots = [(9, 0), (9, 15), (9, 30), (9, 45), (10, 0)]
+    slots_per_day = len(daily_slots)  # 5
+    num_days = 1
+    total_slots = num_days * slots_per_day * len(reps)  # 5
     
-    print(f"Schedule: {slots_per_day} slots/day/rep (with lunch + breaks)")
-    print(f"  Morning:   9:00 - 10:30  (6 slots)")
-    print(f"  Break:     10:30 - 10:45")
-    print(f"  Late AM:   10:45 - 12:00 (5 slots)")
-    print(f"  Lunch:     12:00 - 1:00")
-    print(f"  Afternoon: 1:00 - 3:00   (8 slots)")
-    print(f"  Break:     3:00 - 3:15")
-    print(f"  Late PM:   3:15 - 5:00   (7 slots)")
-    print(f"  Total:     {total_slots} appointments for {len(reps)} reps\n")
+    print(f"Schedule: {slots_per_day} slots for {len(reps)} rep on 1 day")
+    print(f"  Morning:   9:00 - 10:15  (5 slots, 15 min each)")
+    print(f"  Total:     {total_slots} appointments\n")
     
     # Generate leads
     print(f"Generating {total_slots} fake leads...")
     leads = generate_fake_leads(total_slots)
-    print(f"✅ Generated {len(leads)} leads\n")
+    print(f"Generated {len(leads)} leads\n")
     
     # Statistics
     stats = {
@@ -284,10 +247,10 @@ def main():
     
     print("Creating appointments...\n")
     
-    # Create appointments: iterate day → slot → rep
+    # Create appointments: iterate day -> slot -> rep
     lead_idx = 0
     
-    for day in range(5):  # Mon-Fri
+    for day in range(num_days):
         day_date = base_date + timedelta(days=day)
         day_name = day_date.strftime("%A %b %d")
         print(f"\n--- {day_name} ---")

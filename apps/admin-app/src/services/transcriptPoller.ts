@@ -38,10 +38,10 @@ export const transcriptPoller = {
     }
   },
 
-  async runCycle(catchUp = false): Promise<{ enriched: number; transcriptsFound: number; errors: number }> {
+  async runCycle(catchUp = false): Promise<{ enriched: number; transcriptsFound: number; errors: number; skippedPermanent: number }> {
     if (isRunning) {
       console.log('[TranscriptPoller] Cycle already running, skipping');
-      return { enriched: 0, transcriptsFound: 0, errors: 0 };
+      return { enriched: 0, transcriptsFound: 0, errors: 0, skippedPermanent: 0 };
     }
 
     isRunning = true;
@@ -53,18 +53,35 @@ export const transcriptPoller = {
     let enriched = 0;
     let transcriptsFound = 0;
     let errors = 0;
+    let skippedPermanent = 0;
 
     try {
       const allMeetings = await meetingStore.listAll();
 
       // Phase 1: Enrich meetings that haven't been fetched from Graph yet
-      const unenriched = allMeetings.filter(m => !m.detailsFetched && m.resource);
+      // Skip meetings already marked as permanent enrichment failures
+      const unenriched = allMeetings.filter(m =>
+        !m.detailsFetched &&
+        m.resource &&
+        m.enrichmentStatus !== 'permanent_failure'
+      );
+      const permanentFailures = allMeetings.filter(m => m.enrichmentStatus === 'permanent_failure').length;
       const enrichBatch = isCatchUp ? unenriched : unenriched.slice(0, batchLimit);
-      if (enrichBatch.length > 0) {
-        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} of ${unenriched.length} meetings`);
+      if (enrichBatch.length > 0 || permanentFailures > 0) {
+        console.log(`[TranscriptPoller] Phase 1 (${mode}): Enriching ${enrichBatch.length} of ${unenriched.length} meetings (${permanentFailures} permanently failed, skipped)`);
       }
 
       for (const meeting of enrichBatch) {
+        // Skip meetings with invalid event IDs (e.g., "NA" or empty)
+        const eventId = meeting.resource?.split('/').pop() || '';
+        if (!eventId || eventId === 'NA') {
+          const reason = !eventId ? 'empty eventId' : 'eventId is NA';
+          console.warn(`[TranscriptPoller] Permanent failure: ${meeting.meeting_id} — ${reason}, skipping future enrichment`);
+          await meetingStore.markEnrichmentFailed(meeting.meeting_id, reason);
+          skippedPermanent++;
+          continue;
+        }
+
         try {
           await meetingService.fetchDetails(meeting.meeting_id);
           enriched++;
@@ -72,12 +89,29 @@ export const transcriptPoller = {
             console.log(`[TranscriptPoller] Phase 1 progress: ${enriched}/${enrichBatch.length} enriched`);
           }
         } catch (err: any) {
-          errors++;
-          if (!err.message?.includes('404')) {
-            console.error(`[TranscriptPoller] Enrich failed ${meeting.meeting_id}: ${err.message}`);
+          const statusCode = err.statusCode || err.code;
+          const message = err.message || '';
+          const isPermanent404 = statusCode === 404 ||
+            message.includes('The specified object was not found in the store') ||
+            message.includes('ErrorItemNotFound') ||
+            (message.includes('404') && message.includes('not found'));
+
+          if (isPermanent404) {
+            const reason = `Graph 404: ${message.substring(0, 150)}`;
+            console.warn(`[TranscriptPoller] Permanent failure: ${meeting.meeting_id} — stale/deleted event, skipping future enrichment`);
+            await meetingStore.markEnrichmentFailed(meeting.meeting_id, reason);
+            skippedPermanent++;
+          } else {
+            // Transient error (network timeout, 429, 500) — will be retried next cycle
+            errors++;
+            console.error(`[TranscriptPoller] Transient enrich error ${meeting.meeting_id}: [${statusCode}] ${message}`);
           }
         }
         await sleep(RATE_LIMIT_MS);
+      }
+
+      if (skippedPermanent > 0) {
+        console.log(`[TranscriptPoller] Phase 1: Marked ${skippedPermanent} meetings as permanent enrichment failures`);
       }
 
       // Phase 2: Check for transcripts on meetings that have ended
@@ -138,12 +172,12 @@ export const transcriptPoller = {
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[TranscriptPoller] Cycle done (${mode}) in ${elapsed}s — enriched=${enriched}, transcripts=${transcriptsFound}, errors=${errors}`);
+      console.log(`[TranscriptPoller] Cycle done (${mode}) in ${elapsed}s — enriched=${enriched}, transcripts=${transcriptsFound}, errors=${errors}, permanentFailures=${skippedPermanent}`);
     } finally {
       isRunning = false;
     }
 
-    return { enriched, transcriptsFound, errors };
+    return { enriched, transcriptsFound, errors, skippedPermanent };
   },
 
   isRunning(): boolean {

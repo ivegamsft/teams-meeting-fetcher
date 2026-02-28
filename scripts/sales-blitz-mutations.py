@@ -1,10 +1,11 @@
 """
 Sales Blitz Mutations Script
-After creating 260 appointments, simulate real sales workflow mutations:
-- Title renames (~20%)
-- Cancellations (~10%)
-- Reschedules (~15%)
-- Description changes (~15%)
+After creating 5 appointments, simulate real sales workflow mutations:
+- 1 title rename
+- 1 cancellation
+- 1 reschedule
+- 1 description change
+(1 meeting left untouched)
 """
 import sys
 import os
@@ -19,7 +20,6 @@ from auth_helper import get_graph_headers
 
 REPS = [
     "trustingboar@ibuyspy.net",
-    "boldoriole@ibuyspy.net"
 ]
 
 
@@ -308,12 +308,12 @@ def main():
     
     random.shuffle(all_events)
     
-    # Calculate target counts
+    # Fixed mutation counts for small-scale test (4 mutations, rest untouched)
     total = len(all_events)
-    rename_count = int(total * 0.20)  # 20%
-    cancel_count = int(total * 0.10)  # 10%
-    reschedule_count = int(total * 0.15)  # 15%
-    description_count = int(total * 0.15)  # 15%
+    rename_count = min(1, total)
+    cancel_count = min(1, max(0, total - 1))
+    reschedule_count = min(1, max(0, total - 2))
+    description_count = min(1, max(0, total - 3))
     
     # Partition events (non-overlapping)
     idx = 0

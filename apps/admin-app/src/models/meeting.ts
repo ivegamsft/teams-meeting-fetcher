@@ -27,6 +27,8 @@ export interface Meeting {
   resource?: string;
   rawNotification?: Record<string, any>;
   detailsFetched?: boolean;
+  enrichmentStatus?: 'pending' | 'permanent_failure';
+  enrichmentError?: string;
   rawEventData?: Record<string, any>;
   createdAt: string;
   updatedAt: string;

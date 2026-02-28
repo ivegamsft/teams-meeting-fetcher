@@ -135,6 +135,22 @@ export const meetingStore = {
     return allMeetings;
   },
 
+  async markEnrichmentFailed(id: string, reason: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) return;
+
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: key,
+      UpdateExpression: 'SET enrichmentStatus = :es, enrichmentError = :err, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':es': 'permanent_failure',
+        ':err': reason,
+        ':now': new Date().toISOString(),
+      },
+    }));
+  },
+
   async setTranscriptionId(id: string, transcriptionId: string): Promise<void> {
     const key = await this._resolveKey(id);
     if (!key) throw new Error(`Meeting ${id} not found`);
