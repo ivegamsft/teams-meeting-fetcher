@@ -246,5 +246,13 @@ HTML/
 # Lock files are committed for reproducible CI builds
 iac/plan-output.txt
 
-# Test scripts with hardcoded credentials
+# Test scripts - security protection
+# Tracked scripts (create-graph-subscription.py, create-meetings.ps1, etc.) use
+# environment variables and are safe. These patterns catch untracked files that
+# may contain hardcoded credentials or local-only test artifacts.
 test-scripts/probe-transcript*.py
+test-scripts/nobots*/
+test-scripts/*.env
+test-scripts/*.local
+test-scripts/*secret*
+test-scripts/*credential*
