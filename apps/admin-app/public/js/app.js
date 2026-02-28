@@ -163,18 +163,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       empty.classList.add('hidden');
-      tbody.innerHTML = result.transcripts.map(t => `
+      tbody.innerHTML = result.transcripts.map(t => {
+        const m = t.meeting;
+        const subject = m?.subject || 'Unknown Meeting';
+        const organizer = m?.organizerDisplayName || '--';
+        const dateTime = m?.startTime ? formatDate(m.startTime) : formatDate(t.createdAt);
+        let duration = '--';
+        if (m?.startTime && m?.endTime) {
+          const mins = Math.round((new Date(m.endTime) - new Date(m.startTime)) / 60000);
+          duration = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+        }
+        return `
         <tr>
-          <td><code style="font-size:12px">${t.meetingId?.substring(0, 12)}...</code></td>
+          <td><a href="#meetings" style="color:var(--primary);text-decoration:none;font-weight:500;" title="${subject}">${subject}</a></td>
+          <td>${organizer}</td>
+          <td>${dateTime}</td>
+          <td>${duration}</td>
           <td><span class="status-badge status-${t.status}">${t.status}</span></td>
-          <td>${t.language || 'en'}</td>
-          <td>${formatDate(t.createdAt)}</td>
-          <td>${t.processedAt ? formatDate(t.processedAt) : '--'}</td>
           <td>
             ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
           </td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
     } catch (err) {
       console.error('Failed to load transcripts:', err);
     }
