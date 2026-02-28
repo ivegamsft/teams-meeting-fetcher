@@ -1911,6 +1911,49 @@ Without these steps completed first, `terraform apply` deploys whatever placehol
 
 
 
+---
+
+# Transcript Poller Diagnosis: Why transcriptCount=0
+
+# Transcript Poller Diagnosis: Why transcriptCount=0
+
+**By:** Fenster (DevOps/Infra)
+**Date:** 2026-02-28
+
+## Decision
+
+The transcript poller is working correctly. The zero transcript count is a data problem, not a code problem.
+
+## Key Findings
+
+1. **All 1105 meetings are sales-blitz-generated synthetic events** scheduled for Mar-Apr 2026. None have actually occurred. No one joined, spoke, or started transcription.
+
+2. **Phase 3 (JoinWebUrl resolution) works** — successfully resolved onlineMeetingId for ~80 meetings via `$filter=JoinWebUrl` on the OnlineMeetings API.
+
+3. **Phase 1 has a retry storm** — 81 meetings with stale/deleted Exchange event IDs fail enrichment every 5-min cycle with "The specified object was not found in the store." One has eventId="NA". These should be marked as permanently failed to stop wasting Graph API calls.
+
+4. **Phase 2 has 0 candidates always** — requires the intersection of (has onlineMeetingId) AND (endTime in past), which is currently empty.
+
+## Recommended Actions
+
+1. **Hold real meetings** — to get transcripts, users must join Teams meetings, speak, and have transcription enabled.
+2. **Fix retry storm** — mark permanently-failed enrichments (event_not_found errors) so they don't retry every 5 minutes. This is a McManus code change in `transcriptPoller.ts`.
+3. **No infra changes needed** — ECS, DynamoDB, Graph permissions, and CsApplicationAccessPolicy are all correctly configured.
+
+## Data Summary (DynamoDB tmf-meetings-8akfpg)
+
+| Metric | Count |
+|--------|-------|
+| Total meetings | 1105 |
+| With onlineMeetingId | 80 |
+| With joinWebUrl | 1053 |
+| With detailsFetched=true | 845 |
+| With transcriptCount > 0 | 0 |
+| Status=scheduled | 1024 |
+| EndTime in past | 45 (41 cancelled, 4 test) |
+| Past meetings with onlineMeetingId | 0 |
+
+
 ## # Transcript Fetching Architecture Proposal# Transcript Fetching Architecture Proposal
 
 **Author:** Kobayashi (Microsoft Teams Architect)
@@ -2195,4 +2238,5 @@ Add a new Lambda or extend the EventHub Lambda to:
 
 
 ---
+
 
