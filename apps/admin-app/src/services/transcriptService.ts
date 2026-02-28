@@ -45,6 +45,7 @@ export const transcriptService = {
 
       const contentResponse = await client
         .api(apiPath)
+        .query({ '$format': 'text/vtt' })
         .responseType('text' as any)
         .get();
 
