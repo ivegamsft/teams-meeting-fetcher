@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { meetingService } from '../services/meetingService';
 import { transcriptService } from '../services/transcriptService';
 import { transcriptPoller } from '../services/transcriptPoller';
+import { transcriptQueue } from '../services/transcriptQueue';
+import { meetingStore } from '../services/meetingStore';
 
 const router = Router();
 
@@ -168,6 +170,72 @@ router.patch('/:id/transcription', async (req: Request, res: Response) => {
     console.error('Failed to toggle transcription:', err.message);
     res.status(err.message.includes('not found') ? 404 : 500).json({ error: err.message });
   }
+});
+
+// Fetch transcript for a specific meeting (on-demand)
+router.post('/:id/fetch-transcript', async (req: Request, res: Response) => {
+  try {
+    const meeting = await meetingService.getMeeting(req.params.id as string);
+    if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+    if (!meeting.onlineMeetingId) return res.status(400).json({ error: 'Meeting has no onlineMeetingId — enrich first' });
+    if (meeting.transcriptionId) return res.status(200).json({ message: 'Transcript already fetched', transcriptionId: meeting.transcriptionId });
+
+    const found = await transcriptQueue.enqueue(meeting, 'manual');
+    const stats = transcriptQueue.stats();
+    res.json({ found, queueStats: stats });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch transcripts for all meetings by a specific user
+router.post('/fetch-transcripts-by-user', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'email is required' });
+
+    const allMeetings = await meetingStore.listAll();
+    const userMeetings = allMeetings.filter(m =>
+      m.onlineMeetingId &&
+      !m.transcriptionId &&
+      m.organizerEmail === email &&
+      m.status !== 'completed' && m.status !== 'cancelled' && m.status !== 'failed'
+    );
+
+    const found = await transcriptQueue.enqueueBatch(userMeetings, 'by-user');
+    const stats = transcriptQueue.stats();
+    res.json({ email, checked: userMeetings.length, found, queueStats: stats });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch transcripts for meetings in a time frame
+router.post('/fetch-transcripts-by-timeframe', async (req: Request, res: Response) => {
+  try {
+    const { from, to } = req.body;
+    if (!from) return res.status(400).json({ error: 'from is required (ISO 8601)' });
+
+    const allMeetings = await meetingStore.listAll();
+    const toDate = to || new Date().toISOString();
+    const candidates = allMeetings.filter(m =>
+      m.onlineMeetingId &&
+      !m.transcriptionId &&
+      m.startTime && m.startTime >= from && m.startTime <= toDate &&
+      m.status !== 'completed' && m.status !== 'cancelled' && m.status !== 'failed'
+    );
+
+    const found = await transcriptQueue.enqueueBatch(candidates, 'by-timeframe');
+    const stats = transcriptQueue.stats();
+    res.json({ from, to: toDate, checked: candidates.length, found, queueStats: stats });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Queue status
+router.get('/transcript-queue-stats', async (req: Request, res: Response) => {
+  res.json(transcriptQueue.stats());
 });
 
 export default router;

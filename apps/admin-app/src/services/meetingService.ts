@@ -72,45 +72,48 @@ export const meetingService = {
 
     const joinWebUrl = eventData.onlineMeeting?.joinUrl || meeting.joinWebUrl || '';
     let onlineMeetingId = eventData.onlineMeetingId || meeting.onlineMeetingId || '';
+    let organizerUserId = meeting.organizerUserId || '';
 
     // Resolve onlineMeetingId from joinWebUrl if not directly available.
     // The /users/{id}/onlineMeetings endpoint with app-only auth (CsApplicationAccessPolicy)
     // requires a userId GUID — email/UPN will not work.
-    if (!onlineMeetingId && joinWebUrl) {
-      const organizerEmail = eventData.organizer?.emailAddress?.address || '';
-      if (organizerEmail) {
-        try {
-          // Step 1: Resolve organizer email to userId GUID
-          const userResp = await client.api(`/users/${organizerEmail}`).select('id').get();
-          const userId = userResp.id;
+    const organizerEmail = eventData.organizer?.emailAddress?.address || '';
+    if (organizerEmail && !organizerUserId) {
+      try {
+        const userResp = await client.api(`/users/${organizerEmail}`).select('id').get();
+        organizerUserId = userResp.id;
+      } catch (err: any) {
+        console.warn(`[MeetingService] Failed to resolve userId for ${organizerEmail}: ${err.statusCode || err.message}`);
+      }
+    }
 
-          // Step 2: Query onlineMeetings by JoinWebUrl using the GUID
-          const decodedUrl = decodeURIComponent(joinWebUrl);
-          // Escape single quotes for OData filter
-          const escapedUrl = decodedUrl.replace(/'/g, "''");
-          const resp = await client
-            .api(`/users/${userId}/onlineMeetings`)
-            .filter(`JoinWebUrl eq '${escapedUrl}'`)
+    if (!onlineMeetingId && joinWebUrl && organizerUserId) {
+      try {
+        const decodedUrl = decodeURIComponent(joinWebUrl);
+        // Escape single quotes for OData filter
+        const escapedUrl = decodedUrl.replace(/'/g, "''");
+        const resp = await client
+          .api(`/users/${organizerUserId}/onlineMeetings`)
+          .filter(`JoinWebUrl eq '${escapedUrl}'`)
+          .get();
+        if (resp.value && resp.value.length > 0) {
+          onlineMeetingId = resp.value[0].id;
+          console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl (userId=${organizerUserId})`);
+        } else {
+          // Fallback: try with the original (possibly encoded) URL
+          const escapedOriginal = joinWebUrl.replace(/'/g, "''");
+          const resp2 = await client
+            .api(`/users/${organizerUserId}/onlineMeetings`)
+            .filter(`JoinWebUrl eq '${escapedOriginal}'`)
             .get();
-          if (resp.value && resp.value.length > 0) {
-            onlineMeetingId = resp.value[0].id;
-            console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl (userId=${userId})`);
-          } else {
-            // Fallback: try with the original (possibly encoded) URL
-            const escapedOriginal = joinWebUrl.replace(/'/g, "''");
-            const resp2 = await client
-              .api(`/users/${userId}/onlineMeetings`)
-              .filter(`JoinWebUrl eq '${escapedOriginal}'`)
-              .get();
-            if (resp2.value && resp2.value.length > 0) {
-              onlineMeetingId = resp2.value[0].id;
-              console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via encoded joinWebUrl (userId=${userId})`);
-            }
+          if (resp2.value && resp2.value.length > 0) {
+            onlineMeetingId = resp2.value[0].id;
+            console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via encoded joinWebUrl (userId=${organizerUserId})`);
           }
-        } catch (err: any) {
-          const errDetail = err.statusCode || err.code || err.message || JSON.stringify(err).substring(0, 200);
-          console.warn(`[MeetingService] Failed to resolve onlineMeetingId for ${meetingId}: ${errDetail}`);
         }
+      } catch (err: any) {
+        const errDetail = err.statusCode || err.code || err.message || JSON.stringify(err).substring(0, 200);
+        console.warn(`[MeetingService] Failed to resolve onlineMeetingId for ${meetingId}: ${errDetail}`);
       }
     }
 
@@ -133,6 +136,7 @@ export const meetingService = {
       status: meeting.status === 'notification_received' ? 'scheduled' : meeting.status,
       joinWebUrl,
       onlineMeetingId,
+      organizerUserId,
       rawEventData: eventData,
       detailsFetched: true,
       changeType: 'processed',
@@ -165,9 +169,22 @@ export const meetingService = {
 
     const client = getGraphClient();
 
+    // App-only auth requires /users/{userId}/onlineMeetings/ path
+    let userId = meeting.organizerUserId;
+    if (!userId && meeting.organizerEmail) {
+      try {
+        const userResp = await client.api(`/users/${meeting.organizerEmail}`).select('id').get();
+        userId = userResp.id;
+      } catch (err: any) {
+        console.warn(`[MeetingService] Cannot resolve userId for transcript check: ${err.statusCode || err.message}`);
+        return;
+      }
+    }
+    if (!userId) return;
+
     try {
       const transcripts = await client
-        .api(`/communications/onlineMeetings/${meeting.onlineMeetingId}/transcripts`)
+        .api(`/users/${userId}/onlineMeetings/${meeting.onlineMeetingId}/transcripts`)
         .get();
 
       if (transcripts.value && transcripts.value.length > 0) {

@@ -30,8 +30,17 @@ export const transcriptService = {
 
     try {
       const client = getGraphClient();
+
+      // Resolve organizer userId GUID for app-only auth path
+      let userId = meeting.organizerUserId;
+      if (!userId && meeting.organizerEmail) {
+        const userResp = await client.api(`/users/${meeting.organizerEmail}`).select('id').get();
+        userId = userResp.id;
+      }
+      if (!userId) throw new Error('Cannot resolve organizer userId for transcript content');
+
       const contentResponse = await client
-        .api(`/communications/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`)
+        .api(`/users/${userId}/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`)
         .responseType('text' as any)
         .get();
 

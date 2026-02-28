@@ -16,6 +16,7 @@ export interface Meeting {
   organizerId: string;
   organizerEmail: string;
   organizerDisplayName: string;
+  organizerUserId?: string;
   attendees: Attendee[];
   recordingUrl?: string;
   status: 'notification_received' | 'scheduled' | 'recording' | 'transcript_pending' | 'completed' | 'failed' | 'cancelled';

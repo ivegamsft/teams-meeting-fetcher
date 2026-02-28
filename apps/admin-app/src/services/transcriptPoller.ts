@@ -2,6 +2,7 @@ import { meetingService } from './meetingService';
 import { meetingStore } from './meetingStore';
 import { subscriptionStore } from './subscriptionStore';
 import { Meeting } from '../models';
+import { transcriptQueue } from './transcriptQueue';
 
 const POLL_INTERVAL_MS = parseInt(process.env.TRANSCRIPT_POLL_INTERVAL_MS || '300000', 10);
 const BATCH_SIZE = parseInt(process.env.TRANSCRIPT_POLL_BATCH_SIZE || '100', 10);
@@ -161,23 +162,10 @@ export const transcriptPoller = {
       const transcriptBatch = isCatchUp ? candidates : candidates.slice(0, batchLimit);
       console.log(`[TranscriptPoller] Phase 2 (${mode}): ${candidates.length} candidates, checking ${transcriptBatch.length}`);
 
-      for (const meeting of transcriptBatch) {
-        try {
-          await meetingService.checkForTranscript(meeting);
-          const updated = await meetingStore.get(meeting.meeting_id);
-          if (updated?.transcriptionId) {
-            transcriptsFound++;
-          }
-        } catch (err: any) {
-          errors++;
-          if (!err.message?.includes('404')) {
-            console.error(`[TranscriptPoller] Transcript check failed ${meeting.meeting_id}: ${err.message}`);
-          }
-        }
-        // Track when we last checked, regardless of result
-        await meetingStore.updateLastTranscriptCheck(meeting.meeting_id);
-        await sleep(RATE_LIMIT_MS);
-      }
+      // Route through the shared queue for rate limiting
+      transcriptsFound += await transcriptQueue.enqueueBatch(transcriptBatch, 'poller');
+      const qStats = transcriptQueue.stats();
+      console.log(`[TranscriptPoller] Phase 2: Queue stats — processed=${qStats.totalProcessed}, found=${qStats.totalFound}, queued=${qStats.queued}`);
 
       // Phase 3: Direct transcript discovery from Graph online meetings API
       // Bypasses calendar event enrichment entirely
