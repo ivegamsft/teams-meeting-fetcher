@@ -23,7 +23,7 @@ export interface Meeting {
   subscriptionId: string;
   joinWebUrl?: string;
   onlineMeetingId?: string;
-  changeType?: 'created' | 'updated' | 'deleted';
+  changeType?: 'created' | 'updated' | 'deleted' | 'processed';
   resource?: string;
   rawNotification?: Record<string, any>;
   detailsFetched?: boolean;

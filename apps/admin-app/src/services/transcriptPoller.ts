@@ -61,7 +61,7 @@ export const transcriptPoller = {
       // Phase 1: Enrich meetings that haven't been fetched from Graph yet
       // Skip meetings already marked as permanent enrichment failures
       const unenriched = allMeetings.filter(m =>
-        !m.detailsFetched &&
+        (!m.detailsFetched || m.changeType === 'updated') &&
         m.resource &&
         m.enrichmentStatus !== 'permanent_failure'
       );

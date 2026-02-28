@@ -135,6 +135,7 @@ export const meetingService = {
       onlineMeetingId,
       rawEventData: eventData,
       detailsFetched: true,
+      changeType: 'processed',
       updatedAt: new Date().toISOString(),
     };
 
