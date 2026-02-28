@@ -7,27 +7,64 @@
 - **Stack:** Node.js/TypeScript (Express), Python, Terraform, AWS Lambda, Azure Container Apps, Microsoft Graph API, SQLite, DynamoDB, Docker, Jest, GitHub Actions
 - **Created:** 2026-02-24
 
-## Core Context
+## Core Context (Summarized Learnings)
 
-- Unified Terraform deployment from `iac/` root; `iac/aws/` and `iac/azure/` are modules only.
-- Azure auth supports SPN or OIDC via `use_oidc`; Terraform variables passed via `TF_VAR_*` in workflows.
-- Workflows must avoid root `npm ci`; use per-app installs and `cache-dependency-path`.
-- Azure firewall model: RBAC-only, add/remove runner IPs in a single job, prefer `/24` CIDR, use `az` for firewall rules.
-- Deploy-unified runs plan/apply on same runner, uses `-input=false`, and pins Terraform versions consistently.
-- Cross-cloud wiring uses `module.azure` outputs (e.g., Event Hub consumer group) rather than manual defaults.
-- Bootstrap/verify scripts and docs cover AWS OIDC, Terraform state backend, and deployment prerequisites.
+**Terraform & IaC:**
+- Unified deployment from `iac/` root; `iac/aws/` and `iac/azure/` are modules only.
+- Azure auth: SPN or OIDC via `use_oidc` variable; Terraform variables passed via `TF_VAR_*` in workflows.
+- NEVER add `keepers` to `random_string.suffix` — causes cascade destroy/recreate of all Azure resources.
+- `deploy-unified.yml` push trigger runs plan-only; only `workflow_dispatch` with `mode=apply` actually deploys.
+- Azure Storage Account has `prevent_destroy = true`; any terraform change that would recreate it fails the plan.
+- Cross-cloud wiring: Use `module.azure` outputs (e.g., EventHub consumer group) rather than hardcoded defaults.
+- Terraform is the canonical source for Graph permissions (admin consent grants via `azuread_app_role_assignment`).
 
-## Learnings
+**CI/CD & Deployments:**
+- Workflows must avoid root `npm ci`; use per-app installs with explicit `cache-dependency-path`.
+- `deploy-admin-app.yml` deploys containers independently — reads ECS task def from Terraform state, updates only container image.
+- Admin app deploy workflow dynamically updates Lambda `ADMIN_APP_WEBHOOK_URL` env var with Fargate task IP after each deploy.
+- Entra updates made by workflow's OIDC context may not always stick — always verify post-deploy with `az ad app show`.
+- Docker Desktop may need manual restart during container builds in CI/CD environments.
 
-- **NEVER add `keepers` to `random_string.suffix`** — the suffix is embedded in all Azure resource names (storage account, key vault, resource group). Adding keepers forces regeneration, which cascades to destroy/recreate ALL resources. The `prevent_destroy` lifecycle on storage account correctly blocks this but causes plan failure.
-- **deploy-unified.yml push trigger runs plan-only, not apply** — only `workflow_dispatch` with `mode=apply` actually deploys infrastructure. Push triggers are CI validation only.
-- **deploy-admin-app.yml deploys containers independently** — it reads the existing ECS task definition from Terraform state and updates only the container image. It does NOT update env vars — those come from Terraform apply.
-- **GRAPH_TENANT_DOMAIN** is wired correctly: `azuread_domains` data source -> `local.default_domain` -> `module.azure.tenant_domain` -> `var.graph_tenant_domain` in admin-app ECS task definition.
-- **EventHub consumer group** for Lambda processor is cross-cloud wired from `module.azure.eventhub_lambda_consumer_group` (not a hardcoded default).
-- **Key file paths for meetings pipeline config**: `iac/aws/modules/admin-app/main.tf` (ECS task def, lines 370-391), `iac/aws/modules/eventhub-processor/main.tf` (Lambda env vars, lines 93-110), `iac/azure/outputs.tf` (tenant_domain output, line 135).
-- **Azure Storage Account has `prevent_destroy = true`** in `iac/azure/modules/storage/main.tf` — any Terraform change that would recreate this resource will fail the plan.
-- **Webhook forwarding env vars** added: Lambda gets `ADMIN_APP_WEBHOOK_URL` and `WEBHOOK_AUTH_SECRET` (conditionally merged, won't break if empty). Admin app gets `WEBHOOK_AUTH_SECRET` via Secrets Manager and `WEBHOOK_CLIENT_STATE` as plain env var. The deploy-admin-app workflow dynamically updates the Lambda env var with the Fargate task IP after each deploy.
-- **deploy-admin-app.yml now updates Lambda env vars** — after discovering the Fargate task IP, it calls `aws lambda update-function-configuration` to set `ADMIN_APP_WEBHOOK_URL` on the eventhub processor. This mirrors the Entra redirect URI update pattern.
+**Meetings Pipeline & Graph API:**
+- `GRAPH_TENANT_DOMAIN`: `azuread_domains` → `local.default_domain` → `module.azure.tenant_domain` → ECS task definition.
+- CsApplicationAccessPolicy IS configured for TMF SPN (confirmed via Phase 3 poller logs — zero OnlineMeetings API errors).
+- Calendar event API (created via Graph API) cannot return onlineMeetingId; must use JoinWebUrl resolution instead.
+- Graph subscriptions: user-scoped `/users/{id}/events`, created via app token (client_credentials), renewed every 7 days.
+- Lambda webhook forwarding has 3-retry exponential backoff (0s, 2s, 4s) for 5xx/timeout/connection errors; no retry on 4xx.
+
+**Webhook & Subscription Management:**
+- Subscription renewal Lambda deployment: bundle Python dependencies in zip via `requirements.txt` + `package.ps1`; use `lifecycle { ignore_changes = [...] }` for manual code deploy.
+- Dead webhook subscriptions root cause (2026-02-28): renewal Lambda missing `requests` module — all subscriptions expired, zero webhooks fired, zero new meetings in DynamoDB.
+- EventHub consumer group for Lambda processor is wired from `module.azure.eventhub_lambda_consumer_group` in Terraform outputs.
+
+## Recent Sessions (Feb 27-28)
+
+📌 Team update (20260227T023500Z): Fenster synchronized IaC (Terraform, permissions.json, auto-bootstrap, consent.json) across 7 confirmed Graph permissions, corrected 2 wrong GUIDs, added `azuread_app_role_assignment` resources for admin consent grants. Terraform now canonical source for permissions. — decided by Scribe
+
+📌 Team update (2026-02-27T18:28:00Z): Pagination vulnerability fixed — 6 unpaginated Scan operations across meetingStore, transcriptStore, subscriptionStore apply ExclusiveStartKey pagination. Prevents data loss at 1MB limit. — Keaton & McManus
+
+📌 Team update (20260228T063050Z): Fenster found 81 meetings with stale Exchange event IDs causing retry storm. McManus added enrichmentStatus/enrichmentError fields and markEnrichmentFailed() method. — McManus
+
+📌 Team update (2026-02-28T06:52:45Z): Deployed admin app revision 55 with retry storm fix. 81 stale events marked permanent_failure, zero wasted Graph API calls. Sales blitz scripts reduced 260→5. IP: 3.88.0.51. — Fenster
+
+- **End-to-End Trace: BlueLynx Meeting (2026-02-28):** Pipeline deep-dive revealed root cause of intake failure: subscription renewal Lambda broken (missing Python `requests` module), all Graph subscriptions expired, zero webhook notifications, zero new meetings in DynamoDB. Poller (rev 55) is healthy but has no new data. Confirmed CsApplicationAccessPolicy IS working for TMF SPN (Phase 3 successfully resolved 20+ onlineMeetingIds with zero errors).
+
+- **Webhook Pipeline Full Restoration (2026-02-28):** Fixed subscription renewal Lambda by bundling `requests` + dependencies (certifi, charset-normalizer, idna, urllib3). Created `scenarios/lambda/requirements.txt` and `package.ps1` (mirrors eventhub pattern). Added `lifecycle { ignore_changes = [...] }` to Terraform. Recreated 2 Graph subscriptions (boldoriole, trustingboar), expiring March 7, routing to EventHub. Manually synced BlueLynx meeting to DynamoDB for verification. Subscription IDs: `58b331d8-...` (boldoriole), `cffc508a-...` (trustingboar). Pipeline fully operational.
+
+- **Push, Build, Deploy (2026-02-28):** Pushed 4 commits. GitHub Push Protection caught 3 test scripts with hardcoded secrets. Soft-reset, unstaged secrets, added to .gitignore, recommitted. Build/Deploy succeeded. New admin app IP: 13.218.102.57. Updated Entra redirect URI (requires post-deploy verification) and Lambda webhook URL. Credential rotation needed for exposed secret.
+
+## Learnings (Archived Details)
+
+The following sessions (Feb 24-27) have been archived into Core Context above. Detailed entries remain in git history for reference.
+
+- Graph permission IaC synchronization (2026-02-27)
+- Admin consent grant Terraform resources (2026-02-27)  
+- DynamoDB pagination fix deployment (2026-02-27)
+- Transcript poller investigation (2026-02-28)
+- Lambda retry backoff implementation
+- Webhook forwarding deployment patterns
+
+---
 
 ## Team Updates
 
@@ -37,54 +74,10 @@
 
 📌 Team update (2026-02-26T18:17:56Z): EventHub Lambda deployment gaps identified: deploy-unified.yml doesn't rebuild eventhub-processor after Terraform apply (gets overwritten with placeholder.js), admin app webhook URL must use HTTPS (self-signed certs), and Lambda needs WEBHOOK_AUTH_SECRET and NODE_TLS_REJECT_UNAUTHORIZED env vars wired in Terraform. Immediate fixes applied; Terraform module needs updates. — decided by McManus
 
-- **Lambda webhook forwarding now has retry logic with exponential backoff** — added `forwardWithRetry()` wrapper function that retries up to 3 times (wait 0s, 2s, 4s) on timeouts, connection errors, and 5xx responses. Does NOT retry on 4xx client errors (permanent failures). On permanent failure after all retries, logs structured JSON with `FORWARD_PERMANENT_FAILURE` type, including S3 key for manual replay. Lambda response now includes `forwardRetries` and `forwardFailures` stats. Original `forwardNotification()` unchanged; only call site modified. This prevents notification loss during admin app redeployments.
-
 ## Cross-Agent Updates
 
 📌 Team update (2026-02-27T02:23:00Z): Kobayashi completed Teams transcription configuration analysis. Critical blockers identified: (1) CsApplicationAccessPolicy missing (403 error on OnlineMeetings API), (2) Graph permissions missing (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All), (3) Isaac's account (a-ivega@ibuyspy.net) NOT licensed for Teams Premium — only test users (trustingboar, boldoriole) are licensed. Full configuration checklist created with Layer 1-4 breakdown and PowerShell commands. User directive: subscription created for a-ivega is unnecessary. — decided by Kobayashi
 
 📌 Team update (20260227T023500Z): McManus audited Graph permissions and confirmed all 7 now granted on SPN. Fixed `scripts/grant-graph-permissions.ps1` with correct 7-permission set. Fenster fully synchronized IaC (Terraform, permissions.json, auto-bootstrap, consent.json) across all 7 permissions and verified correct Application GUIDs (corrected 2 wrong GUIDs in original task). Edie updated 5 doc files with complete prerequisites list. Session outcomes: IaC consistent, docs unified, Graph audit complete. CsApplicationAccessPolicy remains Isaac's blocker. — decided by Scribe
 
-- **Graph Permissions IaC Alignment (2026-02-27):** Audited all IaC and bootstrap scripts to ensure the 7 confirmed TMF SPN Graph API permissions are fully declared. Verified Application permission GUIDs against graphpermissions.merill.net. Corrected two task-provided GUIDs that were wrong (OnlineMeetings.Read.All was `c1684f21-...-2dc8c296f8e7` in task vs correct `c1684f21-...-2dc8c296bb70`; OnlineMeetingRecording.Read.All was `190c2bb6-...` delegated ID vs correct application ID `a4a08342-...`). Changes: (1) `iac/azure/modules/azure-ad/main.tf` — replaced Calendars.ReadWrite with Calendars.Read, replaced OnlineMeetings.ReadWrite.All with OnlineMeetings.Read.All, added Subscription.ReadWrite.All to TMF app resource; (2) `scripts/grant-graph-permissions.ps1` — trimmed from 10 to 7 correct permissions; (3) `scripts/permissions.json` — expanded from 2 to all 7 entries; (4) `scripts/auto-bootstrap-azure.ps1` — replaced 4 stale/wrong entries with correct 7; (5) `scripts/consent.json` — expanded scope to all 7 permission names. Bot app Terraform resource left unchanged (uses separate permission set). `scripts/setup/bootstrap-azure-spn.ps1` and `.sh` not modified — they manage the Terraform deployment SPN, not the TMF SPN. No GitHub Actions workflows manage Graph permissions.
-
-- **IaC Admin Consent Grants (2026-02-27):** Added `azuread_app_role_assignment` resources to Terraform so that `terraform apply` manages BOTH permission declarations AND admin consent grants. Key changes: (1) Uncommented `data.azuread_service_principal.graph` data source to look up Graph SP object ID at plan time (requires `Application.Read.All` on deployment SPN, which is already satisfied by `Application.ReadWrite.All`). (2) Added `azuread_app_role_assignment.tmf_graph_consent` (6 permissions) and `azuread_app_role_assignment.bot_graph_consent` (5 permissions) using `for_each` over the permission maps. (3) Added `grant_admin_consent` variable (default true) to allow disabling consent grants if needed. (4) Removed `Subscription.ReadWrite.All` (GUID `482be48f-8d13-42ab-b51e-677fdd881820`) from TMF app — confirmed NOT a valid Graph application permission via MS Graph permissions reference (only `Subscription.Read.All` exists, delegated-only). TMF goes from 7 to 6 declared permissions. (5) Updated `grant-graph-permissions.ps1` header to mark it as FALLBACK/BOOTSTRAP only — Terraform is now the canonical source. (6) Cleaned `Subscription.ReadWrite.All` from `permissions.json`, `consent.json`, and `auto-bootstrap-azure.ps1`. `terraform validate` passes.
-
-- **Admin App deploy for DynamoDB pagination fix (2026-02-27):** Commit `5e42f63` (DynamoDB Scan pagination fix) was pushed to main. Build Admin App workflow (#22) auto-triggered and succeeded. Deploy Admin App workflow (#37, run 22498749316) auto-triggered via `workflow_run` and completed successfully -- all 16 steps green. Image tag `5e42f63` deployed to ECS cluster `tmf-admin-app-8akfpg`, task definition revision 48. Public IP: `44.204.79.134`. Entra redirect URI and Lambda webhook URL both updated to point at the new task IP. No manual intervention required -- the CI/CD pipeline handled everything end-to-end.
-
-- **Transcript Poller Investigation (2026-02-28):** CloudWatch + DynamoDB deep-dive on why transcriptCount=0 after deploying transcript poller (revision 49). Findings:
-  - **DynamoDB state:** 1105 meetings total. 80 have onlineMeetingId resolved. 1053 have joinWebUrl. 845 have detailsFetched=true. 0 have transcriptCount>0. 45 have endTime in the past (41 cancelled/empty, 4 test events). 0 past meetings have onlineMeetingId.
-  - **Phase 1 failure:** 81 meetings fail enrichment every 5-min cycle with "The specified object was not found in the store" (Graph 404). These calendar events no longer exist in Exchange. One has eventId="NA". These 81 retry endlessly, wasting API calls.
-  - **Phase 2 result:** 0 candidates always. Candidate criteria: onlineMeetingId AND endTime<now AND not completed/cancelled. The intersection of {meetings with onlineMeetingId} and {meetings with endTime in past} is EMPTY. The 80 enriched meetings are all future-dated (Mar-Apr 2026).
-  - **Phase 3 (catch-up):** Works correctly. Resolved ~40 onlineMeetingIds via JoinWebUrl filter on OnlineMeetings API across 2 users (trustingboar, boldoriole). Found 0 transcripts because no meetings have actually been held.
-  - **Root cause:** The 1105 sales-blitz meetings are synthetic calendar events scheduled for Mar-Apr 2026. Nobody has joined them, spoken in them, or started transcription. You cannot have transcripts for meetings that haven't happened. The pipeline is working correctly; there's just no real meeting data to process.
-  - **Secondary issue:** The 81 permanently-failed enrichments should be marked stale to stop the retry storm (code fix needed in transcriptPoller.ts).
-  - **Prior deployment (rev 48) logs:** Tried "re-enrich for onlineMeetingId" on 793 meetings — all returned 404. Same root cause: the Graph calendar event API can't return onlineMeetingId for events created via Graph API; must use JoinWebUrl resolution instead.
-
-📌 Team update (2026-02-28T06:52:45Z): McManus added enrichmentStatus/enrichmentError fields to Meeting model and markEnrichmentFailed() to meetingStore.ts. Deploy needed to activate retry storm fix. — McManus
-
-- **Admin App Deploy for Retry Storm Fix (2026-02-28):** Committed McManus's fixes (commit `1db55df`): enrichmentStatus/enrichmentError fields on Meeting model, markEnrichmentFailed() in meetingStore, permanent failure marking in transcriptPoller for stale Exchange event IDs, sales blitz scripts reduced from 260 to 5. Built Docker image `tmf-admin-app-8akfpg:1db55df`, pushed to ECR. Deployed to ECS as task definition revision 55 (prev: 54). Service was scaled to 0 — had to set desired count to 1. New public IP: `3.88.0.51`. Updated Lambda `ADMIN_APP_WEBHOOK_URL` to `https://3.88.0.51:3000/api/webhooks/graph`. Health check passes (200 OK). CloudWatch confirms retry storm fix active: first poll cycle marked all 81 stale events as permanent_failure, second cycle shows "Enriching 0 of 0 meetings (81 permanently failed, skipped)" — zero wasted Graph API calls. Note: Docker Desktop was stopped and had to be started manually. Entra redirect URI may need manual update if OAuth login is needed at new IP.
-
-- **End-to-End Pipeline Trace — Real Meeting "Sales Call: BlueLynx - Matthew Lopez" (2026-02-28):**
-  Isaac created a real Teams meeting (organizer: boldoriole@ibuyspy.net, Feb 28, 1:57-2:05 AM, 7m 39s, has transcript + recording). Traced the meeting through the entire pipeline. Results:
-  - **Step 1 (DynamoDB): FAIL** — Meeting NOT in `tmf-meetings-8akfpg`. Only 4 old synthetic BlueLynx meetings exist (all from trustingboar). Zero boldoriole meetings created after Feb 27.
-  - **Step 2 (Webhook): FAIL** — Graph subscriptions list returns `[]` (all expired). The subscription renewal Lambda (`tmf-subscription-renewal-dev`) is broken: every invocation crashes with `Runtime.ImportModuleError: Unable to import module 'renewal-function': No module named 'requests'`. Python `requests` library not bundled in the Lambda deployment package. No webhook notifications can be received.
-  - **Step 3 (Poller): WORKING but meeting absent** — Poller (rev 55) is running correctly at 5-min intervals. First catch-up cycle at 07:01 UTC marked all 81 stale events as permanent_failure (retry fix confirmed). Phase 3 resolved boldoriole (userId `e5fe8748-76f0-42ed-b521-241e8252baba`) and checked 513 existing DynamoDB meetings with joinWebUrl — successfully resolved 20+ onlineMeetingIds with zero errors. Found 0 transcripts. Regular cycles (07:06, 07:11, 07:16) show 0 enrichment candidates, 0 Phase 2 candidates. The meeting can't be processed because it never entered DynamoDB.
-  - **Step 4 (Graph API): SPN ACCESS CONFIRMED WORKING** — Phase 3 logs show zero errors calling OnlineMeetings JoinWebUrl filter API for both users. This means CsApplicationAccessPolicy IS configured for the TMF SPN (contradicts Kobayashi's earlier blocker report — policy must have been applied since then). The `az rest` Forbidden error was because it uses a-ivega@ibuyspy.net user identity, not the TMF SPN.
-  - **Step 5 (Root Cause): DEAD WEBHOOK SUBSCRIPTIONS** — The pipeline fails at the intake layer. Without working webhook subscriptions, no new calendar events enter DynamoDB. The subscription renewal Lambda has been broken (missing Python `requests` module), so subscriptions expired and were never renewed.
-  - **Blockers to fix:** (1) Fix subscription renewal Lambda — bundle `requests` in deployment package. (2) Re-create webhook subscriptions for boldoriole and trustingboar. (3) Once the meeting is in DynamoDB, the poller will process it through enrichment and transcript discovery.
-  - **Key insight:** Phase 3 (catch-up) only runs on the first poller cycle after startup — it processes existing DynamoDB meetings, not new ones. Regular cycles only run Phase 1+2. A meeting that never entered DynamoDB via webhook cannot be discovered by the poller.
-
-- **Push, Build, Deploy, and Entra URI Fix (2026-02-28):**
-  Committed and pushed 4 local commits to origin/main (408152a -> e16779e). Initial push was blocked by GitHub Push Protection — 3 test scripts (probe-transcript*.py) contained hardcoded Azure AD client secrets. Fixed by: soft-resetting the commit, unstaging the secret-containing files, adding them to .gitignore, and recommitting. Push succeeded on second attempt. Build Admin App workflow (#22516339472) auto-triggered and completed in 49s (image tag `e16779e`). Deploy Admin App workflow (#22516353118) auto-triggered via workflow_run and completed in 3m56s — all 16 steps green. New ECS task IP: `13.218.102.57` (changed from `3.88.0.51`). The deploy workflow updated Entra redirect URI and Lambda webhook URL automatically. However, manual verification showed the Entra URI was still showing the old IP I had set earlier — ran `az ad app update` again to correct it to `https://13.218.102.57:3000/auth/callback`. Lambda webhook URL confirmed at `https://13.218.102.57:3000/api/webhooks/graph`. Key learning: the deploy workflow's OIDC Azure login may use a different credential context than the local `az` CLI, so workflow-side Entra updates may not always stick — always verify post-deploy.
-
-- **Secret Leak Prevention (2026-02-28):**
-  Three diagnostic scripts (test-scripts/probe-transcript.py, probe-transcript-v2.py, probe-transcript-v3.py) contained a hardcoded Azure AD client secret. GitHub Push Protection correctly blocked the push. Added these files to .gitignore. The secret in those files needs rotation — it was exposed in a commit that was pushed (even though remote rejected it, the commit SHA is in reflog). Flagged for Isaac.
-
-- **Webhook Pipeline Full Restoration (2026-02-28):**
-  Fixed the dead webhook subscription pipeline end-to-end. Root cause: the subscription renewal Lambda (`tmf-subscription-renewal-dev`) was deployed as a single-file zip via Terraform's `data.archive_file`, which does NOT include pip dependencies. The Python `requests` library was missing, causing `Runtime.ImportModuleError` on every invocation. All Graph webhook subscriptions expired because renewals never succeeded.
-  - **Step 1 — Lambda fix:** Built proper deployment package with `requests` and all transitive dependencies (certifi, charset-normalizer, idna, urllib3) bundled. Deployed via `aws lambda update-function-code`. Verified clean invocation: `statusCode: 200`, no import errors, `total_checked: 0` (expected — no active subscriptions to renew).
-  - **Step 2 — Permanent packaging fix:** Created `scenarios/lambda/requirements.txt` and `scenarios/lambda/package.ps1` (mirrors the eventhub Lambda's build pattern). Added `lifecycle { ignore_changes = [filename, source_code_hash] }` to `iac/aws/modules/subscription-renewal/main.tf` so Terraform manages infra only; code deploys separately.
-  - **Step 3 — Subscriptions recreated:** Deleted 2 expired Graph subscriptions (trustingboar, boldoriole) via admin app API. Created 2 new subscriptions — expiring March 7. Both route to EventHub notification URL (`tmf-ehns-eus-8akfpg`). New subscription IDs: `58b331d8-76b6-4dfd-823d-dc3c3912f4b2` (boldoriole), `cffc508a-3eee-4cfa-ac53-20d9e435e1d3` (trustingboar).
-  - **Step 4 — BlueLynx meeting manually synced:** Queried Graph API for boldoriole's BlueLynx calendar events. Found "Sales Call: BlueLynx - Matthew Lopez" (eventId `AAMk...AAApwhjTAAA=`, scheduled March 5). Wrote minimal DynamoDB record with `status: notification_received`. Triggered poller with `catchUp=true` — Phase 1 enriched the meeting: subject, organizer (boldoriole@ibuyspy.net), start/end, joinWebUrl all populated. Status now `scheduled`. onlineMeetingId not yet resolved (meeting hasn't occurred).
-  - **Pipeline status:** Fully operational. Webhooks active, Lambda renewing, poller enriching. Future calendar events for both users will flow through automatically. The BlueLynx meeting will be fully processed (onlineMeetingId + transcript discovery) once the meeting is held on March 5.
 
