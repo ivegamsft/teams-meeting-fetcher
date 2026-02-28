@@ -73,29 +73,38 @@ export const meetingService = {
     const joinWebUrl = eventData.onlineMeeting?.joinUrl || meeting.joinWebUrl || '';
     let onlineMeetingId = eventData.onlineMeetingId || meeting.onlineMeetingId || '';
 
-    // Resolve onlineMeetingId from joinWebUrl if not directly available
+    // Resolve onlineMeetingId from joinWebUrl if not directly available.
+    // The /users/{id}/onlineMeetings endpoint with app-only auth (CsApplicationAccessPolicy)
+    // requires a userId GUID — email/UPN will not work.
     if (!onlineMeetingId && joinWebUrl) {
       const organizerEmail = eventData.organizer?.emailAddress?.address || '';
       if (organizerEmail) {
         try {
-          // Decode the joinWebUrl for the OData filter (Graph stores the decoded form)
+          // Step 1: Resolve organizer email to userId GUID
+          const userResp = await client.api(`/users/${organizerEmail}`).select('id').get();
+          const userId = userResp.id;
+
+          // Step 2: Query onlineMeetings by JoinWebUrl using the GUID
           const decodedUrl = decodeURIComponent(joinWebUrl);
+          // Escape single quotes for OData filter
+          const escapedUrl = decodedUrl.replace(/'/g, "''");
           const resp = await client
-            .api(`/users/${organizerEmail}/onlineMeetings`)
-            .filter(`JoinWebUrl eq '${decodedUrl}'`)
+            .api(`/users/${userId}/onlineMeetings`)
+            .filter(`JoinWebUrl eq '${escapedUrl}'`)
             .get();
           if (resp.value && resp.value.length > 0) {
             onlineMeetingId = resp.value[0].id;
-            console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl`);
+            console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via joinWebUrl (userId=${userId})`);
           } else {
-            // Try with encoded URL as fallback
+            // Fallback: try with the original (possibly encoded) URL
+            const escapedOriginal = joinWebUrl.replace(/'/g, "''");
             const resp2 = await client
-              .api(`/users/${organizerEmail}/onlineMeetings`)
-              .filter(`JoinWebUrl eq '${joinWebUrl}'`)
+              .api(`/users/${userId}/onlineMeetings`)
+              .filter(`JoinWebUrl eq '${escapedOriginal}'`)
               .get();
             if (resp2.value && resp2.value.length > 0) {
               onlineMeetingId = resp2.value[0].id;
-              console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via encoded joinWebUrl`);
+              console.log(`[MeetingService] Resolved onlineMeetingId for ${meetingId} via encoded joinWebUrl (userId=${userId})`);
             }
           }
         } catch (err: any) {

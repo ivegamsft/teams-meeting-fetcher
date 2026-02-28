@@ -53,6 +53,11 @@
 
 - **Push, Build, Deploy (2026-02-28):** Pushed 4 commits. GitHub Push Protection caught 3 test scripts with hardcoded secrets. Soft-reset, unstaged secrets, added to .gitignore, recommitted. Build/Deploy succeeded. New admin app IP: 13.218.102.57. Updated Entra redirect URI (requires post-deploy verification) and Lambda webhook URL. Credential rotation needed for exposed secret.
 
+## Learnings
+
+- **Secret hygiene audit (2026-02-28):** The 5 tracked test-scripts (create-graph-subscription.py, create-meetings.ps1, test-complete-flow.ps1, test-eventhub-flow.py, verify-end-to-end.py) were already using `os.getenv()` / `$env:` with validation — no hardcoded secrets found in committed code. The actual secrets were in 3 UNTRACKED `probe-transcript*.py` files (already gitignored). Cleaned those locally to use `os.environ.get()` + validation. Hardened `.gitignore` with broader patterns (`*.env`, `*.local`, `*secret*`, `*credential*`, `nobots*/`) for test-scripts directory. The `**/*secret*` global gitignore pattern already existed but test-scripts-specific patterns add defense-in-depth.
+- **Push Protection is the real guardrail:** GitHub Push Protection caught the original secret leak before it reached the remote. `.gitignore` prevents accidental staging of new files, but for already-tracked files, Push Protection + code review are the true defenses.
+
 ## Learnings (Archived Details)
 
 The following sessions (Feb 24-27) have been archived into Core Context above. Detailed entries remain in git history for reference.
