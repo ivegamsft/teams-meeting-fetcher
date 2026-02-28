@@ -1597,6 +1597,82 @@ Use `az` CLI + `az rest` for Graph permission management going forward. The Azur
 
 ---
 
+## 2026-02-28: Fix Dead Webhook Subscriptions (Critical Pipeline Blocker)
+
+**By:** Fenster (DevOps/Infra)
+**Date:** 2026-02-28
+**Triggered by:** End-to-end pipeline trace of real Teams meeting "Sales Call: BlueLynx - Matthew Lopez"
+
+### Context
+
+Isaac created a real Teams meeting with a transcript and recording (organizer: boldoriole@ibuyspy.net). The meeting never appeared in DynamoDB and was never processed by the pipeline.
+
+### Findings
+
+1. **All Graph webhook subscriptions are expired** — querying `GET /subscriptions` returns `[]`.
+2. **Subscription renewal Lambda is broken** — `tmf-subscription-renewal-dev` crashes on every invocation with `Runtime.ImportModuleError: No module named 'requests'`. The Python `requests` library is not bundled in the Lambda deployment package.
+3. **Without webhooks, no new meetings enter DynamoDB** — the poller only processes meetings already in the database.
+4. **Good news:** The OnlineMeetings API works for the TMF SPN (CsApplicationAccessPolicy is configured). The retry storm fix is working. The pipeline from DynamoDB onward is healthy.
+
+### Decision
+
+Two critical fixes needed (in priority order):
+
+1. **Fix the subscription renewal Lambda deployment** — bundle `requests` in the Lambda package (either via a Lambda layer, or include it in the deployment zip). This is a packaging/build issue, not a code issue.
+2. **Re-create webhook subscriptions** — after fixing the Lambda, create new Graph subscriptions for boldoriole and trustingboar calendar events. This can be done via the admin app's subscription management endpoint or manually via Graph API.
+
+### Impact
+
+Until these are fixed, the entire pipeline is deaf to new meetings. No calendar events, no webhook notifications, no DynamoDB entries, no transcript discovery. The poller runs correctly but has nothing new to process.
+
+---
+
+## 2026-02-28: Renewal Lambda Packaging Pattern
+
+**By:** Fenster (DevOps/Infra)
+**Status:** Implemented
+
+### Context
+
+The subscription renewal Lambda (`tmf-subscription-renewal-dev`) was broken because Terraform's `data.archive_file` zipped only the Python source file without pip dependencies. The `requests` library (required by the handler) was missing from the deployment package, causing `Runtime.ImportModuleError` on every invocation. All Graph webhook subscriptions expired as a result.
+
+### Decision
+
+1. **Added build script and requirements.txt** for the renewal Lambda at `scenarios/lambda/package.ps1` and `scenarios/lambda/requirements.txt`, following the same pattern as the eventhub Lambda (`apps/aws-lambda-eventhub/package.ps1`).
+2. **Added `lifecycle { ignore_changes = [filename, source_code_hash] }` to the Terraform resource** so Terraform manages infrastructure only and code is deployed separately via `aws lambda update-function-code`. This is consistent with the eventhub-processor module pattern.
+3. Terraform's `data.archive_file` remains for initial deployment only; subsequent code deploys use the build script.
+
+### Impact
+
+- Any future Python dependency changes require running `package.ps1` and deploying the zip.
+- CI/CD workflows that deploy the renewal Lambda should use `package.ps1` to build, then `aws lambda update-function-code`.
+- The Terraform `data.archive_file` still packages the single `.py` file for initial resource creation, but deployed code is never overwritten by `terraform apply`.
+
+---
+
+## 2026-02-28: Admin App Deployed with Retry Storm Fix
+
+**By:** Fenster (DevOps/Infra)
+**Status:** Implemented
+
+### Summary
+
+Deployed admin app revision 55 (image tag `1db55df`) with McManus's retry storm fix and sales blitz reduction. The 81 stale Exchange event IDs that were causing ~81 wasted Graph API calls per 5-minute poll cycle are now marked as `permanent_failure` in DynamoDB and skipped on subsequent cycles. API call volume for Phase 1 enrichment dropped from 81 to 0.
+
+### Details
+
+- **Commit:** `1db55df` — enrichmentStatus field, markEnrichmentFailed(), permanent failure marking in transcriptPoller
+- **ECS:** Task definition revision 55, cluster `tmf-admin-app-8akfpg`
+- **Public IP:** `3.88.0.51`
+- **Lambda webhook URL:** Updated to `https://3.88.0.51:3000/api/webhooks/graph`
+- **Verification:** Health check 200 OK; CloudWatch logs confirm "Enriching 0 of 0 meetings (81 permanently failed, skipped)"
+
+### Note
+
+Entra redirect URI was NOT updated — may need manual update if OAuth login is required at the new IP. The service was found scaled to 0 (desired count = 0) from a prior state; scaled back to 1 during this deploy.
+
+---
+
 ## Finding 2: Teams Policy Configuration Status ⚠️
 
 ### Data Extracted from Configuration Files

@@ -62,3 +62,5 @@
 
 - **Retry Storm Fix (2026-02-28):** Fixed transcriptPoller.ts Phase 1 to detect permanent enrichment failures (Graph 404 "not found in store", eventId="NA"/empty) and mark them with `enrichmentStatus: 'permanent_failure'` in DynamoDB via new `meetingStore.markEnrichmentFailed()`. Marked meetings are filtered out of future poller cycles. Transient errors (429, 500, network) still retry normally. Added `enrichmentStatus` and `enrichmentError` fields to Meeting interface.
 - **Sales Blitz Script Scale-Down (2026-02-28):** Reduced all 3 sales-blitz scripts from 260 meetings (5 days x 26 slots x 2 reps) to 5 meetings (1 day x 5 morning slots x 1 rep). Mutations script uses fixed counts (1 rename, 1 cancel, 1 reschedule, 1 description) instead of percentages. Per Isaac's request.
+
+📌 Team update (2026-02-28T07:00:00Z): Fenster fixed subscription renewal Lambda (missing `requests` dependency) and recreated webhook subscriptions for boldoriole and trustingboar. All Graph subscriptions now active. Pipeline restored to receive new meeting notifications. Entra URI and Lambda webhook URL updated for new IP 13.218.102.57. — decided by Fenster
