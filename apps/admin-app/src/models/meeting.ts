@@ -30,6 +30,7 @@ export interface Meeting {
   enrichmentStatus?: 'pending' | 'permanent_failure';
   enrichmentError?: string;
   rawEventData?: Record<string, any>;
+  lastTranscriptCheck?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -117,23 +117,46 @@ export const transcriptPoller = {
       // Phase 2: Check for transcripts on meetings that have ended
       // Re-fetch all meetings after enrichment to get updated endTime/onlineMeetingId
       const refreshed = isCatchUp && enriched > 0 ? await meetingStore.listAll() : allMeetings;
-      const now = new Date().toISOString();
+      const now = new Date();
 
       // Diagnostics
       const withOnlineMeetingId = refreshed.filter(m => m.onlineMeetingId).length;
-      const pastMeetings = refreshed.filter(m => m.startTime && m.startTime < new Date(Date.now() - 10 * 60 * 1000).toISOString()).length;
+      const transcriptCandidates = refreshed.filter(m => m.onlineMeetingId && !m.transcriptionId).length;
       const enrichedCount = refreshed.filter(m => m.detailsFetched).length;
-      console.log(`[TranscriptPoller] Phase 2 diagnostics: total=${refreshed.length}, enriched=${enrichedCount}, withOnlineMeetingId=${withOnlineMeetingId}, pastMeetings=${pastMeetings}`);
+      console.log(`[TranscriptPoller] Phase 2 diagnostics: total=${refreshed.length}, enriched=${enrichedCount}, withOnlineMeetingId=${withOnlineMeetingId}, transcriptCandidates=${transcriptCandidates}`);
 
-      // Check meetings that started at least 10 minutes ago (handles early endings)
-      // Previously used endTime < now, but meetings often end before their scheduled time
-      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const candidates = refreshed.filter(m =>
-        m.onlineMeetingId &&
-        m.startTime && m.startTime < tenMinAgo &&
-        !m.transcriptionId &&
-        m.status !== 'completed' && m.status !== 'cancelled' && m.status !== 'failed'
-      );
+      // Any meeting with onlineMeetingId is a transcript candidate.
+      // Calendar times are metadata — meetings can start/end anytime.
+      const RECHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 min between rechecks
+      const FUTURE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+      const candidates = refreshed.filter(m => {
+        if (!m.onlineMeetingId) return false;
+        if (m.transcriptionId) return false;
+        if (m.status === 'completed' || m.status === 'cancelled' || m.status === 'failed') return false;
+        if (m.enrichmentStatus === 'permanent_failure') return false;
+        
+        // Skip if we checked recently (30 min cooldown)
+        if (m.lastTranscriptCheck) {
+          const lastCheck = new Date(m.lastTranscriptCheck).getTime();
+          const timeSinceCheck = now.getTime() - lastCheck;
+          if (timeSinceCheck < RECHECK_INTERVAL_MS) return false;
+        }
+        
+        // Optimization: meetings scheduled 7+ days in future are lower priority.
+        // Still check them, but only if they haven't been checked recently (handled above).
+        // This is an optimization hint, NOT a correctness gate.
+        
+        return true;
+      });
+
+      // Sort by proximity to now — check meetings closest to current time first
+      // This prioritizes meetings likely to be happening/just ended
+      candidates.sort((a, b) => {
+        const aDist = Math.abs(now.getTime() - new Date(a.startTime || '2099-01-01').getTime());
+        const bDist = Math.abs(now.getTime() - new Date(b.startTime || '2099-01-01').getTime());
+        return aDist - bDist;
+      });
 
       const transcriptBatch = isCatchUp ? candidates : candidates.slice(0, batchLimit);
       console.log(`[TranscriptPoller] Phase 2 (${mode}): ${candidates.length} candidates, checking ${transcriptBatch.length}`);
@@ -151,6 +174,8 @@ export const transcriptPoller = {
             console.error(`[TranscriptPoller] Transcript check failed ${meeting.meeting_id}: ${err.message}`);
           }
         }
+        // Track when we last checked, regardless of result
+        await meetingStore.updateLastTranscriptCheck(meeting.meeting_id);
         await sleep(RATE_LIMIT_MS);
       }
 

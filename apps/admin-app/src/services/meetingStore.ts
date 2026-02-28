@@ -167,4 +167,19 @@ export const meetingStore = {
       },
     }));
   },
+
+  async updateLastTranscriptCheck(id: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) return;
+    
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: key,
+      UpdateExpression: 'SET lastTranscriptCheck = :ts, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':ts': new Date().toISOString(),
+        ':now': new Date().toISOString(),
+      },
+    }));
+  },
 };
