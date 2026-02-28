@@ -25,7 +25,6 @@ export const transcriptService = {
     };
 
     await transcriptStore.put(transcript);
-    await meetingStore.setTranscriptionId(meeting.meeting_id, transcriptId);
     await configStore.incrementCounter('transcriptionsPending', 1);
 
     try {
@@ -34,17 +33,23 @@ export const transcriptService = {
       // Resolve organizer userId GUID for app-only auth path
       let userId = meeting.organizerUserId;
       if (!userId && meeting.organizerEmail) {
+        console.log(`[TranscriptService] Resolving userId for ${meeting.organizerEmail}`);
         const userResp = await client.api(`/users/${meeting.organizerEmail}`).select('id').get();
         userId = userResp.id;
+        console.log(`[TranscriptService] Resolved userId: ${userId}`);
       }
       if (!userId) throw new Error('Cannot resolve organizer userId for transcript content');
 
+      const apiPath = `/users/${userId}/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`;
+      console.log(`[TranscriptService] Fetching content: ${apiPath}`);
+
       const contentResponse = await client
-        .api(`/users/${userId}/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`)
+        .api(apiPath)
         .responseType('text' as any)
         .get();
 
       const rawContent = typeof contentResponse === 'string' ? contentResponse : JSON.stringify(contentResponse);
+      console.log(`[TranscriptService] Got ${rawContent.length} chars of content`);
 
       const rawKey = `raw/${meeting.meeting_id}/${transcriptId}.vtt`;
       await s3Client.send(new PutObjectCommand({
@@ -57,6 +62,9 @@ export const transcriptService = {
       await transcriptStore.updateS3Paths(transcriptId, `s3://${config.aws.s3.rawBucket}/${rawKey}`);
       await transcriptStore.updateStatus(transcriptId, 'raw_stored');
 
+      // Only set transcriptionId on meeting AFTER content is stored
+      await meetingStore.setTranscriptionId(meeting.meeting_id, transcriptId);
+
       if (config.sanitization.enabled) {
         await this.sanitizeTranscript(transcriptId, rawContent, meeting.meeting_id);
       } else {
@@ -68,8 +76,11 @@ export const transcriptService = {
 
       return (await transcriptStore.get(transcriptId))!;
     } catch (err: any) {
-      console.error(`Failed to fetch transcript ${graphTranscriptId}:`, err.message);
-      await transcriptStore.updateStatus(transcriptId, 'failed', err.message);
+      const errMsg = err.message || err.statusCode || err.code || JSON.stringify(err).substring(0, 300);
+      console.error(`[TranscriptService] Failed to fetch transcript ${graphTranscriptId}: ${errMsg}`);
+      if (err.body) console.error(`[TranscriptService] Error body: ${typeof err.body === 'string' ? err.body.substring(0, 500) : JSON.stringify(err.body).substring(0, 500)}`);
+      if (err.statusCode) console.error(`[TranscriptService] Status code: ${err.statusCode}`);
+      await transcriptStore.updateStatus(transcriptId, 'failed', errMsg);
       await meetingStore.updateStatus(meeting.meeting_id, 'failed');
       throw err;
     }
