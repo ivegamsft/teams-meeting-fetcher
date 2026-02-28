@@ -121,13 +121,16 @@ export const transcriptPoller = {
 
       // Diagnostics
       const withOnlineMeetingId = refreshed.filter(m => m.onlineMeetingId).length;
-      const pastMeetings = refreshed.filter(m => m.endTime && m.endTime < now).length;
+      const pastMeetings = refreshed.filter(m => m.startTime && m.startTime < new Date(Date.now() - 10 * 60 * 1000).toISOString()).length;
       const enrichedCount = refreshed.filter(m => m.detailsFetched).length;
       console.log(`[TranscriptPoller] Phase 2 diagnostics: total=${refreshed.length}, enriched=${enrichedCount}, withOnlineMeetingId=${withOnlineMeetingId}, pastMeetings=${pastMeetings}`);
 
+      // Check meetings that started at least 10 minutes ago (handles early endings)
+      // Previously used endTime < now, but meetings often end before their scheduled time
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const candidates = refreshed.filter(m =>
         m.onlineMeetingId &&
-        m.endTime && m.endTime < now &&
+        m.startTime && m.startTime < tenMinAgo &&
         !m.transcriptionId &&
         m.status !== 'completed' && m.status !== 'cancelled' && m.status !== 'failed'
       );
