@@ -151,16 +151,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
       meetingsTotalCount = result.totalCount || 0;
 
-      if (!result.meetings || result.meetings.length === 0) {
+      // Client-side transcript filter
+      const transcriptFilter = document.getElementById('filter-transcript').value;
+      let meetings = result.meetings || [];
+      if (transcriptFilter === 'has') {
+        meetings = meetings.filter(m => !!m.transcriptionId);
+      } else if (transcriptFilter === 'none') {
+        meetings = meetings.filter(m => !m.transcriptionId);
+      }
+
+      if (meetings.length === 0) {
         tbody.innerHTML = '';
         empty.classList.remove('hidden');
+        meetingsTotalCount = meetings.length;
         renderMeetingsPagination();
         hideLoading('meetings-loading');
         return;
       }
 
       // Client-side sort
-      const sorted = [...result.meetings].sort((a, b) => {
+      const sorted = [...meetings].sort((a, b) => {
         let av = a[meetingsSortField] || '';
         let bv = b[meetingsSortField] || '';
         if (meetingsSortField === 'startTime') {
