@@ -75,3 +75,31 @@
 - `apps/admin-app/src/services/meetingStore.ts` — `meetingStore.get(id)` resolves DynamoDB composite key, returns full Meeting object
 - `apps/admin-app/src/models/meeting.ts` — Meeting interface with subject, startTime, endTime, organizerDisplayName, attendees[]
 - `apps/admin-app/src/models/transcript.ts` — Transcript interface with meetingId field linking to meetings
+
+### 2026-02-28: Fix Three Admin App UI Issues
+
+**Context:** Isaac reported three UI issues via screenshots: transcripts showing "Unknown Meeting", meetings showing "undefined" for subject/organizer, and no pagination or sorting on the meetings page.
+
+**Issue 1 — Transcripts page "Unknown Meeting" fix:**
+- Changed subject fallback in `loadTranscripts()` from `'Unknown Meeting'` to `'Meeting ' + meetingId.substring(0, 12) + '...'` — so unenriched sales-blitz meetings show a truncated ID instead of a generic label
+- Added a "Details" button in the Actions column that navigates to the Meetings page via `goToMeetingDetails()`
+- No backend changes needed — the enrichment in `transcripts.ts` already returns `meeting: null` or meeting with missing subject correctly
+
+**Issue 2 — Meetings page "undefined" fallbacks:**
+- `loadMeetings()`: `m.subject` → `m.subject || 'Untitled Meeting'`; `m.organizerDisplayName || m.organizerEmail` → added `|| '--'` fallback
+- `loadOverview()`: Same `m.subject || 'Untitled Meeting'` fix for the recent meetings widget
+
+**Issue 3 — Pagination and column sorting:**
+- Backend already supported `page`/`pageSize` in `meetingStore.list()` (default 20 per page) — no backend changes needed
+- Frontend: Added pagination state (page=1, pageSize=25), passes params to API, renders Prev/Next controls with page counter
+- Added client-side column sorting: Subject, Organizer, Start Time, Status columns are clickable with toggle asc/desc
+- Default sort: Start Time descending (newest first) with visual indicator (arrow)
+- CSS: Added `.sortable` header styles and `.pagination .btn:disabled` state
+- HTML: Added `data-sort` attributes and `.sort-indicator` spans to meetings table headers
+
+**Files Changed:**
+1. `apps/admin-app/public/js/app.js` — Pagination/sort state, `loadMeetings()` rewrite with sort + paginate + fallbacks, `loadTranscripts()` subject fallback + Details button, `loadOverview()` subject fallback, `renderMeetingsPagination()`, `handleMeetingSort()`, `updateSortIndicators()`, `goToMeetingDetails()`
+2. `apps/admin-app/public/index.html` — Sortable column headers with `data-sort` attributes and `.sort-indicator` spans
+3. `apps/admin-app/public/css/styles.css` — `.sortable` header styles, `.pagination .btn:disabled` state
+
+**Verification:** TypeScript compiles clean (`npx tsc --noEmit` exit 0). No backend changes required.

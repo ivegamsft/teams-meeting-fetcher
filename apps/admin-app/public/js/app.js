@@ -3,6 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const logoutBtn = document.getElementById('logout-btn');
   const userInfo = document.getElementById('user-info');
 
+  // Meetings pagination and sorting state
+  let meetingsPage = 1;
+  const meetingsPageSize = 25;
+  let meetingsTotalCount = 0;
+  let meetingsSortField = 'startTime';
+  let meetingsSortDir = 'desc'; // default: newest first
+
   async function checkAuth() {
     try {
       const result = await API.auth.status();
@@ -74,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (meetings.meetings && meetings.meetings.length > 0) {
         recentEl.innerHTML = meetings.meetings.slice(0, 5).map(m => `
           <div style="padding: 8px 0; border-bottom: 1px solid var(--gray-100); display: flex; justify-content: space-between;">
-            <span>${m.subject}</span>
+            <span>${m.subject || 'Untitled Meeting'}</span>
             <span class="status-badge status-${m.status}">${m.status}</span>
           </div>
         `).join('');
@@ -122,21 +129,45 @@ document.addEventListener('DOMContentLoaded', () => {
       const from = document.getElementById('filter-from').value;
       const to = document.getElementById('filter-to').value;
 
-      const result = await API.meetings.list({ status, from, to, ...params });
+      const result = await API.meetings.list({
+        status, from, to,
+        page: String(meetingsPage),
+        pageSize: String(meetingsPageSize),
+        ...params,
+      });
       const tbody = document.getElementById('meetings-tbody');
       const empty = document.getElementById('meetings-empty');
+
+      meetingsTotalCount = result.totalCount || 0;
 
       if (!result.meetings || result.meetings.length === 0) {
         tbody.innerHTML = '';
         empty.classList.remove('hidden');
+        renderMeetingsPagination();
         return;
       }
 
+      // Client-side sort
+      const sorted = [...result.meetings].sort((a, b) => {
+        let av = a[meetingsSortField] || '';
+        let bv = b[meetingsSortField] || '';
+        if (meetingsSortField === 'startTime') {
+          av = new Date(av).getTime() || 0;
+          bv = new Date(bv).getTime() || 0;
+        } else {
+          av = String(av).toLowerCase();
+          bv = String(bv).toLowerCase();
+        }
+        if (av < bv) return meetingsSortDir === 'asc' ? -1 : 1;
+        if (av > bv) return meetingsSortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+
       empty.classList.add('hidden');
-      tbody.innerHTML = result.meetings.map(m => `
+      tbody.innerHTML = sorted.map(m => `
         <tr>
-          <td>${m.subject}</td>
-          <td>${m.organizerDisplayName || m.organizerEmail}</td>
+          <td>${m.subject || 'Untitled Meeting'}</td>
+          <td>${m.organizerDisplayName || m.organizerEmail || '--'}</td>
           <td>${formatDate(m.startTime)}</td>
           <td><span class="status-badge status-${m.status}">${m.status}</span></td>
           <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '--'}</td>
@@ -145,9 +176,56 @@ document.addEventListener('DOMContentLoaded', () => {
           </td>
         </tr>
       `).join('');
+
+      renderMeetingsPagination();
     } catch (err) {
       console.error('Failed to load meetings:', err);
     }
+  }
+
+  function renderMeetingsPagination() {
+    const container = document.getElementById('meetings-pagination');
+    const totalPages = Math.max(1, Math.ceil(meetingsTotalCount / meetingsPageSize));
+    if (meetingsTotalCount <= meetingsPageSize) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = `
+      <button class="btn btn-sm btn-outline" ${meetingsPage <= 1 ? 'disabled' : ''} id="meetings-prev">Prev</button>
+      <span style="display:inline-flex;align-items:center;font-size:14px;color:var(--gray-600);">
+        Page ${meetingsPage} of ${totalPages} (${meetingsTotalCount} total)
+      </span>
+      <button class="btn btn-sm btn-outline" ${meetingsPage >= totalPages ? 'disabled' : ''} id="meetings-next">Next</button>
+    `;
+    document.getElementById('meetings-prev')?.addEventListener('click', () => {
+      if (meetingsPage > 1) { meetingsPage--; loadMeetings(); }
+    });
+    document.getElementById('meetings-next')?.addEventListener('click', () => {
+      if (meetingsPage < totalPages) { meetingsPage++; loadMeetings(); }
+    });
+  }
+
+  function handleMeetingSort(field) {
+    if (meetingsSortField === field) {
+      meetingsSortDir = meetingsSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      meetingsSortField = field;
+      meetingsSortDir = field === 'startTime' ? 'desc' : 'asc';
+    }
+    updateSortIndicators();
+    loadMeetings();
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('#meetings-table th[data-sort]').forEach(th => {
+      const field = th.dataset.sort;
+      const indicator = th.querySelector('.sort-indicator');
+      if (field === meetingsSortField) {
+        indicator.textContent = meetingsSortDir === 'asc' ? ' \u25B2' : ' \u25BC';
+      } else {
+        indicator.textContent = '';
+      }
+    });
   }
 
   async function loadTranscripts() {
@@ -165,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
       empty.classList.add('hidden');
       tbody.innerHTML = result.transcripts.map(t => {
         const m = t.meeting;
-        const subject = m?.subject || 'Unknown Meeting';
+        const subject = m?.subject || ('Meeting ' + (t.meetingId?.substring(0, 12) || '?') + '...');
         const organizer = m?.organizerDisplayName || '--';
         const dateTime = m?.startTime ? formatDate(m.startTime) : formatDate(t.createdAt);
         let duration = '--';
@@ -182,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="status-badge status-${t.status}">${t.status}</span></td>
           <td>
             ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
+            <button class="btn btn-sm btn-secondary" onclick="goToMeetingDetails('${t.meetingId}')">Details</button>
           </td>
         </tr>`;
       }).join('');
@@ -297,7 +376,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('apply-filters-btn').addEventListener('click', () => loadMeetings());
+  document.getElementById('apply-filters-btn').addEventListener('click', () => {
+    meetingsPage = 1;
+    loadMeetings();
+  });
+
+  document.querySelectorAll('#meetings-table th.sortable').forEach(th => {
+    th.addEventListener('click', () => handleMeetingSort(th.dataset.sort));
+  });
 
   document.getElementById('sync-group-btn').addEventListener('click', async () => {
     if (!confirm('Sync subscriptions with Entra group members?')) return;
@@ -358,6 +444,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.viewTranscriptById = async (transcriptId, meetingId) => {
     window.viewTranscript(meetingId);
+  };
+
+  window.goToMeetingDetails = (meetingId) => {
+    // Navigate to meetings page and highlight the meeting
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    const meetingsLink = document.querySelector('.nav-link[data-page="meetings"]');
+    if (meetingsLink) meetingsLink.classList.add('active');
+    loadPage('meetings');
   };
 
   async function loadTranscriptContent(meetingId, type) {
