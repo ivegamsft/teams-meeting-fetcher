@@ -547,7 +547,7 @@ TMF should track meetings through a unified domain model that bridges the three 
 | `User.Read.All` | Granted | No change |
 | `OnlineMeetings.Read.All` | Granted | No change |
 | `OnlineMeetingTranscript.Read.All` | Granted | No change |
-| `CallRecords.Read.All` | **Granted** | No change (verified in prior work) |
+| `CallRecords.Read.All` | **IaC updated** | Grant admin consent via `scripts/grant-graph-permissions.ps1` |
 | CsApplicationAccessPolicy | **Configured** | No change (needed for `/users/{id}/...` paths) |
 
 ### 6.4 Polling Strategy (Fallback)
@@ -588,30 +588,27 @@ Permanent failure (404)          Any → FAILED                   Mark permanent
 
 ### 6.6 Implementation Phases
 
-#### Phase 1: Poller (CURRENT — Implemented)
+#### Phase 1: Poller (Implemented)
 - Transcript poller runs every 5 minutes
 - Enriches meetings, checks for transcripts via polling
 - **Status: Running in production**
 
-#### Phase 2: Call Records Subscription (NEXT)
-- Add `/communications/callRecords` subscription
-- New webhook handler in admin app
-- Correlate callRecord → MeetingRecord via `joinWebUrl`
-- Adds "meeting actually held" signal
-- **Prerequisites:** `CallRecords.Read.All` (already granted), webhook endpoint
+#### Phase 2: Call Records + Transcript + Recording Subscriptions (Implemented)
+- Added `/communications/callRecords` subscription creation
+- Added `communications/onlineMeetings/getAllTranscripts` subscription creation
+- Added `communications/onlineMeetings/getAllRecordings` subscription creation
+- Lambda notification routing: `classifyNotification()` routes callRecords, transcript, and recording notifications to dedicated handlers
+- Dedup via `onlineMeetingId` at enrichment time
+- Poller Phase 1.5: fast-tracks meetings with push transcript notifications
+- `CallRecords.Read.All` added to IaC + grant scripts
+- **Status: Code complete, pending deployment + admin consent**
 
-#### Phase 3: Transcript Subscription (AFTER Phase 2)
-- Add `communications/onlineMeetings/getAllTranscripts` subscription
-- Implement encrypted notification handling (certificate management)
-- Implement `lifecycleNotificationUrl` handler
-- Immediate transcript fetch on notification
-- Poller demoted to fallback role
-- **Prerequisites:** `OnlineMeetingTranscript.Read.All` (already granted), encryption cert
-
-#### Phase 4: Full Event-Driven Pipeline
-- Poller reduced to 15-min safety net
-- All three subscriptions auto-renewed
-- State machine drives all transitions
+#### Phase 3: Full Event-Driven Pipeline (Next)
+- Grant `CallRecords.Read.All` admin consent
+- Create all 3 new subscriptions via admin UI
+- Add DynamoDB GSI on `onlineMeetingId` for O(1) dedup lookups
+- E2E testing with live meetings
+- Poller reduced to safety net role
 - Dashboard shows real-time lifecycle progress
 
 ---

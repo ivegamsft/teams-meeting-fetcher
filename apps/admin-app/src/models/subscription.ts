@@ -1,5 +1,8 @@
+export type SubscriptionType = 'calendar' | 'callRecords' | 'transcripts' | 'recordings';
+
 export interface Subscription {
   subscription_id: string;
+  subscriptionType: SubscriptionType;
   userId: string;
   userEmail: string;
   userDisplayName: string;
@@ -23,4 +26,5 @@ export interface CreateSubscriptionRequest {
   userDisplayName: string;
   resource?: string;
   changeType?: string;
+  subscriptionType?: SubscriptionType;
 }

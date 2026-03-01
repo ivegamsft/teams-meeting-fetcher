@@ -22,7 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.changeType === 'deleted' || event.status === 'cancelled') return 'cancelled';
     if (event.transcriptionId && event.status === 'completed') return 'transcribed';
     if (event.transcriptionId && event.status !== 'completed') return 'transcribing';
-    if (event.callRecordId || event.status === 'recording' || event.status === 'transcript_pending') return 'held';
+    if (event.status === 'in_progress' || event.lifecycleState === 'in_progress') return 'in-progress';
+    if (event.callRecordId || event.status === 'ended' || event.lifecycleState === 'ended' || event.status === 'recording' || event.status === 'transcript_pending') return 'held';
+    if (event.transcriptNotifiedAt || event.recordingNotifiedAt) return 'held';
     if (event.endTime) {
       const hoursSinceEnd = (Date.now() - new Date(event.endTime)) / 3600000;
       if (hoursSinceEnd > 24) return 'not-held';
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const stageLabels = {
     'scheduled': 'Scheduled',
+    'in-progress': 'In Progress',
     'held': 'Held',
     'transcribing': 'Processing',
     'transcribed': 'Transcribed',

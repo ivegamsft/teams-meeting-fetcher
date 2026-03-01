@@ -67,6 +67,7 @@ $permissions = @{
     "OnlineMeetings.Read.All"            = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
     "OnlineMeetingTranscript.Read.All"   = "a4a80d8d-d283-4bd8-8504-555ec3870630"
     "OnlineMeetingRecording.Read.All"    = "a4a08342-c95d-476b-b943-97e100569c8d"
+    "CallRecords.Read.All"               = "b5d936c3-0a08-4b4d-b901-12a401a9cb10"
 }
 
 Write-Host ""

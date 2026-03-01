@@ -19,7 +19,7 @@ export interface Meeting {
   organizerUserId?: string;
   attendees: Attendee[];
   recordingUrl?: string;
-  status: 'notification_received' | 'scheduled' | 'recording' | 'transcript_pending' | 'completed' | 'failed' | 'cancelled';
+  status: 'notification_received' | 'scheduled' | 'in_progress' | 'ended' | 'recording' | 'transcript_pending' | 'completed' | 'failed' | 'cancelled';
   transcriptionId?: string;
   subscriptionId: string;
   joinWebUrl?: string;
@@ -31,6 +31,14 @@ export interface Meeting {
   enrichmentStatus?: 'pending' | 'permanent_failure';
   enrichmentError?: string;
   rawEventData?: Record<string, any>;
+  callRecordId?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  duration?: number;
+  lifecycleState?: 'scheduled' | 'in_progress' | 'ended' | 'completed';
+  transcriptNotifiedAt?: string;
+  recordingNotifiedAt?: string;
+  mergedInto?: string;
   lastTranscriptCheck?: string;
   createdAt: string;
   updatedAt: string;

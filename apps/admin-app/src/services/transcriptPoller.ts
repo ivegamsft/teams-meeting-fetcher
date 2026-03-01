@@ -115,6 +115,19 @@ export const transcriptPoller = {
         console.log(`[TranscriptPoller] Phase 1: Marked ${skippedPermanent} meetings as permanent enrichment failures`);
       }
 
+      // Phase 1.5: Process meetings with push transcript/recording notifications
+      // These were notified by Graph push subscription — skip the polling queue, process immediately
+      const notifiedMeetings = allMeetings.filter(m =>
+        m.transcriptNotifiedAt && !m.transcriptionId && m.onlineMeetingId &&
+        m.status !== 'completed' && m.status !== 'cancelled' && m.status !== 'failed'
+      );
+      if (notifiedMeetings.length > 0) {
+        console.log(`[TranscriptPoller] Phase 1.5: ${notifiedMeetings.length} meetings with push transcript notifications — fast-tracking`);
+        const fastTrackFound = await transcriptQueue.enqueueBatch(notifiedMeetings, 'push-notification');
+        transcriptsFound += fastTrackFound;
+        console.log(`[TranscriptPoller] Phase 1.5: Fast-tracked ${fastTrackFound} transcripts from push notifications`);
+      }
+
       // Phase 2: Check for transcripts on meetings that have ended
       // Re-fetch all meetings after enrichment to get updated endTime/onlineMeetingId
       const refreshed = isCatchUp && enriched > 0 ? await meetingStore.listAll() : allMeetings;
@@ -136,6 +149,8 @@ export const transcriptPoller = {
         if (m.transcriptionId) return false;
         if (m.status === 'completed' || m.status === 'cancelled' || m.status === 'failed') return false;
         if (m.enrichmentStatus === 'permanent_failure') return false;
+        // Skip meetings already fast-tracked from push notifications
+        if (m.transcriptNotifiedAt) return false;
         
         // Skip if we checked recently (30 min cooldown)
         if (m.lastTranscriptCheck) {

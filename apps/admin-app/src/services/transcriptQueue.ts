@@ -12,7 +12,7 @@ const MAX_QUEUE_SIZE = 500;
 
 interface QueueItem {
   meeting: Meeting;
-  source: 'poller' | 'manual' | 'by-user' | 'by-timeframe';
+  source: 'poller' | 'manual' | 'by-user' | 'by-timeframe' | 'push-notification';
   resolve: (found: boolean) => void;
   reject: (err: Error) => void;
 }

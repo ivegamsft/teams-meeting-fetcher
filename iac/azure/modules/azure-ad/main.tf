@@ -20,6 +20,7 @@ locals {
     online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
     group_read_all                     = "5b567255-7703-4780-807c-7be8301ae99b"
     user_read_all                      = "df021288-bdef-4463-88db-98f22de89214"
+    call_records_read_all              = "b5d936c3-0a08-4b4d-b901-12a401a9cb10"
     subscription_readwrite_all         = "482be48f-8d13-42ab-b51e-677fdd881820" // INVALID — not a Graph appRole; see tmf_consent_permissions
     // Bot-only permissions (not used by TMF SPN)
     online_meetings_readwrite_all = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
@@ -35,7 +36,7 @@ locals {
     user_read_all                      = local.graph_app_role_ids.user_read_all
   }
 
-  // TMF SPN: 6 Graph API application permissions that need admin consent grants.
+  // TMF SPN: 7 Graph API application permissions that need admin consent grants.
   // Subscription.ReadWrite.All excluded — GUID 482be48f-... does not exist as a
   // Graph appRole (confirmed 2026-02-27 via MS Graph permissions reference).
   // Graph subscriptions only require the resource-specific permission
@@ -45,6 +46,7 @@ locals {
     online_meetings_read_all           = local.graph_app_role_ids.online_meetings_read_all
     online_meeting_transcript_read_all = local.graph_app_role_ids.online_meeting_transcript_read_all
     online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
+    call_records_read_all              = local.graph_app_role_ids.call_records_read_all
     group_read_all                     = local.graph_app_role_ids.group_read_all
     user_read_all                      = local.graph_app_role_ids.user_read_all
   }
@@ -57,7 +59,7 @@ resource "azuread_application" "tmf_app" {
   required_resource_access {
     resource_app_id = local.graph_client_id
 
-    // TMF SPN: 6 Graph API application permissions (verified 2026-02-27)
+    // TMF SPN: 7 Graph API application permissions (updated 2026-03-01)
     // Subscription.ReadWrite.All removed — not a valid Graph appRole (delegated-only)
     resource_access {
       id   = local.graph_app_role_ids.calendars_read
@@ -81,6 +83,10 @@ resource "azuread_application" "tmf_app" {
     }
     resource_access {
       id   = local.graph_app_role_ids.online_meeting_recording_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.graph_app_role_ids.call_records_read_all
       type = "Role"
     }
   }
