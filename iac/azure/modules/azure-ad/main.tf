@@ -20,7 +20,7 @@ locals {
     online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
     group_read_all                     = "5b567255-7703-4780-807c-7be8301ae99b"
     user_read_all                      = "df021288-bdef-4463-88db-98f22de89214"
-    call_records_read_all              = "b5d936c3-0a08-4b4d-b901-12a401a9cb10"
+    call_records_read_all              = "45bbb07e-7321-4fd7-a8f6-3ff27e6a81c8"
     subscription_readwrite_all         = "482be48f-8d13-42ab-b51e-677fdd881820" // INVALID — not a Graph appRole; see tmf_consent_permissions
     // Bot-only permissions (not used by TMF SPN)
     online_meetings_readwrite_all = "b8bb2037-6e08-44ac-a4ea-4674e010e2a4"
