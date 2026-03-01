@@ -41,13 +41,19 @@ export const graphSubscriptionService = {
 
     const notificationUrl = getEventHubNotificationUrl();
 
-    const graphSubscription = await client.api('/subscriptions').post({
+    // Transcript and recording subscriptions require lifecycleNotificationUrl for >1hr expiration
+    const graphPayload: Record<string, any> = {
       changeType,
       notificationUrl,
       resource,
       expirationDateTime: expirationDate.toISOString(),
       clientState,
-    });
+    };
+    if (subscriptionType === 'transcripts' || subscriptionType === 'recordings') {
+      graphPayload.lifecycleNotificationUrl = notificationUrl;
+    }
+
+    const graphSubscription = await client.api('/subscriptions').post(graphPayload);
 
     const now = new Date().toISOString();
     const renewalReminder = new Date(expirationDate);
