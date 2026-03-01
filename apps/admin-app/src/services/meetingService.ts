@@ -213,6 +213,7 @@ export const meetingService = {
     organizerEmail?: string;
     from?: string;
     to?: string;
+    transcript?: string;
     page?: number;
     pageSize?: number;
   }) {

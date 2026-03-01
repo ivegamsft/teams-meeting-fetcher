@@ -140,8 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const from = document.getElementById('filter-from').value;
       const to = document.getElementById('filter-to').value;
 
+      const transcriptFilter = document.getElementById('filter-transcript').value;
+
       const result = await API.meetings.list({
         status, from, to,
+        transcript: transcriptFilter || undefined,
         page: String(meetingsPage),
         pageSize: String(meetingsPageSize),
         ...params,
@@ -151,14 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       meetingsTotalCount = result.totalCount || 0;
 
-      // Client-side transcript filter
-      const transcriptFilter = document.getElementById('filter-transcript').value;
       let meetings = result.meetings || [];
-      if (transcriptFilter === 'has') {
-        meetings = meetings.filter(m => !!m.transcriptionId);
-      } else if (transcriptFilter === 'none') {
-        meetings = meetings.filter(m => !m.transcriptionId);
-      }
 
       if (meetings.length === 0) {
         tbody.innerHTML = '';

@@ -9,12 +9,13 @@ const router = Router();
 
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { status, organizer, from, to, page, pageSize } = req.query;
+    const { status, organizer, from, to, page, pageSize, transcript } = req.query;
     const result = await meetingService.listMeetings({
       status: status as string,
       organizerEmail: organizer as string,
       from: from as string,
       to: to as string,
+      transcript: transcript as string,
       page: page ? parseInt(page as string, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize as string, 10) : undefined,
     });

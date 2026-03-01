@@ -42,6 +42,7 @@ export const meetingStore = {
     organizerEmail?: string;
     from?: string;
     to?: string;
+    transcript?: string;
     page?: number;
     pageSize?: number;
   }): Promise<{ meetings: Meeting[]; totalCount: number }> {
@@ -88,12 +89,20 @@ export const meetingStore = {
 
     allMeetings.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
+    // Apply transcript filter in-memory (attribute_exists not reliable in DynamoDB scans)
+    let filtered = allMeetings;
+    if (filters?.transcript === 'has') {
+      filtered = allMeetings.filter(m => !!(m as any).transcriptionId);
+    } else if (filters?.transcript === 'none') {
+      filtered = allMeetings.filter(m => !(m as any).transcriptionId);
+    }
+
     const page = filters?.page || 1;
     const pageSize = filters?.pageSize || 20;
     const start = (page - 1) * pageSize;
-    const paged = allMeetings.slice(start, start + pageSize);
+    const paged = filtered.slice(start, start + pageSize);
 
-    return { meetings: paged, totalCount: allMeetings.length };
+    return { meetings: paged, totalCount: filtered.length };
   },
 
   async updateStatus(id: string, status: string, changeType?: string): Promise<void> {
