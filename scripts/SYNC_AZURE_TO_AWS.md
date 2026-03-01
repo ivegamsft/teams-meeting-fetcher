@@ -57,7 +57,7 @@ Sync Azure -> AWS Terraform Variables
 
 [INFO] Getting Azure Terraform outputs...
 [OK] Retrieved Azure outputs
-   Tenant ID: 62837751-4e48-4d06-8bcb-57be1a669b78
+   Tenant ID: <YOUR_TENANT_ID>
    Graph Client ID: f5708f7f-78c3-4cbb-9886-2805edbd2827
    Bot App ID: a1b2c3d4-...
    Event Hub Namespace: tmf-ehns-eus-abc123

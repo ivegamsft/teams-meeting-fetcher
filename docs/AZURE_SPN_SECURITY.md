@@ -30,7 +30,7 @@ param(
 ```powershell
 # NEVER DO THIS - Exposes infrastructure details
 $botAppId = "330412bb-4f99-40b7-b270-24ad440a2746"
-$tenantId = "62837751-4e48-4d06-8bcb-57be1a669b78"
+$tenantId = "<YOUR_TENANT_ID>"
 $clientSecret = "Cql8Q~..."  # NEVER EVER DO THIS
 ```
 

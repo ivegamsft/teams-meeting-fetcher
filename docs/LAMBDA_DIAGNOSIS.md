@@ -211,7 +211,7 @@ Azure Tenant Check:
 
 ```bash
 az account show --query "tenantId"
-# Expected: 62837751-4e48-4d06-8bcb-57be1a669b78
+# Expected: <YOUR_TENANT_ID>
 ```
 
 Check Lambda logs:

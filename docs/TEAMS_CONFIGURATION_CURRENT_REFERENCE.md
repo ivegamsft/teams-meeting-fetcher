@@ -14,16 +14,16 @@
 
 | Item                      | Value                                  | Status         |
 | ------------------------- | -------------------------------------- | -------------- |
-| **Tenant ID**             | `62837751-4e48-4d06-8bcb-57be1a669b78` | ✅ Active      |
+| **Tenant ID**             | `<YOUR_TENANT_ID>` | ✅ Active      |
 | **Tenant Name**           | GRAPH_TENANT_ID (from .env)            | Reference only |
-| **Allow-List Group ID**   | `5e7708f8-b0d2-467d-97f9-d9da4818084a` | ✅ Active      |
+| **Allow-List Group ID**   | `<YOUR_GROUP_ID>` | ✅ Active      |
 | **Allow-List Group Name** | Teams Meeting Monitors                 | Scoped group   |
-| **Azure AD App (Bot) ID** | `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8` | ✅ Active      |
+| **Azure AD App (Bot) ID** | `<YOUR_GRAPH_APP_ID>` | ✅ Active      |
 | **Bot Display Name**      | Teams Meeting Fetcher Bot              | Azure AD app   |
 
 ### Azure AD App Registration (Current State)
 
-**App ID**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`  
+**App ID**: `<YOUR_GRAPH_APP_ID>`  
 **Service Principal**: Created ✅  
 **Client Secret**: Exists (rotation recommended every 12 months)
 
@@ -48,7 +48,7 @@
 | Manifest ID (constant across deployments) | `5fb90d80-a7cd-43c0-97e3-eb7577e40169`                                  | `apps/teams-app/manifest.json`         |
 | Short Name                                | `Meeting Fetcher`                                                       | `name.short`                           |
 | Full Name                                 | `Teams Meeting Fetcher`                                                 | `name.full`                            |
-| Bot ID (= App ID)                         | `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`                                  | `bots[0].botId`                        |
+| Bot ID (= App ID)                         | `<YOUR_GRAPH_APP_ID>`                                  | `bots[0].botId`                        |
 | Valid Domain                              | `epo20g6lg3.execute-api.us-east-1.amazonaws.com`                        | `validDomains[0]`                      |
 | Configuration URL                         | `https://epo20g6lg3.execute-api.us-east-1.amazonaws.com/dev/bot/config` | `configurableTabs[0].configurationUrl` |
 | Developer Organization                    | Your Organization                                                       | `developer.name`                       |
@@ -72,7 +72,7 @@
 | ------------------ | ---------------------- | -------------------------------------- |
 | **Policy Name**    | Recorded Line          | Organization                           |
 | **Pinned Apps**    | Meeting Fetcher        | Auto-install for users in group        |
-| **Assigned Group** | Teams Meeting Monitors | `5e7708f8-b0d2-467d-97f9-d9da4818084a` |
+| **Assigned Group** | Teams Meeting Monitors | `<YOUR_GROUP_ID>` |
 | **Scope Type**     | Group-scoped           | Only affects group members             |
 | **Created**        | 2025-Q4                | Reference only                         |
 
@@ -86,7 +86,7 @@
 | **Transcription Required** | Enabled                | All meetings                           |
 | **Cloud Recording**        | Enabled                | All meetings                           |
 | **Auto-Recording**         | On for Everyone        | Group members                          |
-| **Assigned Group**         | Teams Meeting Monitors | `5e7708f8-b0d2-467d-97f9-d9da4818084a` |
+| **Assigned Group**         | Teams Meeting Monitors | `<YOUR_GROUP_ID>` |
 | **Scope Type**             | Group-scoped           | Only affects group members             |
 
 **Behavior**: Meetings attended by users in the "Teams Meeting Monitors" group are automatically recorded and transcribed.
@@ -108,13 +108,13 @@
 
 ```env
 # Microsoft Graph Configuration
-GRAPH_TENANT_ID=62837751-4e48-4d06-8bcb-57be1a669b78
-GRAPH_CLIENT_ID=1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8
+GRAPH_TENANT_ID=<YOUR_TENANT_ID>
+GRAPH_CLIENT_ID=<YOUR_GRAPH_APP_ID>
 GRAPH_CLIENT_SECRET=[SECURED IN AWS SECRETS MANAGER]
 
 # Teams Configuration
-ENTRA_GROUP_ID=5e7708f8-b0d2-467d-97f9-d9da4818084a
-BOT_APP_ID=1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8  # Same as GRAPH_CLIENT_ID
+ENTRA_GROUP_ID=<YOUR_GROUP_ID>
+BOT_APP_ID=<YOUR_GRAPH_APP_ID>  # Same as GRAPH_CLIENT_ID
 
 # Webhook Configuration
 WEBHOOK_ENDPOINT=https://epo20g6lg3.execute-api.us-east-1.amazonaws.com/webhook
@@ -139,7 +139,7 @@ SUBSCRIPTIONS_TABLE=tmf-subscriptions
 | Setting              | Value                                                            |
 | -------------------- | ---------------------------------------------------------------- |
 | **Subscription ID**  | (Stored in DynamoDB / Graph API)                                 |
-| **Resource**         | `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a/events`            |
+| **Resource**         | `/groups/<YOUR_GROUP_ID>/events`            |
 | **Change Type**      | `created` (new event notifications)                              |
 | **Notification URL** | `https://epo20g6lg3.execute-api.us-east-1.amazonaws.com/webhook` |
 | **Expiration**       | Auto-renews every 4320 minutes (3 days)                          |
@@ -183,8 +183,8 @@ SUBSCRIPTIONS_TABLE=tmf-subscriptions
 
 | Resource                    | Name                  | Lease     | Status    |
 | --------------------------- | --------------------- | --------- | --------- |
-| **Event Hub Namespace**     | `tmf-ehns-eus-6an5wk` | 30 days   | ✅ Active |
-| **Event Hub**               | `tmf-eh-eus-6an5wk`   | 30 days   | ✅ Active |
+| **Event Hub Namespace**     | `<EVENT_HUB_NAMESPACE>` | 30 days   | ✅ Active |
+| **Event Hub**               | `<EVENT_HUB_NAME>`   | 30 days   | ✅ Active |
 | **Key Vault**               | `tmf-kv-eus-6an5wk`   | 30 days   | ✅ Active |
 | **App Registrations**       | 3 total               | Permanent | ✅ Active |
 | **Bot Service**             | `tmf-bot-eus-6an5wk`  | 30 days   | ✅ Active |

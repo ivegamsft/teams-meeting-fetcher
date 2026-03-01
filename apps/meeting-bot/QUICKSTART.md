@@ -94,11 +94,11 @@ Save these values — you'll need them for Teams app manifest.
 3. Fill in:
    - **Bot handle**: `teams-meeting-fetcher-bot`
    - **Subscription**: Your subscription
-   - **Resource group**: `tmf-rg-eus-6an5wk`
+   - **Resource group**: `<YOUR_RESOURCE_GROUP>`
    - **Pricing tier**: F0 (Free)
    - **Microsoft App ID**: Select **Use existing app registration**
      - **App ID**: (from Terraform output `bot_app_id`)
-     - **App tenant ID**: `62837751-4e48-4d06-8bcb-57be1a669b78`
+     - **App tenant ID**: `<YOUR_TENANT_ID>`
 4. Click **Create**
 
 ### 2.2 Configure messaging endpoint

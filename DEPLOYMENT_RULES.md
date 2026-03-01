@@ -64,7 +64,7 @@ pwd  # should end with /iac
 
 # 3. Verify correct tenant (for Azure changes only)
 az account show --query "tenantId" --output tsv
-# Expected: 62837751-4e48-4d06-8bcb-57be1a669b78
+# Expected: <YOUR_TENANT_ID>
 
 # 4. Initialize (first time only)
 terraform init

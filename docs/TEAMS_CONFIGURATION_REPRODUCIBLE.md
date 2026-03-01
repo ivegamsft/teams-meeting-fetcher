@@ -74,11 +74,11 @@ Install-Module -Name Az.Graph -Force           # Graph module
 
 | Item                           | Example                                       | Source                                    |
 | ------------------------------ | --------------------------------------------- | ----------------------------------------- |
-| **Tenant ID**                  | `62837751-4e48-4d06-8bcb-57be1a669b78`        | Azure AD → Properties                     |
+| **Tenant ID**                  | `<YOUR_TENANT_ID>`        | Azure AD → Properties                     |
 | **Target AWS Region**          | `us-east-1`                                   | Architecture decision                     |
 | **Lambda Function Endpoint**   | `https://abc123.lambda-url.us-east-1.on.aws/` | Existing Lambda URL or planned deployment |
 | **Allow-List Group Name**      | `Teams Meeting Monitors`                      | Create new or use existing                |
-| **Allow-List Group Object ID** | `5e7708f8-b0d2-467d-97f9-d9da4818084a`        | Will be created or located                |
+| **Allow-List Group Object ID** | `<YOUR_GROUP_ID>`        | Will be created or located                |
 | **Bot Display Name**           | `Teams Meeting Fetcher Bot`                   | Choose your own                           |
 | **App Short Name**             | `Meeting Fetcher`                             | Choose your own                           |
 
@@ -306,10 +306,10 @@ Have ready:
 
 # Example:
 .\scripts\setup\setup-teams-policies.ps1 `
-  -GroupId "5e7708f8-b0d2-467d-97f9-d9da4818084a" `
+  -GroupId "<YOUR_GROUP_ID>" `
   -GroupName "Teams Meeting Monitors" `
   -CatalogAppId "a1b2c3d4-e5f6-7890-abcd-ef1234567890" `
-  -BotAppId "1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8"
+  -BotAppId "<YOUR_GRAPH_APP_ID>"
 ```
 
 **What This Does**:

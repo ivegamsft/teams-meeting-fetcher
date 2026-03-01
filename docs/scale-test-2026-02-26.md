@@ -14,8 +14,8 @@ Transient Errors:        3 (auto-recovered)
 HTTP 429 Rate Limits:    0
 
 Rep Breakdown:
-  - trustingboar@ibuyspy.net:  160 appointments
-  - boldoriole@ibuyspy.net:    160 appointments
+  - user3@<YOUR_TENANT_DOMAIN>:  160 appointments
+  - user2@<YOUR_TENANT_DOMAIN>:    160 appointments
 
 Schedule: March 2-6, 2026 (Mon-Fri)
 Time Slots: 9:00 AM - 4:45 PM EST (32 x 15-min slots/day)

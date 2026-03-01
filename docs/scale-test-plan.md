@@ -14,7 +14,7 @@ This plan documents a realistic sales scenario that doubles as an end-to-end (E2
 
 | Parameter | Value |
 |-----------|-------|
-| **Sales Reps** | trustingboar@ibuyspy.net, boldoriole@ibuyspy.net |
+| **Sales Reps** | user3@<YOUR_TENANT_DOMAIN>, user2@<YOUR_TENANT_DOMAIN> |
 | **Test Week** | Monday, Mar 2 – Friday, Mar 6, 2026 |
 | **Business Hours** | 9:00 AM – 5:00 PM Eastern (EST, UTC-5) |
 | **Call Duration** | 15 minutes |
@@ -52,7 +52,7 @@ Agenda:
 
 **Meeting Properties:**
 - **Is Online Meeting:** true (Teams meeting link included)
-- **Organizer:** Sales rep (trustingboar@ibuyspy.net or boldoriole@ibuyspy.net)
+- **Organizer:** Sales rep (user3@<YOUR_TENANT_DOMAIN> or user2@<YOUR_TENANT_DOMAIN>)
 - **Attendees:** Sales rep + customer email (mock account; actual attendance not required)
 
 ---
@@ -159,9 +159,9 @@ Upon successful completion:
 python scripts/sales-blitz-scale-test.py
 
 # Expected console output:
-# Creating 160 events for trustingboar@ibuyspy.net...
+# Creating 160 events for user3@<YOUR_TENANT_DOMAIN>...
 # Created: 160 | Failed: 0 | Retried: 12
-# Creating 160 events for boldoriole@ibuyspy.net...
+# Creating 160 events for user2@<YOUR_TENANT_DOMAIN>...
 # Created: 160 | Failed: 0 | Retried: 8
 # Total: 320 created, 0 failed, 20 retried
 # Completed in 15 minutes

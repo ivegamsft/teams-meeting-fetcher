@@ -29,12 +29,12 @@ Lambda: tmf-webhook-writer-dev (Processes Payload)
 
 **Critical Requirements**:
 
-- Target group: `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a`
+- Target group: `/groups/<YOUR_GROUP_ID>`
 - Event type: `calendar.events`
 - Notification URL must include:
   - Event Hub namespace FQDN
-  - Topic path: `/tmf-eh-eus-6an5wk`
-  - Query parameter: `?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78`
+  - Topic path: `/<EVENT_HUB_NAME>`
+  - Query parameter: `?tenantId=<YOUR_TENANT_ID>`
 
 **Verify Subscription**:
 
@@ -50,13 +50,13 @@ az graph-query --query 'microsoft.graph.subscriptions' -o json
 
 ```bash
 # Verify Event Hub namespace exists
-az eventhub namespace show --name tmf-ehns-eus-6an5wk --resource-group tmf-rg-eus-6an5wk
+az eventhub namespace show --name <EVENT_HUB_NAMESPACE> --resource-group <YOUR_RESOURCE_GROUP>
 
 # List consumer groups
 az eventhub eventhub consumer-group list \
-  --namespace-name tmf-ehns-eus-6an5wk \
-  --eventhub-name tmf-eh-eus-6an5wk \
-  --resource-group tmf-rg-eus-6an5wk
+  --namespace-name <EVENT_HUB_NAMESPACE> \
+  --eventhub-name <EVENT_HUB_NAME> \
+  --resource-group <YOUR_RESOURCE_GROUP>
 ```
 
 ### Expected Behavior
@@ -186,7 +186,7 @@ watch -n 5 'aws dynamodb scan --table-name eventhub-checkpoints --profile tmf-de
 ### Step 2: Create Test Meeting (1 minute)
 
 1. Open Microsoft Teams
-2. Select the test group (containing members from `5e7708f8-b0d2-467d-97f9-d9da4818084a`)
+2. Select the test group (containing members from `<YOUR_GROUP_ID>`)
 3. Create a new calendar event:
    - Title: `Test Meeting [your name]`
    - Time: Within next 24 hours

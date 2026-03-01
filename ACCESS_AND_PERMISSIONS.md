@@ -27,19 +27,19 @@ The Teams Meeting Fetcher uses **app-only authentication** (client credentials f
 ```mermaid
 graph TD
     A["Entra App Registration<br/>(Client Credentials)"] -->|authenticates as| B["Azure AD Service Principal<br/>(App Identity)"]
-    
+
     B -->|claims| C["Graph API Permissions<br/>(7 application permissions)"]
-    
+
     C -->|granted via| D["Admin Consent<br/>(Tenant-wide grant)"]
-    
+
     D -->|enables| E["CsApplicationAccessPolicy<br/>(Teams Policy - CRITICAL)"]
-    
+
     E -->|allows| F["Graph API Calls<br/>(User-scoped endpoints)"]
-    
+
     F -->|returns| G["Meeting Metadata & Transcripts<br/>(Transcript Content)"]
-    
+
     H["Teams Meeting Policies<br/>(Recording, Transcription)"] -.->|enable recording of| G
-    
+
     style A fill:#e1f5ff
     style B fill:#e1f5ff
     style C fill:#fff3e0
@@ -63,11 +63,13 @@ graph TD
 **Purpose:** Establishes the app's identity; the service principal acts as the requesting entity for all Graph API calls.
 
 **Configuration:**
+
 - **Application (Client) ID** — used in token requests
 - **Client Secret** — used to prove identity (kept secret, never logged)
 - **Tenant ID** — specifies which Azure AD tenant to authenticate against
 
 **How to verify:**
+
 ```powershell
 # Azure AD app exists
 az ad app show --id "<CLIENT_ID>"
@@ -85,6 +87,7 @@ curl -X POST "https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token" \
 ```
 
 **Failure symptoms:**
+
 - `AADSTS700016` — Client credentials are invalid or the app does not exist
 - `AADSTS50058` — Silent sign-in failed; tenant not found
 
@@ -98,17 +101,18 @@ curl -X POST "https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token" \
 
 **Required permissions (all 7 must be granted):**
 
-| Permission | Permission ID | Purpose |
-|-----------|--------------|---------|
-| **Calendars.Read** | `798ee544-9d2d-430c-a058-570e29e34338` | Read calendar events from users' calendars |
-| **Group.Read.All** | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership and properties |
-| **User.Read.All** | `df021288-bdef-4463-88db-98f22de89214` | Read user profiles (resolve email → GUID) |
-| **OnlineMeetings.Read.All** | `c1684f21-1984-47fa-9d61-2dc8c296bb70` | Read online meeting metadata (ID, URL) |
-| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read meeting transcripts |
-| **OnlineMeetingRecording.Read.All** | `a4a08342-c95d-476b-b943-97e100569c8d` | Read meeting recordings |
-| **Subscription.ReadWrite.All** | (N/A for Graph subscriptions) | Create/manage webhook subscriptions |
+| Permission                           | Permission ID                          | Purpose                                    |
+| ------------------------------------ | -------------------------------------- | ------------------------------------------ |
+| **Calendars.Read**                   | `798ee544-9d2d-430c-a058-570e29e34338` | Read calendar events from users' calendars |
+| **Group.Read.All**                   | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership and properties       |
+| **User.Read.All**                    | `df021288-bdef-4463-88db-98f22de89214` | Read user profiles (resolve email → GUID)  |
+| **OnlineMeetings.Read.All**          | `c1684f21-1984-47fa-9d61-2dc8c296bb70` | Read online meeting metadata (ID, URL)     |
+| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read meeting transcripts                   |
+| **OnlineMeetingRecording.Read.All**  | `a4a08342-c95d-476b-b943-97e100569c8d` | Read meeting recordings                    |
+| **Subscription.ReadWrite.All**       | (N/A for Graph subscriptions)          | Create/manage webhook subscriptions        |
 
 **Why all 7:**
+
 - **Calendars.Read** — Retrieve calendar events (meeting invites)
 - **Group.Read.All, User.Read.All** — Resolve user email addresses to GUIDs (required for app-only onlineMeetings API)
 - **OnlineMeetings.Read.All** — Query `/users/{userId}/onlineMeetings` to find meeting details
@@ -128,6 +132,7 @@ az ad app permission list --id "<CLIENT_ID>"
 ```
 
 **Failure symptoms:**
+
 - `AADSTS650053` — Application lacks required permissions (403 Forbidden from Graph)
 - Missing transcripts in Graph responses despite CsApplicationAccessPolicy being set
 
@@ -142,10 +147,12 @@ az ad app permission list --id "<CLIENT_ID>"
 **One-time process:** After initial consent, the grant applies to all future calls from the app.
 
 **How to grant:**
+
 - **Azure Portal:** App registrations → API permissions → "Grant admin consent for [Tenant]" button
 - **PowerShell:** `New-AzureADServiceAppRoleAssignment` (see `scripts/grant-graph-permissions.ps1`)
 
 **How to verify:**
+
 ```powershell
 # Check each permission has "Granted" status
 Connect-MgGraph -Scopes "Application.ReadWrite.All"
@@ -158,6 +165,7 @@ $app.RequiredResourceAccess | ForEach-Object {
 ```
 
 **Failure symptoms:**
+
 - `AADSTS65001` — User or admin has not consented to use the application
 - Graph API returns 403 with "Insufficient privileges" (NOT the same as "No application access policy")
 
@@ -169,12 +177,14 @@ $app.RequiredResourceAccess | ForEach-Object {
 
 **What it is:** A Teams-specific authorization policy that explicitly allows the app to access users' online meetings via the Graph API `/users/{userId}/onlineMeetings` endpoint.
 
-**Why it's separate from Graph permissions:** 
+**Why it's separate from Graph permissions:**
+
 - **Graph permissions** authorize actions on Microsoft Graph resources
 - **CsApplicationAccessPolicy** is a **Teams admin policy** that sits above Graph permissions; it gates access to user-scoped online meeting data
 - Even with all Graph permissions granted and admin-consented, without this policy, Graph returns **403 "No application access policy found for this app"**
 
 **What it does:**
+
 - Registers the app's client ID in Teams
 - Grants the app permission to read the `/users/{userId}/onlineMeetings/*` hierarchy
 - Can be assigned globally or to specific users
@@ -187,7 +197,7 @@ Connect-MicrosoftTeams
 # Create the policy
 New-CsApplicationAccessPolicy `
   -Identity "TMF-AppAccess-Policy" `
-  -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" `
+  -AppIds "<YOUR_APP_ID>" `
   -Description "Allow Teams Meeting Fetcher app to access online meetings"
 
 # Grant globally (recommended for production after testing)
@@ -200,6 +210,7 @@ Grant-CsApplicationAccessPolicy `
 ```
 
 **How to verify:**
+
 ```powershell
 # Policy exists
 Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
@@ -211,6 +222,7 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 ```
 
 **Failure symptoms:**
+
 - **403 Forbidden** with message "No application access policy found for this app"
 - Appears in Graph API response body or Azure AD sign-in logs
 - Happens despite all Graph permissions being granted and consented
@@ -228,6 +240,7 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 **Why it matters:** Even if all previous layers are in place, if the meeting was never recorded/transcribed, there is no transcript to fetch via Graph API.
 
 **Required settings:**
+
 - **AllowTranscription** — `$true` (allows transcription)
 - **AllowCloudRecording** — `$true` (allows recording)
 - **AutoRecording** — `Enabled` (automatically starts recording on meeting start; does not require user action)
@@ -244,12 +257,14 @@ Set-CsTeamsMeetingPolicy -Identity Global `
 ```
 
 **How to verify:**
+
 ```powershell
 Get-CsTeamsMeetingPolicy -Identity Global | Select-Object `
   AllowCloudRecording, AllowTranscription, AutoRecording
 ```
 
 **Failure symptoms:**
+
 - Graph API call to `/users/{userId}/onlineMeetings/{id}/transcripts` returns empty array
 - Meeting doesn't appear to have been recorded (no transcripts available)
 
@@ -282,6 +297,7 @@ echo "App ID: $app"
 ```
 
 After creation, create a client secret (in Azure Portal):
+
 1. Navigate to **Azure Portal** → **Azure AD** → **App registrations** → Your app
 2. Click **Certificates & secrets**
 3. Click **New client secret** → add a description → copy the value
@@ -296,6 +312,7 @@ Automated script (recommended):
 ```
 
 Or manually in Azure Portal:
+
 1. **Azure Portal** → **App registrations** → Your app
 2. **API permissions** → **Add a permission**
 3. Search for each of these permissions and add them:
@@ -392,11 +409,12 @@ GET  /users/{userId}/onlineMeetings/{id}/transcripts/{transcriptId}/content?$for
 ```
 
 **Example from code** (transcriptService.ts, line 43):
+
 ```javascript
 const apiPath = `/users/${userId}/onlineMeetings/${meeting.onlineMeetingId}/transcripts/${graphTranscriptId}/content`;
 const contentResponse = await client
   .api(apiPath)
-  .query({ '$format': 'text/vtt' })
+  .query({ $format: 'text/vtt' })
   .responseType('text')
   .get();
 ```
@@ -455,10 +473,10 @@ These are hard-won errors from real deployments. Read these carefully.
 
 ### Pitfall 1: Wrong Endpoint Path for App-Only Auth
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
+| Symptom                                                                | Cause                                               | Fix                                                                                    |
+| ---------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | **404 Not Found** on `/communications/onlineMeetings/{id}/transcripts` | Using delegated auth path with app-only credentials | Use `/users/{userId}/onlineMeetings/{id}/transcripts` instead (see API Path Reference) |
-| **403 Forbidden** "not supported" | Trying app-only auth on delegated-only endpoint | Verify endpoint is user-scoped (`/users/{userId}/...`) |
+| **403 Forbidden** "not supported"                                      | Trying app-only auth on delegated-only endpoint     | Verify endpoint is user-scoped (`/users/{userId}/...`)                                 |
 
 **Lesson:** The `/communications/onlineMeetings` path is **delegated auth only**. For app-only auth, you **must** use `/users/{userId}/onlineMeetings`.
 
@@ -466,21 +484,22 @@ These are hard-won errors from real deployments. Read these carefully.
 
 ### Pitfall 2: User ID Must Be GUID, Not Email
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| **400 Bad Request** or **404 Not Found** on `/users/{id}/onlineMeetings` | Passing email address instead of GUID | Resolve email to GUID: `GET /users/{email}?$select=id` → use `id` field |
-| Transcripts appear empty (null GUID) | userId was resolved as email in code but used in app-only path | Always convert email to GUID before app-only API calls |
+| Symptom                                                                  | Cause                                                          | Fix                                                                     |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **400 Bad Request** or **404 Not Found** on `/users/{id}/onlineMeetings` | Passing email address instead of GUID                          | Resolve email to GUID: `GET /users/{email}?$select=id` → use `id` field |
+| Transcripts appear empty (null GUID)                                     | userId was resolved as email in code but used in app-only path | Always convert email to GUID before app-only API calls                  |
 
 **Lesson:** In app-only auth with `/users/{userId}/onlineMeetings`, the `userId` **must be a GUID** (UUID format). Email addresses and UPNs will not work.
 
 **Code pattern:**
+
 ```javascript
 // WRONG — will fail with app-only auth
 const resp = await client.api(`/users/${meeting.organizerEmail}/onlineMeetings`).get();
 
 // CORRECT — resolve email to GUID first
 const userResp = await client.api(`/users/${meeting.organizerEmail}`).select('id').get();
-const userId = userResp.id;  // GUID
+const userId = userResp.id; // GUID
 const resp = await client.api(`/users/${userId}/onlineMeetings`).get();
 ```
 
@@ -488,18 +507,19 @@ const resp = await client.api(`/users/${userId}/onlineMeetings`).get();
 
 ### Pitfall 3: Missing $format Parameter on Transcript Content Endpoint
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| **400 Bad Request** on `/transcripts/{id}/content` | Not including `$format=text/vtt` query parameter | Add `.query({ '$format': 'text/vtt' })` to request |
-| Response is not transcript text but HTML error page | Endpoint doesn't know what format to return without the parameter | Always include the query parameter |
+| Symptom                                             | Cause                                                             | Fix                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------- |
+| **400 Bad Request** on `/transcripts/{id}/content`  | Not including `$format=text/vtt` query parameter                  | Add `.query({ '$format': 'text/vtt' })` to request |
+| Response is not transcript text but HTML error page | Endpoint doesn't know what format to return without the parameter | Always include the query parameter                 |
 
 **Lesson:** The `/transcripts/{id}/content` endpoint is unusual: it requires a `$format` query parameter to specify output format. Without it, Graph API returns 400.
 
 **Code pattern (from transcriptService.ts, line 48):**
+
 ```javascript
 const contentResponse = await client
   .api(apiPath)
-  .query({ '$format': 'text/vtt' })  // REQUIRED
+  .query({ $format: 'text/vtt' }) // REQUIRED
   .responseType('text')
   .get();
 ```
@@ -508,15 +528,16 @@ const contentResponse = await client
 
 ### Pitfall 4: CsApplicationAccessPolicy Not Created or Not Propagated
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| **403 Forbidden** "No application access policy found for this app" | Policy not created | Create with `New-CsApplicationAccessPolicy` (see Setup Step 3) |
-| Same 403 immediately after creating policy | Policy not yet propagated | Wait 30 minutes and retry |
-| Propagation timeout after 45 minutes | Tenant sync issue or app already deleted | Verify policy: `Get-CsApplicationAccessPolicy \| Format-List` |
+| Symptom                                                             | Cause                                    | Fix                                                            |
+| ------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| **403 Forbidden** "No application access policy found for this app" | Policy not created                       | Create with `New-CsApplicationAccessPolicy` (see Setup Step 3) |
+| Same 403 immediately after creating policy                          | Policy not yet propagated                | Wait 30 minutes and retry                                      |
+| Propagation timeout after 45 minutes                                | Tenant sync issue or app already deleted | Verify policy: `Get-CsApplicationAccessPolicy \| Format-List`  |
 
 **Lesson:** **CsApplicationAccessPolicy is the most commonly missed layer.** It's Teams-specific (not visible in Azure Portal), takes 30 minutes to propagate, and without it, Graph API returns 403 even if all other layers are correctly configured.
 
 **Verification (from TEAMS_ADMIN_CONFIGURATION.md, Step 2.3):**
+
 ```powershell
 Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
 Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAccessPolicy
@@ -527,11 +548,11 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 
 ### Pitfall 5: Graph Permissions Not Consented (Admin Consent Missing)
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
+| Symptom                                                             | Cause                                                  | Fix                                                                              |
+| ------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | **403 Forbidden** "Insufficient privileges" (from Graph, not Teams) | Permissions added to app but admin consent not granted | Grant admin consent in Azure Portal or via `New-AzureADServiceAppRoleAssignment` |
-| Permissions show "Requires admin consent" status in Azure Portal | Waiting for consent flow to complete | Click "Grant admin consent for [Tenant]" button |
-| Permission grants "disappear" after some time | Tenant policy or incorrect permission assignment | Re-run `grant-graph-permissions.ps1` or use Terraform |
+| Permissions show "Requires admin consent" status in Azure Portal    | Waiting for consent flow to complete                   | Click "Grant admin consent for [Tenant]" button                                  |
+| Permission grants "disappear" after some time                       | Tenant policy or incorrect permission assignment       | Re-run `grant-graph-permissions.ps1` or use Terraform                            |
 
 **Lesson:** Adding permissions to the app registration is one step. **Admin consent is a separate step.** Without it, the service principal lacks the actual permission to access the resources.
 
@@ -539,11 +560,11 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 
 ### Pitfall 6: Transcript Does Not Exist (Empty Array from Graph)
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Graph API returns `{ value: [] }` for `/transcripts` | Meeting was not recorded/transcribed | Verify Teams meeting policies allow auto-recording (see Layer 5) |
-| Transcripts appear hours later | Graph is still processing the transcript | Transcription takes 15–60 minutes after meeting ends |
-| Transcript available in Teams client but not via Graph | Team members can see it but app cannot | Verify CsApplicationAccessPolicy covers the meeting organizer's account |
+| Symptom                                                | Cause                                    | Fix                                                                     |
+| ------------------------------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------- |
+| Graph API returns `{ value: [] }` for `/transcripts`   | Meeting was not recorded/transcribed     | Verify Teams meeting policies allow auto-recording (see Layer 5)        |
+| Transcripts appear hours later                         | Graph is still processing the transcript | Transcription takes 15–60 minutes after meeting ends                    |
+| Transcript available in Teams client but not via Graph | Team members can see it but app cannot   | Verify CsApplicationAccessPolicy covers the meeting organizer's account |
 
 **Lesson:** Graph API reflects what Teams has recorded and transcribed. If the meeting wasn't recorded (no Teams policy forcing it), or transcription is still processing, Graph will return an empty list.
 
@@ -551,10 +572,10 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 
 ### Pitfall 7: Calendar Event Doesn't Contain onlineMeetingId
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `onlineMeetingId` field is missing from calendar event | Event was created without Teams meeting option enabled | Resolve `onlineMeetingId` via JoinWebUrl filter (see API Path Reference) |
-| Calendar subscription returns events but they don't have meeting data | Webhook fired before meeting was fully synced | Retry the fetch a few minutes later |
+| Symptom                                                               | Cause                                                  | Fix                                                                      |
+| --------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `onlineMeetingId` field is missing from calendar event                | Event was created without Teams meeting option enabled | Resolve `onlineMeetingId` via JoinWebUrl filter (see API Path Reference) |
+| Calendar subscription returns events but they don't have meeting data | Webhook fired before meeting was fully synced          | Retry the fetch a few minutes later                                      |
 
 **Lesson:** Microsoft Graph Calendar API does **not** reliably populate `onlineMeetingId` from calendar events. You must resolve it separately via `/users/{userId}/onlineMeetings?$filter=JoinWebUrl eq '...'`.
 
@@ -562,11 +583,11 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAcce
 
 ### Pitfall 8: Propagation Delays (Permissions vs. Policies)
 
-| Component | Propagation Time | Symptom If Skipped |
-|-----------|------------------|-------------------|
-| **Graph Permissions** (admin consent) | 10–15 minutes | 403 "Insufficient privileges" |
-| **CsApplicationAccessPolicy** | **30 minutes** | 403 "No application access policy found" |
-| **Teams Meeting Policies** | Variable, up to 24 hours | Meetings not recorded; transcripts empty |
+| Component                             | Propagation Time         | Symptom If Skipped                       |
+| ------------------------------------- | ------------------------ | ---------------------------------------- |
+| **Graph Permissions** (admin consent) | 10–15 minutes            | 403 "Insufficient privileges"            |
+| **CsApplicationAccessPolicy**         | **30 minutes**           | 403 "No application access policy found" |
+| **Teams Meeting Policies**            | Variable, up to 24 hours | Meetings not recorded; transcripts empty |
 
 **Lesson:** **Do not run end-to-end tests immediately after setup.** Wait at least 30 minutes (for CsApplicationAccessPolicy) before declaring success.
 
@@ -689,15 +710,15 @@ External references:
 
 ## Summary Table
 
-| Layer | Component | Status Check | Time to Setup | Propagation |
-|-------|-----------|--------------|---------------|-------------|
-| **1** | Entra App Registration | `az ad app show` succeeds | 5 min | Immediate |
-| **2** | Graph API Permissions (7) | Azure Portal shows all 7 | 10 min | 10–15 min |
-| **3** | Admin Consent | Portal shows "✓ Granted" | 2 min | 10–15 min |
-| **4** | CsApplicationAccessPolicy | `Get-CsApplicationAccessPolicy` returns policy | 5 min | **30 min** |
-| **5** | Teams Meeting Policies | `Get-CsTeamsMeetingPolicy` shows Allow/Auto settings | 10 min | Up to 24 hours |
-| **6** | Application Configuration | `.env` file has credentials | 5 min | Immediate |
-| **Verification** | End-to-end transcript fetch | Transcript stored successfully | 5 min | Depends on recording |
+| Layer            | Component                   | Status Check                                         | Time to Setup | Propagation          |
+| ---------------- | --------------------------- | ---------------------------------------------------- | ------------- | -------------------- |
+| **1**            | Entra App Registration      | `az ad app show` succeeds                            | 5 min         | Immediate            |
+| **2**            | Graph API Permissions (7)   | Azure Portal shows all 7                             | 10 min        | 10–15 min            |
+| **3**            | Admin Consent               | Portal shows "✓ Granted"                             | 2 min         | 10–15 min            |
+| **4**            | CsApplicationAccessPolicy   | `Get-CsApplicationAccessPolicy` returns policy       | 5 min         | **30 min**           |
+| **5**            | Teams Meeting Policies      | `Get-CsTeamsMeetingPolicy` shows Allow/Auto settings | 10 min        | Up to 24 hours       |
+| **6**            | Application Configuration   | `.env` file has credentials                          | 5 min         | Immediate            |
+| **Verification** | End-to-end transcript fetch | Transcript stored successfully                       | 5 min         | Depends on recording |
 
 **Total time: ~75 minutes (mostly waiting for CsApplicationAccessPolicy propagation)**
 

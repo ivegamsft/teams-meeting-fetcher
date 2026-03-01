@@ -15,7 +15,7 @@ GRAPH_CONFIG = {
     'client_secret': os.getenv('GRAPH_CLIENT_SECRET'),
     'eventhub_namespace': os.getenv('EVENT_HUB_NAMESPACE'),
     'eventhub_name': os.getenv('EVENT_HUB_NAME'),
-    'tenant_domain': os.getenv('TENANT_DOMAIN', 'ibuyspy.net'),
+    'tenant_domain': os.getenv('TENANT_DOMAIN', '<YOUR_TENANT_DOMAIN>'),
 }
 ```
 
@@ -225,7 +225,7 @@ def list_subscriptions(token):
 token = get_graph_token()
 
 # Set up monitoring for a group
-group_id = '5e7708f8-b0d2-467d-97f9-d9da4818084a'
+group_id = '<YOUR_GROUP_ID>'
 subscriptions = create_group_monitoring(group_id, token)
 
 # Store subscription IDs in database/S3
@@ -340,9 +340,9 @@ Store subscription information for tracking and renewal:
 # DynamoDB schema example
 {
     'user_id': 'dbb98842-0024-4474-a69a-a27acd7...',  # Partition key
-    'subscription_id': '8c6f2667-4b0b-405c-9b49-86cf6875fa9a',
-    'user_principal': 'a-ivega@ibuyspy.net',
-    'group_id': '5e7708f8-b0d2-467d-97f9-d9da4818084a',
+    'subscription_id': '<SUBSCRIPTION_ID_1>',
+    'user_principal': 'user1@<YOUR_TENANT_DOMAIN>',
+    'group_id': '<YOUR_GROUP_ID>',
     'resource': '/users/dbb98842-0024-4474-a69a-a27acd7.../events',
     'expiration': '2026-02-22T17:47:00Z',
     'created_at': '2026-02-20T17:47:00Z',
@@ -357,7 +357,7 @@ Track which groups are being monitored:
 
 ```python
 {
-    'group_id': '5e7708f8-b0d2-467d-97f9-d9da4818084a',  # Partition key
+    'group_id': '<YOUR_GROUP_ID>',  # Partition key
     'group_name': 'Teams Meeting Fetcher Admins',
     'member_count': 2,
     'subscription_count': 2,

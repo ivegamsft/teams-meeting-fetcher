@@ -14,7 +14,7 @@ Testing the complete flow from Teams meeting creation through Lambda processing 
 Meeting ID: AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MUBGAAAAAA
 Subject: E2E Test Meeting - 134006
 Start: 2026-02-20T20:40:06 UTC
-User: trustingboar@ibuyspy.net
+User: user3@<YOUR_TENANT_DOMAIN>
 ```
 
 **What Worked:**
@@ -49,8 +49,8 @@ User: trustingboar@ibuyspy.net
 
 **Key Components:**
 
-- Graph Subscription: ✅ Active (configured for `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a` events)
-- Event Hub: ✅ Ready (tmf-ehns-eus-6an5wk/tmf-eh-eus-6an5wk)
+- Graph Subscription: ✅ Active (configured for `/groups/<YOUR_GROUP_ID>` events)
+- Event Hub: ✅ Ready (<EVENT_HUB_NAMESPACE>/<EVENT_HUB_NAME>)
 - Lambda: ⚠️ Fixed (see Step 3)
 
 ---
@@ -129,8 +129,8 @@ aws dynamodb scan --table-name eventhub-checkpoints --region us-east-1 --profile
 
 ### Azure Resources
 
-- **Event Hub Namespace:** `tmf-ehns-eus-6an5wk`
-- **Event Hub:** `tmf-eh-eus-6an5wk`
+- **Event Hub Namespace:** `<EVENT_HUB_NAMESPACE>`
+- **Event Hub:** `<EVENT_HUB_NAME>`
 - **Resource Group:** `tmf-resource-group`
 - **Graph Subscription:** ✅ Active (group events)
 
@@ -184,7 +184,7 @@ aws logs tail /aws/lambda/tmf-eventhub-processor-dev --follow --region us-east-1
 ```powershell
 # Check EventHub metrics
 az monitor metrics list `
-  --resource /subscriptions/.../resourceGroups/tmf-resource-group/providers/Microsoft.EventHub/namespaces/tmf-ehns-eus-6an5wk `
+  --resource /subscriptions/.../resourceGroups/tmf-resource-group/providers/Microsoft.EventHub/namespaces/<EVENT_HUB_NAMESPACE> `
   --metric IncomingMessages --interval PT1M
 
 # Check DynamoDB checkpoints
@@ -227,7 +227,7 @@ aws events describe-rule --name tmf-eventhub-poll-dev --region us-east-1 --profi
 - **Subject:** E2E Test Meeting - {timestamp}
 - **Start:** Current time + 2 hours
 - **End:** Current time + 3 hours
-- **Attendee:** trustingboar@ibuyspy.net
+- **Attendee:** user3@<YOUR_TENANT_DOMAIN>
 - **Meeting:** Teams online meeting
 
 ---

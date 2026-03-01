@@ -18,7 +18,7 @@ GRAPH_SUBSCRIPTION_RESOURCE=/users/{userId}/events
 ✅ **CORRECT:**
 
 ```
-GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
+GRAPH_SUBSCRIPTION_RESOURCE=/groups/<YOUR_GROUP_ID>
 ```
 
 **Why?** Graph API requires group scope for multi-user calendar monitoring. Individual user subscriptions have different limitations.
@@ -36,15 +36,15 @@ EventHub:https://<eventhubnamespace>.servicebus.windows.net/eventhubname/<eventh
 | Component          | Example                                               | Notes                                              |
 | ------------------ | ----------------------------------------------------- | -------------------------------------------------- |
 | Protocol           | `EventHub:`                                           | Literal string, REQUIRED                           |
-| Namespace endpoint | `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` | From Event Hub → Overview → Host name              |
+| Namespace endpoint | `https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/` | From Event Hub → Overview → Host name              |
 | **Path segment**   | `eventhubname/`                                       | **Literal string**, NOT optional, NOT the hub name |
-| Hub name           | `tmf-eh-eus-6an5wk`                                   | The actual Event Hub name                          |
-| Tenant query param | `?tenantId=ibuyspy.net`                               | Tenant's primary domain (Azure AD → Overview)      |
+| Hub name           | `<EVENT_HUB_NAME>`                                   | The actual Event Hub name                          |
+| Tenant query param | `?tenantId=<YOUR_TENANT_DOMAIN>`                               | Tenant's primary domain (Azure AD → Overview)      |
 
 #### Complete Example:
 
 ```
-EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
+EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/eventhubname/<EVENT_HUB_NAME>?tenantId=<YOUR_TENANT_DOMAIN>
 ```
 
 ### 3. Required Permissions
@@ -69,7 +69,7 @@ az role assignment list --scope /subscriptions/<sub>/resourceGroups/<rg>/provide
 
 ```bash
 # Check Event Hub exists
-az eventhubs namespace show --name tmf-ehns-eus-6an5wk --resource-group tmf-rg-eus-6an5wk
+az eventhubs namespace show --name <EVENT_HUB_NAMESPACE> --resource-group <YOUR_RESOURCE_GROUP>
 
 # Check processor is running
 Get-Job -Name processor
@@ -81,11 +81,11 @@ Edit `nobots-eventhub/.env`:
 
 ```dotenv
 # MUST be group ID, not user
-GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
+GRAPH_SUBSCRIPTION_RESOURCE=/groups/<YOUR_GROUP_ID>
 
 # Event Hub details from deployment
-EVENT_HUB_NAMESPACE=tmf-ehns-eus-6an5wk.servicebus.windows.net
-EVENT_HUB_NAME=tmf-eh-eus-6an5wk
+EVENT_HUB_NAMESPACE=<EVENT_HUB_NAMESPACE>.servicebus.windows.net
+EVENT_HUB_NAME=<EVENT_HUB_NAME>
 ```
 
 ### Step 3: Create Subscription
@@ -100,7 +100,7 @@ npm run subscribe
 ```
 ✅ Subscription created!
    ID: 7181c11e-9b4a-4000-8e8f-0eaeae5c1642
-   Resource: /groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
+   Resource: /groups/<YOUR_GROUP_ID>
    Expires: 2/19/2026, 11:55 PM
 ```
 
@@ -122,8 +122,8 @@ npm run subscribe
 **Fix:**
 
 ```
-❌ Wrong: https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk
-✅ Right: https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
+❌ Wrong: https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>
+✅ Right: https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/eventhubname/<EVENT_HUB_NAME>?tenantId=<YOUR_TENANT_DOMAIN>
 ```
 
 ### Error: `400 ValidationError`
@@ -157,7 +157,7 @@ az role assignment create \
 GRAPH_SUBSCRIPTION_RESOURCE=/users/user@company.com/events
 
 # RIGHT
-GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
+GRAPH_SUBSCRIPTION_RESOURCE=/groups/<YOUR_GROUP_ID>
 ```
 
 ### No Notifications Received
@@ -166,7 +166,7 @@ GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a
 
 1. Processor is running: `Get-Job -Name processor`
 2. Subscription is active: `cat data/subscription.json`
-3. Group has members: `az ad group member list --group 5e7708f8-b0d2-467d-97f9-d9da4818084a`
+3. Group has members: `az ad group member list --group <YOUR_GROUP_ID>`
 
 **Renewal:** Subscriptions expire in 24 hours. Re-run `npm run subscribe` daily.
 

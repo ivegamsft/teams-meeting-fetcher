@@ -28,7 +28,7 @@ Everything is in a single `iac/` folder. `iac/azure/` and `iac/aws/` are just **
 ```bash
 # Verify Azure tenant
 az account show --query "tenantId" --output tsv
-# Should be: 62837751-4e48-4d06-8bcb-57be1a669b78
+# Should be: <YOUR_TENANT_ID>
 
 # Verify AWS account
 aws sts get-caller-identity --profile tmf-dev
@@ -40,8 +40,8 @@ Edit `iac/terraform.tfvars` with your credentials:
 
 ```hcl
 # Azure Graph API credentials
-azure_graph_tenant_id     = "62837751-4e48-4d06-8bcb-57be1a669b78"
-azure_graph_client_id     = "1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8"
+azure_graph_tenant_id     = "<YOUR_TENANT_ID>"
+azure_graph_client_id     = "<YOUR_GRAPH_APP_ID>"
 azure_graph_client_secret = "<PASTE_CLIENT_SECRET_HERE>"
 
 # AWS Lambda renewal schedule
@@ -126,8 +126,8 @@ Install-Module -Name MicrosoftTeams -Force
 
 # Run setup script
 .\scripts\setup-teams-policies.ps1 `
-  -GroupId "5e7708f8-b0d2-467d-97f9-d9da4818084a" `
-  -CatalogAppId "1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8"
+  -GroupId "<YOUR_GROUP_ID>" `
+  -CatalogAppId "<YOUR_GRAPH_APP_ID>"
 ```
 
 Policies take 4-24 hours to propagate.

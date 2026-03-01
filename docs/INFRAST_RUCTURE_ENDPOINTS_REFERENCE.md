@@ -42,8 +42,8 @@ curl -X POST https://4ej2x5p7al3tfefz7iiru7kwre0ityts.lambda-url.us-east-1.on.aw
 ### Event Hub
 
 ```
-Namespace:    tmf-ehns-eus-6an5wk
-Hub Name:     tmf-eh-eus-6an5wk
+Namespace:    <EVENT_HUB_NAMESPACE>
+Hub Name:     <EVENT_HUB_NAME>
 Connection String: From Key Vault (tmf-kv-eus-6an5wk)
 Consumer Groups: tmf-cg-webhooks, tmf-cg-eventhub
 ```
@@ -53,16 +53,16 @@ Consumer Groups: tmf-cg-webhooks, tmf-cg-eventhub
 ```bash
 # Via Event Hub receiver
 az eventhub eventhub consumer-group list \
-  --namespace-name tmf-ehns-eus-6an5wk \
-  --eventhub-name tmf-eh-eus-6an5wk \
-  --resource-group tmf-rg-eus-6an5wk
+  --namespace-name <EVENT_HUB_NAMESPACE> \
+  --eventhub-name <EVENT_HUB_NAME> \
+  --resource-group <YOUR_RESOURCE_GROUP>
 ```
 
 ### Storage Account
 
 ```
 Name:          tmfsteus6an5wk
-Resource Group: tmf-rg-eus-6an5wk
+Resource Group: <YOUR_RESOURCE_GROUP>
 Region:        East US
 Containers:    (Key Vault stores connection string)
 ```
@@ -71,7 +71,7 @@ Containers:    (Key Vault stores connection string)
 
 ```
 Name:                            tmf-kv-eus-6an5wk
-Resource Group:                  tmf-rg-eus-6an5wk
+Resource Group:                  <YOUR_RESOURCE_GROUP>
 Public Network Access:           Enabled (for Terraform)
 Client IP Added:                 47.206.222.73
 Network ACL Status:              AllowByDefault
@@ -303,10 +303,10 @@ Insights Available: Yes
 
 | Resource         | ID                                   |
 | ---------------- | ------------------------------------ |
-| Tenant ID        | 62837751-4e48-4d06-8bcb-57be1a669b78 |
-| Graph App ID     | 1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8 |
+| Tenant ID        | <YOUR_TENANT_ID> |
+| Graph App ID     | <YOUR_GRAPH_APP_ID> |
 | Bot App ID       | a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4 |
-| Allowed Group ID | 5e7708f8-b0d2-467d-97f9-d9da4818084a |
+| Allowed Group ID | <YOUR_GROUP_ID> |
 | AWS Account      | 833337371676                         |
 | AWS Region       | us-east-1                            |
 | AWS Profile      | tmf-dev                              |
@@ -341,7 +341,7 @@ Insights Available: Yes
 
 ```bash
 # Event Hub
-az eventhub namespace show --name tmf-ehns-eus-6an5wk --resource-group tmf-rg-eus-6an5wk
+az eventhub namespace show --name <EVENT_HUB_NAMESPACE> --resource-group <YOUR_RESOURCE_GROUP>
 
 # S3 (verify exists and accessible)
 aws s3api list-buckets --profile tmf-dev --region us-east-1 | grep tmf-webhooks
@@ -376,8 +376,8 @@ aws lambda invoke \
 
 ```bash
 az account show --query "tenantId" --output tsv
-# Expected: 62837751-4e48-4d06-8bcb-57be1a669b78
+# Expected: <YOUR_TENANT_ID>
 
 # If wrong, switch:
-az login --tenant 62837751-4e48-4d06-8bcb-57be1a669b78
+az login --tenant <YOUR_TENANT_ID>
 ```

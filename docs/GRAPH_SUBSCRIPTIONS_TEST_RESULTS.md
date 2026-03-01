@@ -2,8 +2,8 @@
 
 **Date**: 2026-02-20  
 **Testing Infrastructure**: Azure Event Hub + AWS Lambda  
-**Service Principal**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`  
-**Group ID**: `5e7708f8-b0d2-467d-97f9-d9da4818084a` (Teams Meeting Fetcher Admins)
+**Service Principal**: `<YOUR_GRAPH_APP_ID>`  
+**Group ID**: `<YOUR_GROUP_ID>` (Teams Meeting Fetcher Admins)
 
 ---
 
@@ -29,13 +29,13 @@
 
 | User                     | Subscription ID                      | Created             | Status     |
 | ------------------------ | ------------------------------------ | ------------------- | ---------- |
-| boldoriole@ibuyspy.net   | 5f54d721-d420-4d77-86a2-cfc343e1336a | 2026-02-20 17:54:58 | ✅ Firing  |
-| boldoriole@ibuyspy.net   | 057313e8-3814-4b05-9142-15303355c778 | Earlier             | ✅ Firing  |
-| boldoriole@ibuyspy.net   | d6c1bdc3-1152-43bc-a5e6-a0e99c788be9 | Earlier             | ✅ Firing  |
-| boldoriole@ibuyspy.net   | ede54367-caf0-4038-8758-15e5e157e340 | Earlier             | ✅ Firing  |
-| boldoriole@ibuyspy.net   | a72146a8-9481-416a-9c9f-38417295d693 | Earlier             | ✅ Firing  |
-| trustingboar@ibuyspy.net | c8638512-9b9c-4647-b284-a62ddfd974d0 | 2026-02-20 17:54:58 | ✅ Created |
-| a-ivega@ibuyspy.net      | 8c6f2667-4b0b-405c-9b49-86cf6875fa9a | 2026-02-20 17:47:00 | ✅ Firing  |
+| user2@<YOUR_TENANT_DOMAIN>   | <SUBSCRIPTION_ID_2> | 2026-02-20 17:54:58 | ✅ Firing  |
+| user2@<YOUR_TENANT_DOMAIN>   | 057313e8-3814-4b05-9142-15303355c778 | Earlier             | ✅ Firing  |
+| user2@<YOUR_TENANT_DOMAIN>   | d6c1bdc3-1152-43bc-a5e6-a0e99c788be9 | Earlier             | ✅ Firing  |
+| user2@<YOUR_TENANT_DOMAIN>   | ede54367-caf0-4038-8758-15e5e157e340 | Earlier             | ✅ Firing  |
+| user2@<YOUR_TENANT_DOMAIN>   | a72146a8-9481-416a-9c9f-38417295d693 | Earlier             | ✅ Firing  |
+| user3@<YOUR_TENANT_DOMAIN> | <SUBSCRIPTION_ID_3> | 2026-02-20 17:54:58 | ✅ Created |
+| user1@<YOUR_TENANT_DOMAIN>      | <SUBSCRIPTION_ID_1> | 2026-02-20 17:47:00 | ✅ Firing  |
 
 #### Notification Pattern
 
@@ -48,12 +48,12 @@ Single meeting creation triggers:
 
 #### Test Meetings Created
 
-1. **User: boldoriole@ibuyspy.net**
+1. **User: user2@<YOUR_TENANT_DOMAIN>**
    - Subject: `[TEST-GROUP-MEMBER] Subscription test for group member`
    - Created: 2026-02-20 17:55:07
    - Notifications: ✅ Received (created + 2 updated)
 
-2. **User: a-ivega@ibuyspy.net**
+2. **User: user1@<YOUR_TENANT_DOMAIN>**
    - Subject: `[TEST-USER-SP] Event Hub notification test`
    - Created: 2026-02-20 17:47:00
    - Notifications: ✅ Received (created + 2 updated)
@@ -68,10 +68,10 @@ Single meeting creation triggers:
 
 #### Group Details
 
-- **Group ID**: `5e7708f8-b0d2-467d-97f9-d9da4818084a`
+- **Group ID**: `<YOUR_GROUP_ID>`
 - **Members Found**: 2 users
-  - boldoriole@ibuyspy.net
-  - trustingboar@ibuyspy.net
+  - user2@<YOUR_TENANT_DOMAIN>
+  - user3@<YOUR_TENANT_DOMAIN>
 
 #### Implementation
 
@@ -86,8 +86,8 @@ Single meeting creation triggers:
 
 **Subscriptions Created**:
 
-- boldoriole@ibuyspy.net → `5f54d721-d420-4d77-86a2-cfc343e1336a`
-- trustingboar@ibuyspy.net → `c8638512-9b9c-4647-b284-a62ddfd974d0`
+- user2@<YOUR_TENANT_DOMAIN> → `<SUBSCRIPTION_ID_2>`
+- user3@<YOUR_TENANT_DOMAIN> → `<SUBSCRIPTION_ID_3>`
 
 #### Advantages
 
@@ -113,7 +113,7 @@ Single meeting creation triggers:
 
 #### Why It Doesn't Work
 
-The group `5e7708f8-b0d2-467d-97f9-d9da4818084a` doesn't have an active Exchange Online shared mailbox:
+The group `<YOUR_GROUP_ID>` doesn't have an active Exchange Online shared mailbox:
 
 - Group may be security group only
 - Mailbox may be hosted on-premise
@@ -145,7 +145,7 @@ It does **NOT** monitor:
 
 #### Testing Limitation
 
-**Issue**: Group `5e7708f8-b0d2-467d-97f9-d9da4818084a` is not a Teams team  
+**Issue**: Group `<YOUR_GROUP_ID>` is not a Teams team  
 **Error**: `404 - No team found with Group Id`
 
 This means:
@@ -203,7 +203,7 @@ For tenant-wide Teams message subscriptions:
 Partition: 0
 Enqueued: 2026-02-20 17:55:09.778000+00:00
 Body length: 934 chars
-Body preview: {"value":[{"subscriptionId":"5f54d721-d420-4d77-86a2-cfc343e1336a",
+Body preview: {"value":[{"subscriptionId":"<SUBSCRIPTION_ID_2>",
 "subscriptionExpirationDateTime":"2026-02-22T17:54:58+00:00","changeType":"updated",
 "resource":"Users/e5fe8748-76f0-42ed-b521-241e825...
 ```
@@ -222,8 +222,8 @@ Body preview: {"value":[{"subscriptionId":"5f54d721-d420-4d77-86a2-cfc343e1336a"
 
 ### Application Details
 
-- **Client ID**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
-- **Tenant ID**: `62837751-4e48-4d06-8bcb-57be1a669b78` (ibuyspy.net)
+- **Client ID**: `<YOUR_GRAPH_APP_ID>`
+- **Tenant ID**: `<YOUR_TENANT_ID>` (<YOUR_TENANT_DOMAIN>)
 - **Authentication**: App-only (client credentials flow)
 
 ### Graph API Permissions

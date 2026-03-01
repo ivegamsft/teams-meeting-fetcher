@@ -203,9 +203,9 @@ Understanding arch?      TEAMS_BOT_SPEC.md (existing doc)
 
 | Configuration Item    | Documented In                        | Status                                      |
 | --------------------- | ------------------------------------ | ------------------------------------------- |
-| Azure AD App ID       | Current Ref, Checklist               | ✅ 1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8     |
-| Tenant ID             | Current Ref, Checklist               | ✅ 62837751-4e48-4d06-8bcb-57be1a669b78     |
-| Allow-List Group ID   | Current Ref, Checklist               | ✅ 5e7708f8-b0d2-467d-97f9-d9da4818084a     |
+| Azure AD App ID       | Current Ref, Checklist               | ✅ <YOUR_GRAPH_APP_ID>     |
+| Tenant ID             | Current Ref, Checklist               | ✅ <YOUR_TENANT_ID>     |
+| Allow-List Group ID   | Current Ref, Checklist               | ✅ <YOUR_GROUP_ID>     |
 | Graph API Permissions | Current Ref, Reproducible            | ✅ 5 permissions listed                     |
 | Teams Manifest Values | Current Ref, Reproducible, Checklist | ✅ All fields documented                    |
 | Teams Policies        | Current Ref, Reproducible, Checklist | ✅ 3 policies defined                       |

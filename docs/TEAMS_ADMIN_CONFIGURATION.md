@@ -17,8 +17,8 @@ Before starting, you need:
 3. **Teams PowerShell Module** — For PowerShell-based setup (optional but recommended for verification)
 4. **Teams Premium license** — Required for auto-transcription features and meeting templates
 5. **Teams Meeting Fetcher app details:**
-   - **Client ID:** `63f2f070-e55d-40d3-93f9-f46229544066`
-   - **Tenant:** ibuyspy.net (replace with your tenant)
+   - **Client ID:** `<YOUR_GRAPH_APP_ID>`
+   - **Tenant:** <YOUR_TENANT_DOMAIN> (replace with your tenant)
 
 ### Install Teams PowerShell Module (Optional)
 
@@ -137,14 +137,14 @@ Connect-MicrosoftTeams
 # Create the policy for Teams Meeting Fetcher
 New-CsApplicationAccessPolicy `
     -Identity "TMF-AppAccess-Policy" `
-    -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" `
+    -AppIds "<YOUR_GRAPH_APP_ID>" `
     -Description "Allow Teams Meeting Fetcher app to access online meetings"
 ```
 
 **Expected Output:**
 ```
 Identity    : TMF-AppAccess-Policy
-AppIds      : {63f2f070-e55d-40d3-93f9-f46229544066}
+AppIds      : {<YOUR_GRAPH_APP_ID>}
 Description : Allow Teams Meeting Fetcher app to access online meetings
 ```
 
@@ -192,7 +192,7 @@ Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object `
 **Expected Output:**
 ```
 Identity    : TMF-AppAccess-Policy
-AppIds      : {63f2f070-e55d-40d3-93f9-f46229544066}
+AppIds      : {<YOUR_GRAPH_APP_ID>}
 Description : Allow Teams Meeting Fetcher app to access online meetings
 
 DisplayName            : User Name
@@ -230,7 +230,7 @@ The complete set of Graph API permissions required:
 
 1. Sign into **Azure Portal** (https://portal.azure.com)
 2. Navigate to **Azure Active Directory** > **App registrations**
-3. Search for and click **Teams Meeting Fetcher** (or search by Client ID: `63f2f070-e55d-40d3-93f9-f46229544066`)
+3. Search for and click **Teams Meeting Fetcher** (or search by Client ID: `<YOUR_GRAPH_APP_ID>`)
 4. Click **API permissions** from the left menu
 5. Click **Add a permission**
 6. Select **Microsoft Graph** > **Application permissions**
@@ -275,7 +275,7 @@ Status: ✓ Granted for [Your Tenant]
 Connect-MgGraph -Scopes "Application.ReadWrite.All"
 
 # Get the app registration
-$app = Get-MgApplication -Filter "appId eq '63f2f070-e55d-40d3-93f9-f46229544066'"
+$app = Get-MgApplication -Filter "appId eq '<YOUR_GRAPH_APP_ID>'"
 
 # List required resource accesses
 $app.RequiredResourceAccess | ForEach-Object {

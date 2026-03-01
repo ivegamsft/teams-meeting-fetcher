@@ -15,7 +15,7 @@ const eventHubNamespace = process.env.EVENT_HUB_NAMESPACE?.split('.')[0]; // TOD
 ```javascript
 let eventHubNamespace = process.env.EVENT_HUB_NAMESPACE;
 
-// Handle both FQDN (tmf-ehns-eus-6an5wk.servicebus.windows.net) and namespace-only (tmf-ehns-eus-6an5wk)
+// Handle both FQDN (<EVENT_HUB_NAMESPACE>.servicebus.windows.net) and namespace-only (<EVENT_HUB_NAMESPACE>)
 if (eventHubNamespace?.includes('.')) {
   // Already FQDN, extract namespace only
   eventHubNamespace = eventHubNamespace.split('.')[0];
@@ -24,7 +24,7 @@ if (eventHubNamespace?.includes('.')) {
 
 **Impact:**
 
-- Accepts both namespace-only (`tmf-ehns-eus-6an5wk`) and FQDN formats (`tmf-ehns-eus-6an5wk.servicebus.windows.net`)
+- Accepts both namespace-only (`<EVENT_HUB_NAMESPACE>`) and FQDN formats (`<EVENT_HUB_NAMESPACE>.servicebus.windows.net`)
 - Automatically detects and extracts the namespace from FQDN
 - Prevents configuration ambiguity
 
@@ -103,13 +103,13 @@ if (!partitionsToRead) {
 1. **Test with namespace-only format:**
 
    ```bash
-   EVENT_HUB_NAMESPACE=tmf-ehns-eus-6an5wk
+   EVENT_HUB_NAMESPACE=<EVENT_HUB_NAMESPACE>
    ```
 
 2. **Test with FQDN format:**
 
    ```bash
-   EVENT_HUB_NAMESPACE=tmf-ehns-eus-6an5wk.servicebus.windows.net
+   EVENT_HUB_NAMESPACE=<EVENT_HUB_NAMESPACE>.servicebus.windows.net
    ```
 
 3. **Test with single partition:**

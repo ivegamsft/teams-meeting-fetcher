@@ -2,8 +2,8 @@
 
 **Test Date**: February 20, 2026  
 **Environment**: Azure Event Hub + Microsoft Graph API  
-**Tenant**: `ibuyspy.net` (62837751-4e48-4d06-8bcb-57be1a669b78)  
-**Service Principal**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
+**Tenant**: `<YOUR_TENANT_DOMAIN>` (<YOUR_TENANT_ID>)  
+**Service Principal**: `<YOUR_GRAPH_APP_ID>`
 
 ---
 
@@ -42,8 +42,8 @@ Monitor calendar events for a single specific user. This is the most basic and r
 ```json
 {
   "changeType": "created,updated,deleted",
-  "notificationUrl": "EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk/?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78",
-  "resource": "/users/dbb98842-0024-4474-a69a-a27acd709d80/events",
+  "notificationUrl": "EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>/?tenantId=<YOUR_TENANT_ID>",
+  "resource": "/users/<USER_OBJECT_ID_1>/events",
   "expirationDateTime": "2026-02-22T17:47:00Z",
   "clientState": "SecretClientState"
 }
@@ -52,8 +52,8 @@ Monitor calendar events for a single specific user. This is the most basic and r
 ### Test Details
 
 **Subscription ID**: Previous user subscriptions  
-**User**: `a-ivega@ibuyspy.net`  
-**User ID**: `dbb98842-0024-4474-a69a-a27acd709d80`
+**User**: `user1@<YOUR_TENANT_DOMAIN>`  
+**User ID**: `<USER_OBJECT_ID_1>`
 
 **Scope**:
 
@@ -72,17 +72,17 @@ Monitor calendar events for a single specific user. This is the most basic and r
 {
   "value": [
     {
-      "subscriptionId": "8c6f2667-4b0b-405c-9b49-86cf6875fa9a",
+      "subscriptionId": "<SUBSCRIPTION_ID_1>",
       "subscriptionExpirationDateTime": "2026-02-22T17:47:00+00:00",
       "changeType": "created",
-      "resource": "Users/dbb98842-0024-4474-a69a-a27acd709d80/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
+      "resource": "Users/<USER_OBJECT_ID_1>/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/dbb98842-0024-4474-a69a-a27acd709d80/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
+        "@odata.id": "Users/<USER_OBJECT_ID_1>/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
         "@odata.etag": "W/\"h7PGfnFyGES9...\"",
         "id": "AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -94,17 +94,17 @@ Monitor calendar events for a single specific user. This is the most basic and r
 {
   "value": [
     {
-      "subscriptionId": "8c6f2667-4b0b-405c-9b49-86cf6875fa9a",
+      "subscriptionId": "<SUBSCRIPTION_ID_1>",
       "subscriptionExpirationDateTime": "2026-02-22T17:47:00+00:00",
       "changeType": "updated",
-      "resource": "Users/dbb98842-0024-4474-a69a-a27acd709d80/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
+      "resource": "Users/<USER_OBJECT_ID_1>/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/dbb98842-0024-4474-a69a-a27acd709d80/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
+        "@odata.id": "Users/<USER_OBJECT_ID_1>/Events/AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN...",
         "@odata.etag": "W/\"h7PGfnFyGES9...\"",
         "id": "AAMkADlhYjk4ODQyLTAwMjQtNDQ3NC1hNjlhLWEyN2FjZDcwOWQ4MABGAAAAAADN..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -132,8 +132,8 @@ Monitor calendar events for a specific user who is a member of a group. This is 
 ```json
 {
   "changeType": "created,updated,deleted",
-  "notificationUrl": "EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk/?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78",
-  "resource": "/users/e5fe8748-76f0-42ed-b521-241e825b0d45/events",
+  "notificationUrl": "EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>/?tenantId=<YOUR_TENANT_ID>",
+  "resource": "/users/<USER_OBJECT_ID_3>/events",
   "expirationDateTime": "2026-02-22T17:54:58Z",
   "clientState": "SecretClientState"
 }
@@ -141,10 +141,10 @@ Monitor calendar events for a specific user who is a member of a group. This is 
 
 ### Test Details
 
-**Subscription ID**: `5f54d721-d420-4d77-86a2-cfc343e1336a`  
-**User**: `boldoriole@ibuyspy.net`  
-**User ID**: `e5fe8748-76f0-42ed-b521-241e825b0d45`  
-**Group**: Teams Meeting Fetcher Admins (`5e7708f8-b0d2-467d-97f9-d9da4818084a`)
+**Subscription ID**: `<SUBSCRIPTION_ID_2>`  
+**User**: `user2@<YOUR_TENANT_DOMAIN>`  
+**User ID**: `<USER_OBJECT_ID_3>`  
+**Group**: Teams Meeting Fetcher Admins (`<YOUR_GROUP_ID>`)
 
 **Scope**:
 
@@ -165,17 +165,17 @@ Monitor calendar events for a specific user who is a member of a group. This is 
 {
   "value": [
     {
-      "subscriptionId": "5f54d721-d420-4d77-86a2-cfc343e1336a",
+      "subscriptionId": "<SUBSCRIPTION_ID_2>",
       "subscriptionExpirationDateTime": "2026-02-22T17:54:58+00:00",
       "changeType": "created",
-      "resource": "Users/e5fe8748-76f0-42ed-b521-241e825b0d45/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
+      "resource": "Users/<USER_OBJECT_ID_3>/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/e5fe8748-76f0-42ed-b521-241e825b0d45/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
+        "@odata.id": "Users/<USER_OBJECT_ID_3>/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
         "@odata.etag": "W/\"VTw6sKsunk...\"",
         "id": "AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -187,17 +187,17 @@ Monitor calendar events for a specific user who is a member of a group. This is 
 {
   "value": [
     {
-      "subscriptionId": "5f54d721-d420-4d77-86a2-cfc343e1336a",
+      "subscriptionId": "<SUBSCRIPTION_ID_2>",
       "subscriptionExpirationDateTime": "2026-02-22T17:54:58+00:00",
       "changeType": "updated",
-      "resource": "Users/e5fe8748-76f0-42ed-b521-241e825b0d45/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
+      "resource": "Users/<USER_OBJECT_ID_3>/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/e5fe8748-76f0-42ed-b521-241e825b0d45/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
+        "@odata.id": "Users/<USER_OBJECT_ID_3>/Events/AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT...",
         "@odata.etag": "W/\"VTw6sKsunk...\"",
         "id": "AAMkADE2ZWVhN2MyLTk1ODEtNGIzNS1hNTE4LTE5NDIxMmU3MThmYwBGAAAAAADcy-qe0uwnT..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -228,8 +228,8 @@ Monitor calendar events for the second user in the group. This verifies that the
 ```json
 {
   "changeType": "created,updated,deleted",
-  "notificationUrl": "EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk/?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78",
-  "resource": "/users/885adc52-eaa0-42b1-80cf-62cd2d4bcafb/events",
+  "notificationUrl": "EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>/?tenantId=<YOUR_TENANT_ID>",
+  "resource": "/users/<USER_OBJECT_ID_4>/events",
   "expirationDateTime": "2026-02-22T17:54:58Z",
   "clientState": "SecretClientState"
 }
@@ -237,10 +237,10 @@ Monitor calendar events for the second user in the group. This verifies that the
 
 ### Test Details
 
-**Subscription ID**: `c8638512-9b9c-4647-b284-a62ddfd974d0`  
-**User**: `trustingboar@ibuyspy.net`  
-**User ID**: `885adc52-eaa0-42b1-80cf-62cd2d4bcafb`  
-**Group**: Teams Meeting Fetcher Admins (`5e7708f8-b0d2-467d-97f9-d9da4818084a`)
+**Subscription ID**: `<SUBSCRIPTION_ID_3>`  
+**User**: `user3@<YOUR_TENANT_DOMAIN>`  
+**User ID**: `<USER_OBJECT_ID_4>`  
+**Group**: Teams Meeting Fetcher Admins (`<YOUR_GROUP_ID>`)
 
 **Scope**:
 
@@ -261,17 +261,17 @@ Monitor calendar events for the second user in the group. This verifies that the
 {
   "value": [
     {
-      "subscriptionId": "c8638512-9b9c-4647-b284-a62ddfd974d0",
+      "subscriptionId": "<SUBSCRIPTION_ID_3>",
       "subscriptionExpirationDateTime": "2026-02-22T17:54:58+00:00",
       "changeType": "created",
-      "resource": "Users/885adc52-eaa0-42b1-80cf-62cd2d4bcafb/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
+      "resource": "Users/<USER_OBJECT_ID_4>/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/885adc52-eaa0-42b1-80cf-62cd2d4bcafb/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
+        "@odata.id": "Users/<USER_OBJECT_ID_4>/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
         "@odata.etag": "W/\"pSFbV6jcVE...\"",
         "id": "AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -283,17 +283,17 @@ Monitor calendar events for the second user in the group. This verifies that the
 {
   "value": [
     {
-      "subscriptionId": "c8638512-9b9c-4647-b284-a62ddfd974d0",
+      "subscriptionId": "<SUBSCRIPTION_ID_3>",
       "subscriptionExpirationDateTime": "2026-02-22T17:54:58+00:00",
       "changeType": "updated",
-      "resource": "Users/885adc52-eaa0-42b1-80cf-62cd2d4bcafb/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
+      "resource": "Users/<USER_OBJECT_ID_4>/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
       "resourceData": {
         "@odata.type": "#Microsoft.Graph.Event",
-        "@odata.id": "Users/885adc52-eaa0-42b1-80cf-62cd2d4bcafb/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
+        "@odata.id": "Users/<USER_OBJECT_ID_4>/Events/AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL...",
         "@odata.etag": "W/\"pSFbV6jcVE...\"",
         "id": "AAMkADA1ODk2NTNhLWQyODMtNDMzNi04NzQ3LTg1OGU3YTAzYzc5MQBGAAAAAADJB1RrYL..."
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -325,8 +325,8 @@ Attempt to monitor a group's shared calendar directly using the group's calendar
 ```json
 {
   "changeType": "created,updated,deleted",
-  "notificationUrl": "EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk/?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78",
-  "resource": "/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a/events",
+  "notificationUrl": "EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>/?tenantId=<YOUR_TENANT_ID>",
+  "resource": "/groups/<YOUR_GROUP_ID>/events",
   "expirationDateTime": "2026-02-22T18:00:00Z",
   "clientState": "SecretClientState"
 }
@@ -335,7 +335,7 @@ Attempt to monitor a group's shared calendar directly using the group's calendar
 ### Test Details
 
 **Group**: Teams Meeting Fetcher Admins  
-**Group ID**: `5e7708f8-b0d2-467d-97f9-d9da4818084a`  
+**Group ID**: `<YOUR_GROUP_ID>`  
 **Group Type**: Security Group (not Microsoft 365 Group)
 
 **Scope (Intended)**:
@@ -403,7 +403,7 @@ Monitor all Teams channel messages across the entire tenant. This requires the `
 ```json
 {
   "changeType": "created,updated,deleted",
-  "notificationUrl": "EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/tmf-eh-eus-6an5wk/?tenantId=62837751-4e48-4d06-8bcb-57be1a669b78",
+  "notificationUrl": "EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/<EVENT_HUB_NAME>/?tenantId=<YOUR_TENANT_ID>",
   "resource": "/teams/allMessages",
   "expirationDateTime": "2026-02-22T17:37:46Z",
   "clientState": "SecretClientState",
@@ -423,7 +423,7 @@ Monitor all Teams channel messages across the entire tenant. This requires the `
 - **Coverage**: Every message posted in any Teams channel across the entire tenant
 - **Permission Required**: `ChannelMessage.Read.All` (Application permission)
 
-**Test Limitation**: Cannot create Teams channel messages programmatically because the test group (`5e7708f8-b0d2-467d-97f9-d9da4818084a`) does not have an associated Microsoft Teams Team.
+**Test Limitation**: Cannot create Teams channel messages programmatically because the test group (`<YOUR_GROUP_ID>`) does not have an associated Microsoft Teams Team.
 
 **Test Error**:
 
@@ -431,7 +431,7 @@ Monitor all Teams channel messages across the entire tenant. This requires the `
 {
   "error": {
     "code": "NotFound",
-    "message": "No team found with Group Id 5e7708f8-b0d2-467d-97f9-d9da4818084a",
+    "message": "No team found with Group Id <YOUR_GROUP_ID>",
     "innerError": {
       "date": "2026-02-20T17:56:41",
       "request-id": "7e8f5d6c-7b8a-4d9e-a9c7-0e8f5d6c7b8a",
@@ -469,7 +469,7 @@ To verify this subscription works:
         "@odata.type": "#Microsoft.Graph.chatMessage",
         "id": "1234567890"
       },
-      "tenantId": "62837751-4e48-4d06-8bcb-57be1a669b78"
+      "tenantId": "<YOUR_TENANT_ID>"
     }
   ]
 }
@@ -615,15 +615,15 @@ When subscriptions are first created, Graph sends validation messages:
 
 ### Event Hub Configuration
 
-- **Namespace**: `tmf-ehns-eus-6an5wk.servicebus.windows.net`
-- **Hub Name**: `tmf-eh-eus-6an5wk`
+- **Namespace**: `<EVENT_HUB_NAMESPACE>.servicebus.windows.net`
+- **Hub Name**: `<EVENT_HUB_NAME>`
 - **Region**: East US
 - **Consumer Groups**: `$Default`, `lambda-processor`
 - **Partition Count**: 2 (messages distributed across partitions)
 
 ### Service Principal Permissions
 
-**Application ID**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
+**Application ID**: `<YOUR_GRAPH_APP_ID>`
 
 **Required Permissions**:
 
@@ -633,17 +633,17 @@ When subscriptions are first created, Graph sends validation messages:
 
 **Event Hub Role**:
 
-- `Azure Event Hubs Data Sender` on namespace `tmf-ehns-eus-6an5wk`
+- `Azure Event Hubs Data Sender` on namespace `<EVENT_HUB_NAMESPACE>`
 
 ### Test Group Details
 
 **Name**: Teams Meeting Fetcher Admins  
-**ID**: `5e7708f8-b0d2-467d-97f9-d9da4818084a`  
+**ID**: `<YOUR_GROUP_ID>`  
 **Type**: Security Group  
 **Members**: 2 users
 
-- boldoriole@ibuyspy.net
-- trustingboar@ibuyspy.net
+- user2@<YOUR_TENANT_DOMAIN>
+- user3@<YOUR_TENANT_DOMAIN>
 
 **Limitations**:
 
@@ -657,7 +657,7 @@ When subscriptions are first created, Graph sends validation messages:
 **Created**: February 20, 2026  
 **Last Updated**: February 20, 2026  
 **Author**: Testing Team  
-**Environment**: Production Test (ibuyspy.net tenant)
+**Environment**: Production Test (<YOUR_TENANT_DOMAIN> tenant)
 
 ---
 

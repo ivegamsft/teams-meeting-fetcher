@@ -80,7 +80,7 @@ The handler (`handler.js`) includes the following production-ready features:
 
 ### Namespace Format Flexibility
 
-- **Accepts both**: namespace-only names (`tmf-ehns-eus-6an5wk`) and FQDN (`tmf-ehns-eus-6an5wk.servicebus.windows.net`)
+- **Accepts both**: namespace-only names (`<EVENT_HUB_NAMESPACE>`) and FQDN (`<EVENT_HUB_NAMESPACE>.servicebus.windows.net`)
 - **Smart parsing**: Detects if input is FQDN and extracts namespace automatically
 - **Eliminates** past ambiguity about whether FQDN was required
 
