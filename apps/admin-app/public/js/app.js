@@ -10,10 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let meetingsSortField = 'startTime';
   let meetingsSortDir = 'desc'; // default: newest first
 
-  // Transcripts pagination state
+  // Transcripts pagination and sorting state
   let transcriptsPage = 1;
   const transcriptsPageSize = 25;
   let allTranscripts = [];
+  let transcriptsSortField = 'dateTime';
+  let transcriptsSortDir = 'desc';
 
   function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
   function hideLoading(id) { document.getElementById(id)?.classList.add('hidden'); }
@@ -267,8 +269,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderTranscriptsPage() {
     const tbody = document.getElementById('transcripts-tbody');
+
+    // Precompute sortable fields
+    const withSort = allTranscripts.map(t => {
+      const m = t.meeting;
+      return {
+        ...t,
+        _subject: (m?.subject || '').toLowerCase(),
+        _organizer: (m?.organizerDisplayName || '').toLowerCase(),
+        _dateTime: new Date(m?.startTime || t.createdAt || 0).getTime(),
+        _duration: (m?.startTime && m?.endTime) ? (new Date(m.endTime) - new Date(m.startTime)) : 0,
+        _status: t.status || '',
+      };
+    });
+
+    // Sort
+    withSort.sort((a, b) => {
+      let av, bv;
+      switch (transcriptsSortField) {
+        case 'subject': av = a._subject; bv = b._subject; break;
+        case 'organizer': av = a._organizer; bv = b._organizer; break;
+        case 'dateTime': av = a._dateTime; bv = b._dateTime; break;
+        case 'duration': av = a._duration; bv = b._duration; break;
+        case 'status': av = a._status; bv = b._status; break;
+        default: av = a._dateTime; bv = b._dateTime;
+      }
+      if (av < bv) return transcriptsSortDir === 'asc' ? -1 : 1;
+      if (av > bv) return transcriptsSortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     const start = (transcriptsPage - 1) * transcriptsPageSize;
-    const page = allTranscripts.slice(start, start + transcriptsPageSize);
+    const page = withSort.slice(start, start + transcriptsPageSize);
 
     tbody.innerHTML = page.map(t => {
       const m = t.meeting;
@@ -280,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mins = Math.round((new Date(m.endTime) - new Date(m.startTime)) / 60000);
         duration = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
       }
+      const enriched = m?.subject && m.subject !== 'Untitled Meeting';
       return `
       <tr>
         <td><a href="#" onclick="event.preventDefault();showMeetingDetail('${t.meetingId}')" style="color:var(--primary);text-decoration:none;font-weight:500;" title="${subject}">${subject}</a></td>
@@ -290,11 +323,36 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>
           ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
           <button class="btn btn-sm btn-secondary" onclick="showMeetingDetail('${t.meetingId}')">Details</button>
+          ${!enriched ? `<button class="btn btn-sm btn-outline" onclick="enrichMeeting(this, '${t.meetingId}')">Enrich</button>` : ''}
         </td>
       </tr>`;
     }).join('');
 
     renderTranscriptsPagination();
+    updateTranscriptSortIndicators();
+  }
+
+  function handleTranscriptSort(field) {
+    if (transcriptsSortField === field) {
+      transcriptsSortDir = transcriptsSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      transcriptsSortField = field;
+      transcriptsSortDir = field === 'dateTime' ? 'desc' : 'asc';
+    }
+    transcriptsPage = 1;
+    renderTranscriptsPage();
+  }
+
+  function updateTranscriptSortIndicators() {
+    document.querySelectorAll('#transcripts-table th[data-tsort]').forEach(th => {
+      const field = th.dataset.tsort;
+      const indicator = th.querySelector('.sort-indicator');
+      if (field === transcriptsSortField) {
+        indicator.textContent = transcriptsSortDir === 'asc' ? ' \u25B2' : ' \u25BC';
+      } else {
+        indicator.textContent = '';
+      }
+    });
   }
 
   function renderTranscriptsPagination() {
@@ -435,6 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
     th.addEventListener('click', () => handleMeetingSort(th.dataset.sort));
   });
 
+  document.querySelectorAll('#transcripts-table th[data-tsort]').forEach(th => {
+    th.addEventListener('click', () => handleTranscriptSort(th.dataset.tsort));
+  });
+
   document.getElementById('sync-group-btn').addEventListener('click', async () => {
     if (!confirm('Sync subscriptions with Entra group members?')) return;
     try {
@@ -520,6 +582,34 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`
       ).join('') || '<span style="color:var(--gray-400);">No attendee data</span>';
 
+      const meetingEnded = !!d.transcriptionId;
+      const enrichChecks = [
+        { label: 'Subject resolved', ok: d.subject && d.subject !== '--' && d.subject !== 'Untitled Meeting' },
+        { label: 'Organizer resolved', ok: d.organizerDisplayName && d.organizerDisplayName !== '--' },
+        { label: 'Start/End times', ok: !!d.startTime && !!d.endTime },
+        { label: 'Attendees loaded', ok: (d.attendees?.length || 0) > 0 },
+        { label: 'Online meeting ID', ok: !!d.onlineMeetingId },
+        { label: 'Transcript available', ok: !!d.transcriptionId },
+      ];
+      const enrichHtml = enrichChecks.map(c =>
+        `<div style="font-size:13px;padding:2px 0;">${c.ok ? '<span style="color:var(--success);">&#10003;</span>' : '<span style="color:var(--gray-400);">&#10007;</span>'} ${c.label}</div>`
+      ).join('');
+
+      let joinHtml = '';
+      if (d.joinWebUrl) {
+        joinHtml = `<div style="margin-top:16px;display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-sm btn-secondary" onclick="navigator.clipboard.writeText('${d.joinWebUrl}').then(()=>{this.textContent='Copied!';setTimeout(()=>{this.textContent='Copy Join Link'},1500)})">Copy Join Link</button>
+          ${meetingEnded ? '<span style="font-size:12px;color:var(--gray-400);">Meeting has ended</span>' : ''}
+        </div>`;
+      }
+
+      let transcriptHtml = '';
+      if (d.transcriptionId) {
+        transcriptHtml = `<div style="margin-top:12px;">
+          <button class="btn btn-sm btn-primary" onclick="document.getElementById('meeting-detail-overlay').classList.add('hidden');viewTranscript('${meetingId}')">View Transcript</button>
+        </div>`;
+      }
+
       body.innerHTML = `
         <div class="detail-grid">
           <div class="detail-label">Subject</div><div class="detail-value">${d.subject || '--'}</div>
@@ -528,14 +618,17 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="detail-label">End</div><div class="detail-value">${formatDate(d.endTime)}</div>
           <div class="detail-label">Duration</div><div class="detail-value">${duration}</div>
           <div class="detail-label">Status</div><div class="detail-value"><span class="status-badge status-${d.status}">${d.status || '--'}</span></div>
-          <div class="detail-label">Transcript</div><div class="detail-value">${d.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '<span style="color:var(--gray-400);">None</span>'}</div>
-          <div class="detail-label">Enriched</div><div class="detail-value">${d.detailsFetched ? 'Yes' : 'No'}</div>
+        </div>
+        <div style="margin-top:16px;">
+          <h3 style="font-size:14px;color:var(--gray-500);margin-bottom:6px;">Enrichment Status</h3>
+          ${enrichHtml}
         </div>
         <div style="margin-top:16px;">
           <h3 style="font-size:14px;color:var(--gray-500);margin-bottom:8px;">Attendees (${d.attendees?.length || 0})</h3>
           ${attendeeList}
         </div>
-        ${d.joinWebUrl ? `<div style="margin-top:16px;"><a href="${d.joinWebUrl}" target="_blank" class="btn btn-sm btn-primary">Join Meeting</a></div>` : ''}
+        ${transcriptHtml}
+        ${joinHtml}
       `;
     } catch (err) {
       body.innerHTML = `<div class="empty-state" style="color:var(--danger);">Failed to load details: ${err.message}</div>`;
@@ -560,6 +653,30 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-overlay').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeModal();
   });
+
+  window.enrichMeeting = async (btn, meetingId) => {
+    btn.disabled = true;
+    btn.textContent = 'Enriching...';
+    try {
+      await API.meetings.details(meetingId);
+      btn.textContent = 'Enriched';
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-secondary');
+      btn.style.opacity = '0.6';
+      // Update the transcript's meeting data in memory
+      const idx = allTranscripts.findIndex(t => t.meetingId === meetingId);
+      if (idx >= 0) {
+        try {
+          const m = await API.meetings.get(meetingId);
+          if (m) allTranscripts[idx].meeting = { subject: m.subject, startTime: m.startTime, endTime: m.endTime, organizerDisplayName: m.organizerDisplayName, attendeesCount: m.attendees?.length || 0 };
+        } catch {}
+      }
+    } catch (err) {
+      btn.textContent = 'Failed';
+      btn.style.color = 'var(--danger)';
+      console.error('Enrich failed:', err);
+    }
+  };
 
   function formatDate(dateStr) {
     if (!dateStr) return '--';
