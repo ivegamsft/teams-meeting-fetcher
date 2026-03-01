@@ -103,3 +103,23 @@
 3. `apps/admin-app/public/css/styles.css` — `.sortable` header styles, `.pagination .btn:disabled` state
 
 **Verification:** TypeScript compiles clean (`npx tsc --noEmit` exit 0). No backend changes required.
+
+### 2026-02-28: Phase 1 UI Semantic Model — Rename + Badge
+
+**Context:** Implemented Phase 1 of the UI Semantic Model migration per docs/ui-semantic-model.md Section 10.1. Minimal UI-only change, no backend modifications.
+
+**Changes Made:**
+1. `apps/admin-app/public/index.html` — Renamed "Meetings" nav tab and page header to "Events"; changed Status column header to "Stage" (kept `data-sort="status"` for backward-compatible sorting)
+2. `apps/admin-app/public/js/app.js` — Added `resolveStage()` function that derives lifecycle stage from event properties (changeType, status, transcriptionId, callRecordId, endTime); added `stageLabels` map for display names; replaced `status-badge` with `stage-badge` in meetings table rows only
+3. `apps/admin-app/public/css/styles.css` — Added `.stage-badge` base class and six stage color classes (scheduled, held, transcribing, transcribed, not-held, cancelled); preserved all existing `.status-badge` classes
+
+**Stage Resolution Logic:** `resolveStage()` evaluates event fields in priority order: cancelled → transcribed → transcribing → held → not-held → scheduled. The "not-held" stage triggers when endTime is >24 hours ago with no call record.
+
+**Backward Compatibility:**
+- Old `.status-badge` CSS classes untouched — used elsewhere (transcripts, overview, subscriptions, detail modal)
+- Status filter dropdown unchanged — still filters by internal `status` field
+- Sorting still works via `data-sort="status"` on the Stage column header
+- Transcripts page completely untouched
+- No backend changes
+
+**Verification:** TypeScript compiles clean (`npm run build` exit 0).

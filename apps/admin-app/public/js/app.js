@@ -17,6 +17,28 @@ document.addEventListener('DOMContentLoaded', () => {
   let transcriptsSortField = 'dateTime';
   let transcriptsSortDir = 'desc';
 
+  // Stage resolution (Phase 1 — UI Semantic Model)
+  function resolveStage(event) {
+    if (event.changeType === 'deleted' || event.status === 'cancelled') return 'cancelled';
+    if (event.transcriptionId && event.status === 'completed') return 'transcribed';
+    if (event.transcriptionId && event.status !== 'completed') return 'transcribing';
+    if (event.callRecordId || event.status === 'recording' || event.status === 'transcript_pending') return 'held';
+    if (event.endTime) {
+      const hoursSinceEnd = (Date.now() - new Date(event.endTime)) / 3600000;
+      if (hoursSinceEnd > 24) return 'not-held';
+    }
+    return 'scheduled';
+  }
+
+  const stageLabels = {
+    'scheduled': 'Scheduled',
+    'held': 'Held',
+    'transcribing': 'Processing',
+    'transcribed': 'Transcribed',
+    'not-held': 'Not Held',
+    'cancelled': 'Cancelled',
+  };
+
   function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
   function hideLoading(id) { document.getElementById(id)?.classList.add('hidden'); }
 
@@ -187,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><a href="#" onclick="event.preventDefault();showMeetingDetail('${m.meeting_id}')" style="color:var(--primary);text-decoration:none;font-weight:500;">${m.subject || 'Untitled Meeting'}</a></td>
           <td>${m.organizerDisplayName || m.organizerEmail || '--'}</td>
           <td>${formatDate(m.startTime)}</td>
-          <td><span class="status-badge status-${m.status}">${m.status}</span></td>
+          <td><span class="stage-badge stage-${resolveStage(m)}">${stageLabels[resolveStage(m)] || resolveStage(m)}</span></td>
           <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '<span style="color:var(--gray-400);">None</span>'}</td>
           <td>
             ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.meeting_id}')">View</button>` : `<button class="btn btn-sm btn-secondary" disabled title="No transcript available">View</button>`}
