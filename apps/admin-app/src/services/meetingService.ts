@@ -220,22 +220,60 @@ export const meetingService = {
   },
 
   async getMeetingDetails(id: string): Promise<any> {
-    const meeting = await meetingStore.get(id);
+    let meeting = await meetingStore.get(id);
     if (!meeting) throw new Error('Meeting not found');
-    if (!meeting.onlineMeetingId || !meeting.organizerEmail) {
-      throw new Error('Meeting does not have online meeting information');
+
+    // Lazy enrichment: if not yet enriched, try on-the-fly
+    if (!meeting.detailsFetched && meeting.resource) {
+      try {
+        meeting = await this.fetchDetails(id);
+      } catch (err: any) {
+        console.warn(`[MeetingService] On-demand enrichment failed for ${id}: ${err.message}`);
+        // Continue with whatever local data we have
+      }
     }
 
-    const client = getGraphClient();
-    try {
-      const onlineMeeting = await client
-        .api(`/users/${meeting.organizerEmail}/onlineMeetings/${meeting.onlineMeetingId}`)
-        .get();
-      return onlineMeeting;
-    } catch (err: any) {
-      console.error(`Failed to fetch online meeting details for ${id}:`, err.message);
-      throw new Error(`Unable to fetch meeting details: ${err.message}`);
+    // Build a combined response from local data + optional Graph lookup
+    const details: any = {
+      meeting_id: meeting.meeting_id,
+      subject: meeting.subject || 'Untitled Meeting',
+      organizerDisplayName: meeting.organizerDisplayName || '--',
+      organizerEmail: meeting.organizerEmail || '--',
+      startTime: meeting.startTime,
+      endTime: meeting.endTime,
+      status: meeting.status,
+      joinWebUrl: meeting.joinWebUrl,
+      attendees: meeting.attendees || [],
+      onlineMeetingId: meeting.onlineMeetingId,
+      transcriptionId: meeting.transcriptionId,
+      detailsFetched: !!meeting.detailsFetched,
+      enrichmentStatus: meeting.enrichmentStatus,
+      changeType: meeting.changeType,
+      createdAt: meeting.createdAt,
+      updatedAt: meeting.updatedAt,
+    };
+
+    // If we have onlineMeetingId + organizerUserId, fetch live Graph data
+    if (meeting.onlineMeetingId && meeting.organizerUserId) {
+      try {
+        const client = getGraphClient();
+        const om = await client
+          .api(`/users/${meeting.organizerUserId}/onlineMeetings/${meeting.onlineMeetingId}`)
+          .get();
+        details.onlineMeeting = {
+          subject: om.subject,
+          startDateTime: om.startDateTime,
+          endDateTime: om.endDateTime,
+          participants: om.participants,
+          recordAutomatically: om.recordAutomatically,
+          isEntryExitAnnounced: om.isEntryExitAnnounced,
+        };
+      } catch (err: any) {
+        console.warn(`[MeetingService] Graph online meeting fetch failed for ${id}: ${err.message}`);
+      }
     }
+
+    return details;
   },
 
   async toggleTranscription(id: string, enabled: boolean): Promise<void> {

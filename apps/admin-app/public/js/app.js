@@ -10,6 +10,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let meetingsSortField = 'startTime';
   let meetingsSortDir = 'desc'; // default: newest first
 
+  // Transcripts pagination state
+  let transcriptsPage = 1;
+  const transcriptsPageSize = 25;
+  let allTranscripts = [];
+
+  function showLoading(id) { document.getElementById(id)?.classList.remove('hidden'); }
+  function hideLoading(id) { document.getElementById(id)?.classList.add('hidden'); }
+
   async function checkAuth() {
     try {
       const result = await API.auth.status();
@@ -124,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadMeetings(params = {}) {
+    showLoading('meetings-loading');
     try {
       const status = document.getElementById('filter-status').value;
       const from = document.getElementById('filter-from').value;
@@ -144,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '';
         empty.classList.remove('hidden');
         renderMeetingsPagination();
+        hideLoading('meetings-loading');
         return;
       }
 
@@ -166,13 +176,14 @@ document.addEventListener('DOMContentLoaded', () => {
       empty.classList.add('hidden');
       tbody.innerHTML = sorted.map(m => `
         <tr>
-          <td>${m.subject || 'Untitled Meeting'}</td>
+          <td><a href="#" onclick="event.preventDefault();showMeetingDetail('${m.meeting_id}')" style="color:var(--primary);text-decoration:none;font-weight:500;">${m.subject || 'Untitled Meeting'}</a></td>
           <td>${m.organizerDisplayName || m.organizerEmail || '--'}</td>
           <td>${formatDate(m.startTime)}</td>
           <td><span class="status-badge status-${m.status}">${m.status}</span></td>
           <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '--'}</td>
           <td>
             ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.meeting_id}')">View</button>` : ''}
+            <button class="btn btn-sm btn-secondary" onclick="showMeetingDetail('${m.meeting_id}')">Details</button>
           </td>
         </tr>
       `).join('');
@@ -180,6 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMeetingsPagination();
     } catch (err) {
       console.error('Failed to load meetings:', err);
+    } finally {
+      hideLoading('meetings-loading');
     }
   }
 
@@ -229,44 +242,81 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadTranscripts() {
+    showLoading('transcripts-loading');
     try {
       const result = await API.transcripts.list();
-      const tbody = document.getElementById('transcripts-tbody');
       const empty = document.getElementById('transcripts-empty');
 
       if (!result.transcripts || result.transcripts.length === 0) {
-        tbody.innerHTML = '';
+        document.getElementById('transcripts-tbody').innerHTML = '';
         empty.classList.remove('hidden');
+        document.getElementById('transcripts-pagination').innerHTML = '';
+        hideLoading('transcripts-loading');
         return;
       }
 
+      allTranscripts = result.transcripts;
       empty.classList.add('hidden');
-      tbody.innerHTML = result.transcripts.map(t => {
-        const m = t.meeting;
-        const subject = m?.subject || ('Meeting ' + (t.meetingId?.substring(0, 12) || '?') + '...');
-        const organizer = m?.organizerDisplayName || '--';
-        const dateTime = m?.startTime ? formatDate(m.startTime) : formatDate(t.createdAt);
-        let duration = '--';
-        if (m?.startTime && m?.endTime) {
-          const mins = Math.round((new Date(m.endTime) - new Date(m.startTime)) / 60000);
-          duration = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
-        }
-        return `
-        <tr>
-          <td><a href="#meetings" style="color:var(--primary);text-decoration:none;font-weight:500;" title="${subject}">${subject}</a></td>
-          <td>${organizer}</td>
-          <td>${dateTime}</td>
-          <td>${duration}</td>
-          <td><span class="status-badge status-${t.status}">${t.status}</span></td>
-          <td>
-            ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
-            <button class="btn btn-sm btn-secondary" onclick="goToMeetingDetails('${t.meetingId}')">Details</button>
-          </td>
-        </tr>`;
-      }).join('');
+      renderTranscriptsPage();
     } catch (err) {
       console.error('Failed to load transcripts:', err);
+    } finally {
+      hideLoading('transcripts-loading');
     }
+  }
+
+  function renderTranscriptsPage() {
+    const tbody = document.getElementById('transcripts-tbody');
+    const start = (transcriptsPage - 1) * transcriptsPageSize;
+    const page = allTranscripts.slice(start, start + transcriptsPageSize);
+
+    tbody.innerHTML = page.map(t => {
+      const m = t.meeting;
+      const subject = m?.subject || ('Meeting ' + (t.meetingId?.substring(0, 12) || '?') + '...');
+      const organizer = m?.organizerDisplayName || '--';
+      const dateTime = m?.startTime ? formatDate(m.startTime) : formatDate(t.createdAt);
+      let duration = '--';
+      if (m?.startTime && m?.endTime) {
+        const mins = Math.round((new Date(m.endTime) - new Date(m.startTime)) / 60000);
+        duration = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+      }
+      return `
+      <tr>
+        <td><a href="#" onclick="event.preventDefault();showMeetingDetail('${t.meetingId}')" style="color:var(--primary);text-decoration:none;font-weight:500;" title="${subject}">${subject}</a></td>
+        <td>${organizer}</td>
+        <td>${dateTime}</td>
+        <td>${duration}</td>
+        <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+        <td>
+          ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
+          <button class="btn btn-sm btn-secondary" onclick="showMeetingDetail('${t.meetingId}')">Details</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    renderTranscriptsPagination();
+  }
+
+  function renderTranscriptsPagination() {
+    const container = document.getElementById('transcripts-pagination');
+    const totalPages = Math.max(1, Math.ceil(allTranscripts.length / transcriptsPageSize));
+    if (allTranscripts.length <= transcriptsPageSize) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = `
+      <button class="btn btn-sm btn-outline" ${transcriptsPage <= 1 ? 'disabled' : ''} id="transcripts-prev">Prev</button>
+      <span style="display:inline-flex;align-items:center;font-size:14px;color:var(--gray-600);">
+        Page ${transcriptsPage} of ${totalPages} (${allTranscripts.length} total)
+      </span>
+      <button class="btn btn-sm btn-outline" ${transcriptsPage >= totalPages ? 'disabled' : ''} id="transcripts-next">Next</button>
+    `;
+    document.getElementById('transcripts-prev')?.addEventListener('click', () => {
+      if (transcriptsPage > 1) { transcriptsPage--; renderTranscriptsPage(); }
+    });
+    document.getElementById('transcripts-next')?.addEventListener('click', () => {
+      if (transcriptsPage < totalPages) { transcriptsPage++; renderTranscriptsPage(); }
+    });
   }
 
   async function loadSettings() {
@@ -446,12 +496,50 @@ document.addEventListener('DOMContentLoaded', () => {
     window.viewTranscript(meetingId);
   };
 
-  window.goToMeetingDetails = (meetingId) => {
-    // Navigate to meetings page and highlight the meeting
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    const meetingsLink = document.querySelector('.nav-link[data-page="meetings"]');
-    if (meetingsLink) meetingsLink.classList.add('active');
-    loadPage('meetings');
+  window.goToMeetingDetails = (meetingId) => showMeetingDetail(meetingId);
+
+  window.showMeetingDetail = async (meetingId) => {
+    const overlay = document.getElementById('meeting-detail-overlay');
+    const body = document.getElementById('meeting-detail-body');
+    const title = document.getElementById('meeting-detail-title');
+    overlay.classList.remove('hidden');
+    body.innerHTML = '<div style="text-align:center;padding:32px;"><div class="spinner" style="margin:0 auto;"></div><p style="margin-top:12px;color:var(--gray-500);">Fetching meeting details...</p></div>';
+    title.textContent = 'Meeting Details';
+
+    try {
+      const d = await API.meetings.details(meetingId);
+      title.textContent = d.subject || 'Meeting Details';
+      const duration = d.startTime && d.endTime
+        ? (() => { const mins = Math.round((new Date(d.endTime) - new Date(d.startTime)) / 60000); return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`; })()
+        : '--';
+      const attendeeList = (d.attendees || []).map(a =>
+        `<div style="padding:4px 0;border-bottom:1px solid var(--gray-100);font-size:13px;">
+          <span style="font-weight:500;">${a.displayName || a.email}</span>
+          <span style="color:var(--gray-400);margin-left:8px;">${a.role || ''}</span>
+          <span class="status-badge status-${a.status === 'accepted' ? 'completed' : 'pending'}" style="margin-left:8px;">${a.status || '--'}</span>
+        </div>`
+      ).join('') || '<span style="color:var(--gray-400);">No attendee data</span>';
+
+      body.innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-label">Subject</div><div class="detail-value">${d.subject || '--'}</div>
+          <div class="detail-label">Organizer</div><div class="detail-value">${d.organizerDisplayName || '--'} ${d.organizerEmail && d.organizerEmail !== '--' ? `(${d.organizerEmail})` : ''}</div>
+          <div class="detail-label">Start</div><div class="detail-value">${formatDate(d.startTime)}</div>
+          <div class="detail-label">End</div><div class="detail-value">${formatDate(d.endTime)}</div>
+          <div class="detail-label">Duration</div><div class="detail-value">${duration}</div>
+          <div class="detail-label">Status</div><div class="detail-value"><span class="status-badge status-${d.status}">${d.status || '--'}</span></div>
+          <div class="detail-label">Transcript</div><div class="detail-value">${d.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '<span style="color:var(--gray-400);">None</span>'}</div>
+          <div class="detail-label">Enriched</div><div class="detail-value">${d.detailsFetched ? 'Yes' : 'No'}</div>
+        </div>
+        <div style="margin-top:16px;">
+          <h3 style="font-size:14px;color:var(--gray-500);margin-bottom:8px;">Attendees (${d.attendees?.length || 0})</h3>
+          ${attendeeList}
+        </div>
+        ${d.joinWebUrl ? `<div style="margin-top:16px;"><a href="${d.joinWebUrl}" target="_blank" class="btn btn-sm btn-primary">Join Meeting</a></div>` : ''}
+      `;
+    } catch (err) {
+      body.innerHTML = `<div class="empty-state" style="color:var(--danger);">Failed to load details: ${err.message}</div>`;
+    }
   };
 
   async function loadTranscriptContent(meetingId, type) {

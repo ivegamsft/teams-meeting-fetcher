@@ -45,6 +45,7 @@ const API = {
       return API.request(`/meetings${qs ? '?' + qs : ''}`);
     },
     get: (id) => API.request(`/meetings/${id}`),
+    details: (id) => API.request(`/meetings/${id}/details`),
     transcript: (id, type) => API.request(`/meetings/${id}/transcript?type=${type || 'sanitized'}`),
   },
 
