@@ -9,6 +9,7 @@ import apiRoutes from './routes';
 import authRoutes from './routes/auth';
 import { errorHandler } from './middleware/errorHandler';
 import { initializeEntraAuth } from './middleware/entraAuth';
+import { globalAuth } from './middleware/auth';
 
 const app = express();
 
@@ -33,6 +34,10 @@ app.use(session({
 initializeEntraAuth().catch(err => console.error('Entra auth init failed:', err));
 
 app.use('/auth', authRoutes);
+
+// Global auth gate — everything below requires authentication.
+// /auth/* routes above are exempt. /health and /api/webhooks are exempted inside globalAuth.
+app.use(globalAuth);
 
 app.use(express.static(path.join(__dirname, '../public'), {
   setHeaders: (res) => {
