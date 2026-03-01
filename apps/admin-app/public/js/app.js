@@ -192,9 +192,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${m.organizerDisplayName || m.organizerEmail || '--'}</td>
           <td>${formatDate(m.startTime)}</td>
           <td><span class="status-badge status-${m.status}">${m.status}</span></td>
-          <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '--'}</td>
+          <td>${m.transcriptionId ? '<span class="status-badge status-completed">Available</span>' : '<span style="color:var(--gray-400);">None</span>'}</td>
           <td>
-            ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.meeting_id}')">View</button>` : ''}
+            ${m.transcriptionId ? `<button class="btn btn-sm btn-primary" onclick="viewTranscript('${m.meeting_id}')">View</button>` : `<button class="btn btn-sm btn-secondary" disabled title="No transcript available">View</button>`}
             <button class="btn btn-sm btn-secondary" onclick="showMeetingDetail('${m.meeting_id}')">Details</button>
           </td>
         </tr>
@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${duration}</td>
         <td><span class="status-badge status-${t.status}">${t.status}</span></td>
         <td>
-          ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : ''}
+          ${t.status === 'completed' ? `<button class="btn btn-sm btn-primary" onclick="viewTranscriptById('${t.transcript_id}', '${t.meetingId}')">View</button>` : `<span class="status-badge status-${t.status}" title="Transcript ${t.status}">${t.status || 'pending'}</span>`}
           <button class="btn btn-sm btn-secondary" onclick="showMeetingDetail('${t.meetingId}')">Details</button>
           ${!enriched ? `<button class="btn btn-sm btn-outline" onclick="enrichMeeting(this, '${t.meetingId}')">Enrich</button>` : ''}
         </td>
@@ -527,8 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const type = btn.dataset.tab;
-      const meetingId = btn.closest('.modal').dataset.meetingId;
-      if (meetingId) loadTranscriptContent(meetingId, type);
+      const modal = btn.closest('.modal');
+      const meetingId = modal.dataset.meetingId;
+      const transcriptId = modal.dataset.transcriptId;
+      if (meetingId) loadTranscriptContent(meetingId, type, transcriptId || null);
     });
   });
 
@@ -556,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewer = document.getElementById('transcript-viewer');
     const modal = viewer.querySelector('.modal');
     modal.dataset.meetingId = meetingId;
+    modal.dataset.transcriptId = '';
     viewer.classList.remove('hidden');
     await loadTranscriptContent(meetingId, 'sanitized');
 
@@ -565,7 +568,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.viewTranscriptById = async (transcriptId, meetingId) => {
-    window.viewTranscript(meetingId);
+    const viewer = document.getElementById('transcript-viewer');
+    const modal = viewer.querySelector('.modal');
+    modal.dataset.meetingId = meetingId;
+    modal.dataset.transcriptId = transcriptId;
+    viewer.classList.remove('hidden');
+    await loadTranscriptContent(meetingId, 'sanitized', transcriptId);
+
+    document.getElementById('download-transcript-btn').onclick = () => {
+      window.open(`/api/meetings/${meetingId}/transcript/download?type=sanitized`, '_blank');
+    };
   };
 
   window.goToMeetingDetails = (meetingId) => showMeetingDetail(meetingId);
@@ -618,6 +630,10 @@ document.addEventListener('DOMContentLoaded', () => {
         transcriptHtml = `<div style="margin-top:12px;">
           <button class="btn btn-sm btn-primary" onclick="document.getElementById('meeting-detail-overlay').classList.add('hidden');viewTranscript('${meetingId}')">View Transcript</button>
         </div>`;
+      } else {
+        transcriptHtml = `<div style="margin-top:12px;">
+          <button class="btn btn-sm btn-secondary" disabled>No Transcript Available</button>
+        </div>`;
       }
 
       body.innerHTML = `
@@ -645,14 +661,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  async function loadTranscriptContent(meetingId, type) {
+  async function loadTranscriptContent(meetingId, type, transcriptId) {
     const textEl = document.getElementById('transcript-text');
     textEl.textContent = 'Loading...';
     try {
-      const result = await API.meetings.transcript(meetingId, type);
-      textEl.textContent = result.content || 'No content available';
+      let result;
+      if (transcriptId) {
+        result = await API.transcripts.content(transcriptId, type);
+      } else {
+        result = await API.meetings.transcript(meetingId, type);
+      }
+      textEl.textContent = result.content || 'No transcript content available for this meeting.';
     } catch (err) {
-      textEl.textContent = 'Failed to load transcript: ' + err.message;
+      if (err.message && err.message.includes('404')) {
+        textEl.textContent = 'No transcript found for this meeting.';
+      } else {
+        textEl.textContent = 'Failed to load transcript: ' + err.message;
+      }
     }
   }
 

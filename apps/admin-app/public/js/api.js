@@ -57,6 +57,7 @@ const API = {
       return API.request(`/transcripts${qs ? '?' + qs : ''}`);
     },
     get: (id) => API.request(`/transcripts/${id}`),
+    content: (id, type) => API.request(`/transcripts/${id}/content?type=${type || 'sanitized'}`),
   },
 
   config: {

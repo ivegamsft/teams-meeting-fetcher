@@ -56,4 +56,20 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/:id/content', async (req: Request, res: Response) => {
+  try {
+    const transcript = await transcriptService.getTranscript(req.params.id as string);
+    if (!transcript) {
+      res.status(404).json({ error: 'Transcript not found' });
+      return;
+    }
+    const type = (req.query.type as string) === 'raw' ? 'raw' : 'sanitized';
+    const content = await transcriptService.getTranscriptContent(transcript, type);
+    res.json({ ...transcript, content: content || null });
+  } catch (err: any) {
+    console.error('Failed to get transcript content:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
