@@ -29,7 +29,7 @@ This prompt deploys the complete Teams Meeting Fetcher infrastructure using the 
   - `apps/aws-lambda-authorizer/authorizer.zip`
   - `apps/aws-lambda-eventhub/lambda.zip`
 - ✅ `iac/terraform.tfvars` configured with correct values
-- ✅ Verified correct tenant ID: `62837751-4e48-4d06-8bcb-57be1a669b78`
+- ✅ Verified correct tenant ID: `<YOUR_TENANT_ID>`
 
 ## Quick Build Lambda Packages
 

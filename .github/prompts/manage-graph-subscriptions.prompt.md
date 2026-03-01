@@ -15,16 +15,16 @@ EventHub:https://<eventhubnamespace>.servicebus.windows.net/eventhubname/<eventh
 **Example for our deployment:**
 
 ```
-EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-eus-6an5wk?tenantId=ibuyspy.net
+EventHub:https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/eventhubname/<EVENT_HUB_NAME>?tenantId=<YOUR_TENANT_DOMAIN>
 ```
 
 ### Breaking Down the Format:
 
 - `EventHub:` - Protocol prefix (REQUIRED)
-- `https://tmf-ehns-eus-6an5wk.servicebus.windows.net/` - Event Hub namespace endpoint
+- `https://<EVENT_HUB_NAMESPACE>.servicebus.windows.net/` - Event Hub namespace endpoint
 - `eventhubname/` - Literal path segment (REQUIRED, NOT just the hub name)
-- `tmf-eh-eus-6an5wk` - Actual Event Hub name
-- `?tenantId=ibuyspy.net` - Tenant domain (REQUIRED for RBAC authentication)
+- `<EVENT_HUB_NAME>` - Actual Event Hub name
+- `?tenantId=<YOUR_TENANT_DOMAIN>` - Tenant domain (REQUIRED for RBAC authentication)
 
 ### Common Mistakes to Avoid:
 
@@ -40,26 +40,26 @@ EventHub:https://tmf-ehns-eus-6an5wk.servicebus.windows.net/eventhubname/tmf-eh-
 Before creating any subscription:
 
 1. **Verify Event Hub is configured:**
-   - Namespace: `tmf-ehns-eus-6an5wk`
-   - Hub: `tmf-eh-eus-6an5wk`
+   - Namespace: `<EVENT_HUB_NAMESPACE>`
+   - Hub: `<EVENT_HUB_NAME>`
    - Processor running: `Get-Job -Name processor`
 
 2. **Verify Graph Change Tracking SPN has correct roles:**
 
    ```bash
    # Should have "Azure Event Hubs Data Sender" role
-   az role assignment list --scope /subscriptions/.../providers/Microsoft.EventHub/namespaces/tmf-ehns-eus-6an5wk
+   az role assignment list --scope /subscriptions/.../providers/Microsoft.EventHub/namespaces/<EVENT_HUB_NAMESPACE>
    ```
 
 3. **Verify subscription resource is GROUP, not user:**
-   - ✅ Correct: `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a`
+   - ✅ Correct: `/groups/<YOUR_GROUP_ID>`
    - ❌ Wrong: `/users/user@domain.com/events`
 
 ### Step 2: Create Group Subscription
 
 ```bash
 cd nobots-eventhub
-GRAPH_SUBSCRIPTION_RESOURCE=/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a npm run subscribe
+GRAPH_SUBSCRIPTION_RESOURCE=/groups/<YOUR_GROUP_ID> npm run subscribe
 ```
 
 ### Step 3: Verify Subscription Created

@@ -137,7 +137,7 @@ iac/                          ← DEPLOY FROM HERE (orchestration + all modules)
 az account show --query "tenantId" --output tsv
 ```
 
-The expected tenant ID is `62837751-4e48-4d06-8bcb-57be1a669b78` (GRAPH_TENANT_ID in .env).
+The expected tenant ID is `<YOUR_TENANT_ID>` (GRAPH_TENANT_ID in .env).
 
 - If the tenant does NOT match, **STOP** and ask the user to log in to the correct tenant.
 - Do NOT proceed with any Azure modifications on the wrong tenant.
@@ -149,7 +149,7 @@ The expected tenant ID is `62837751-4e48-4d06-8bcb-57be1a669b78` (GRAPH_TENANT_I
 
 **Key rules:**
 
-- ✅ Subscriptions MUST target GROUP resource: `/groups/5e7708f8-b0d2-467d-97f9-d9da4818084a`
+- ✅ Subscriptions MUST target GROUP resource: `/groups/<YOUR_GROUP_ID>`
 - ❌ Never use individual user paths: `/users/user@domain.com/events`
 - ✅ Event Hub URL format MUST include `/eventhubname/` path segment and `?tenantId=<domain>`
 - ❌ Missing `/eventhubname/` or `tenantId` will cause 400 ValidationError from Graph API
@@ -185,11 +185,11 @@ terraform apply
 
 ## Key Resource IDs (from iac/ deployment)
 
-- **Graph API App ID**: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
-- **Tenant ID**: `62837751-4e48-4d06-8bcb-57be1a669b78`
-- **Allowed Group ID**: `5e7708f8-b0d2-467d-97f9-d9da4818084a`
-- **Event Hub Namespace**: `tmf-ehns-eus-6an5wk`
-- **Event Hub Name**: `tmf-eh-eus-6an5wk`
+- **Graph API App ID**: `<YOUR_GRAPH_APP_ID>`
+- **Tenant ID**: `<YOUR_TENANT_ID>`
+- **Allowed Group ID**: `<YOUR_GROUP_ID>`
+- **Event Hub Namespace**: `<EVENT_HUB_NAMESPACE>`
+- **Event Hub Name**: `<EVENT_HUB_NAME>`
 
 ## Architecture
 
@@ -264,13 +264,13 @@ if not all(CONFIG.values()):
 ```python
 # ❌ WRONG - Never hardcode credentials or defaults
 CONFIG = {
-    'tenant_id': '62837751-4e48-4d06-8bcb-57be1a669b78',
-    'client_id': '1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8',
+    'tenant_id': '<YOUR_TENANT_ID>',
+    'client_id': '<YOUR_GRAPH_APP_ID>',
     'client_secret': 'Cql8Q~...',  # NEVER DO THIS
 }
 
 # ❌ WRONG - Don't use defaults that expose infrastructure
-EVENTHUB_NAMESPACE = os.getenv('EVENTHUB_NAMESPACE', 'tmf-ehns-eus-6an5wk')
+EVENTHUB_NAMESPACE = os.getenv('EVENTHUB_NAMESPACE', '<EVENT_HUB_NAMESPACE>')
 ```
 
 ### Files Protected by .gitignore
@@ -300,13 +300,13 @@ These directories are gitignored and won't be committed (verify with `git status
 
 ❌ **Infrastructure Identifiers**:
 
-- Tenant IDs: `'62837751-4e48-4d06-8bcb-57be1a669b78'`
-- Application/Client IDs: `'1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8'`
+- Tenant IDs: `'<YOUR_TENANT_ID>'`
+- Application/Client IDs: `'<YOUR_GRAPH_APP_ID>'`
 - Subscription IDs: `'12345678-1234-1234-1234-123456789abc'`
 - Resource group names: `'tmf-resources-prod'`
 - Storage account names: `'tmfstorageeus6an5wk'`
 - Database names and endpoints
-- Event Hub namespaces: `'tmf-ehns-eus-6an5wk'`
+- Event Hub namespaces: `'<EVENT_HUB_NAMESPACE>'`
 
 ❌ **NEVER in Comments or Documentation Examples**:
 
@@ -315,7 +315,7 @@ These directories are gitignored and won't be committed (verify with `git status
 client_secret = os.getenv('CLIENT_SECRET')  # Cql8Q~abc123...
 
 # ❌ WRONG - Real IDs in comments
-app_id = os.getenv('APP_ID')  # 1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8
+app_id = os.getenv('APP_ID')  # <YOUR_GRAPH_APP_ID>
 ```
 
 #### What TO DO Instead
@@ -396,8 +396,8 @@ function throwError(message: string): never {
 Never commit files containing:
 
 - `client_secret = '...'` or `'client_secret': '...'`
-- Hard-coded tenant IDs: `62837751-4e48-4d06-8bcb-57be1a669b78`
-- Hard-coded client IDs: `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8`
+- Hard-coded tenant IDs: `<YOUR_TENANT_ID>`
+- Hard-coded client IDs: `<YOUR_GRAPH_APP_ID>`
 - Event Hub connection strings
 - Azure Storage connection strings
 - AWS access keys or secret keys
