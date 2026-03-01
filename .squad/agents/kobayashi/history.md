@@ -167,3 +167,37 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id <YOU
    - Immediate action: Batch-enrich all 1,105 meetings via `POST /meetings/batch-fetch-details` to populate `onlineMeetingId`.
 
 **Decision:** Architecture proposal written to `.squad/decisions/inbox/kobayashi-transcript-architecture.md`. Phase 1 (poller) recommended for immediate implementation. Phase 2 (event-driven) for future scale.
+
+### 2026-02-28: Teams Meeting Semantic Model — Graph API Entity Landscape
+
+**Context:** Isaac confused by overlapping Graph API meeting constructs. Created comprehensive semantic model mapping the five distinct entities (CalendarEvent, OnlineMeeting, CallRecord, Transcript, Recording) across three API surfaces, with no shared foreign key.
+
+**Key Findings:**
+
+1. **Three API surfaces, three auth models, no common key:**
+   - Calendar API (scheduling CRUD) — `eventId`
+   - Online Meetings API (meeting runtime + artifacts) — `onlineMeetingId` (GUID)
+   - Call Records API (call completion telemetry) — `callRecordId`
+   - Only bridge between Calendar and OnlineMeeting is `joinWebUrl` string match
+
+2. **Verified via web research (current as of 2025):**
+   - `/communications/callRecords` subscription: YES, tenant-wide, fires when ANY call/meeting ends, `CallRecords.Read.All`, no CsApplicationAccessPolicy needed
+   - `communications/onlineMeetings/getAllTranscripts` subscription: YES, tenant-wide, fires when transcript ready, `OnlineMeetingTranscript.Read.All`, NO CsApplicationAccessPolicy needed for tenant-wide path
+   - Per-meeting call events (`meetingCallEvents`): YES but per-meeting only, does not scale
+   - Transcript availability: 5-30 min after meeting end (commonly ~20 min)
+   - CsApplicationAccessPolicy: NOT required for tenant-wide `getAllTranscripts`; REQUIRED for `/users/{id}/onlineMeetings/...` path
+
+3. **Recommended 3-subscription architecture:**
+   - Keep: Calendar events subscription (scheduling awareness)
+   - Add: `/communications/callRecords` (meeting-ended signal)
+   - Add: `communications/onlineMeetings/getAllTranscripts` (transcript-ready signal)
+   - Poller demoted to fallback safety net
+
+4. **getAllTranscripts subscription requires:**
+   - `includeResourceData: true` with encryption certificate
+   - `lifecycleNotificationUrl` for subscriptions > 1 hour
+   - Rich notification decryption in webhook handler
+
+**Output:** Created `docs/teams-meeting-semantic-model.md` — comprehensive reference document with entity relationship diagrams, lifecycle state machine, auth model matrix, subscription evaluation, and phased implementation plan.
+
+**Decision:** Written to `.squad/decisions/inbox/kobayashi-meeting-semantic-model.md`.
