@@ -25,7 +25,7 @@
 
 - Created `docs/TEAMS_ADMIN_CONFIGURATION.md` — a repeatable, step-by-step guide for Teams administrators to configure four independent layers required for meeting transcription:
   1. **Layer 1:** Teams Admin policies (AllowTranscription, AllowCloudRecording, AutoRecording) — verified via Teams Admin Center or PowerShell
-  2. **Layer 2:** CsApplicationAccessPolicy (CONFIRMED CRITICAL BLOCKER in ibuyspy.net test tenant) — must be created with app client ID `63f2f070-e55d-40d3-93f9-f46229544066` and assigned to users/globally; propagation takes 30 minutes
+  2. **Layer 2:** CsApplicationAccessPolicy (CONFIRMED CRITICAL BLOCKER in <YOUR_TENANT_DOMAIN> test tenant) — must be created with app client ID `<YOUR_GRAPH_APP_ID>` and assigned to users/globally; propagation takes 30 minutes
   3. **Layer 3:** Graph API permissions (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All) — added via Azure Portal and require admin consent
   4. **Layer 4:** Teams Premium license verification — users must have base Teams license + Teams Premium add-on
 - Added cross-reference in CONFIGURATION.md (top of "Quick Start" section) linking to the new Teams Admin doc to clarify that app configuration assumes admin setup is complete.
@@ -47,6 +47,26 @@
 - Updated `scripts/setup/README.md` to document `grant-graph-permissions.ps1` with full usage, prerequisites, and integration into the setup sequence; added script to the recommended setup sequence (step 4).
 - Updated `scripts/graph/README.md` with prerequisites section, environment variable explanations, and link to the admin configuration guide.
 - All changes focused on answering: "What permissions are required?" and "How do I grant them?" — prerequisites now clearly listed across all entry points (README, CONFIGURATION, admin guide, and scripts docs).
+
+### 2026-02-28: Unified ACCESS_AND_PERMISSIONS.md Guide (Edie)
+
+- Created `ACCESS_AND_PERMISSIONS.md` at repo root — the single authoritative source for end-to-end access flow.
+- Document covers all 6 access layers: Entra App Registration → Graph Permissions → Admin Consent → CsApplicationAccessPolicy → Teams Meeting Policies → API calls.
+- **Architecture diagram (Mermaid)** shows how layers stack and when each one is the failure point.
+- **Hard-won lessons prominently featured:**
+  1. Graph API app-only auth MUST use `/users/{userId}/onlineMeetings/` path (NOT `/communications/onlineMeetings/`)
+  2. userId MUST be a GUID, not email/UPN — requires separate resolution call to `/users/{email}?$select=id`
+  3. **CsApplicationAccessPolicy is CRITICAL and SEPARATE from Graph permissions** — missing it causes 403 "No application access policy found" even with all other layers correct
+  4. Transcript content endpoint requires `$format=text/vtt` query parameter or returns 400
+  5. onlineMeetingId resolution via JoinWebUrl requires userId GUID (email/UPN won't work)
+  6. **CsApplicationAccessPolicy takes 30 minutes to propagate** (often the longest wait in setup)
+  7. Seven specific Graph permissions required (listed with IDs for reference)
+- **Common Pitfalls section** — 8 detailed tables covering every observed failure mode with diagnosis and fix
+- **Verification Checklist** — step-by-step testing per layer with actual PowerShell/curl commands
+- **API Path Reference** — clear examples showing correct endpoints vs. common mistakes
+- **Troubleshooting Decision Tree** — flowchart to diagnose which layer is failing
+- **Cross-references** to TEAMS_ADMIN_CONFIGURATION.md, CONFIGURATION.md, and other existing docs to avoid duplication while providing a unified entry point
+- Total: ~900 lines, ~31KB, authored for someone who just cloned the repo and needs to deploy by Friday
 
 ## Team Updates
 

@@ -11,7 +11,7 @@
 2. Created `scenarios/lambda/package.ps1` build script (pattern consistent with eventhub Lambda)
 3. Updated Terraform resource with `lifecycle { ignore_changes = [filename, source_code_hash] }` for manual code deploy
 4. Ran package.ps1 and deployed zip via `aws lambda update-function-code`
-5. Recreated Graph subscriptions for boldoriole@ibuyspy.net and trustingboar@ibuyspy.net
+5. Recreated Graph subscriptions for user2@<YOUR_TENANT_DOMAIN> and user3@<YOUR_TENANT_DOMAIN>
 6. Manually synced BlueLynx meeting into DynamoDB (verification)
 
 ## Outcome

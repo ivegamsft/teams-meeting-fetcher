@@ -54,3 +54,24 @@
 - ✅ Pipeline processing all events (S3 + DynamoDB records confirm receipt)
 - ✅ No rate limiting issues during sustained mutation load
 - ⚠️ Schema needs enhancement for proper change tracking and status management
+
+### 2026-02-28: Transcript List Enrichment with Meeting Details
+
+**Context:** The transcript list page showed raw meeting IDs which weren't useful. Enriched the transcript list to show meeting details (subject, organizer, date/time, duration) instead.
+
+**Files Changed:**
+1. `apps/admin-app/src/routes/transcripts.ts` — Added `meetingStore` import; enriched `GET /api/transcripts` response by looking up each transcript's meeting and attaching `meeting` property with subject, startTime, endTime, organizerDisplayName, attendeesCount
+2. `apps/admin-app/public/index.html` — Updated table headers: Meeting Subject, Organizer, Date/Time, Duration, Status, Actions
+3. `apps/admin-app/public/js/app.js` — Rewrote `loadTranscripts()` to render meeting subject (linked to #meetings), organizer name, formatted date/time, calculated duration (Xh Ym format)
+
+**Key Patterns:**
+- Backend enrichment via `Promise.all` with per-transcript `meetingStore.get()` — gracefully handles missing meetings (shows "Unknown Meeting")
+- Duration calculated client-side from start/end times, formatted as "Xh Ym" or "Xm"
+- Subject links to `#meetings` page using existing app navigation
+- No new API endpoints — enriched existing `GET /api/transcripts` response
+- TypeScript compiles clean, all 74 existing tests pass
+
+**Key Files:**
+- `apps/admin-app/src/services/meetingStore.ts` — `meetingStore.get(id)` resolves DynamoDB composite key, returns full Meeting object
+- `apps/admin-app/src/models/meeting.ts` — Meeting interface with subject, startTime, endTime, organizerDisplayName, attendees[]
+- `apps/admin-app/src/models/transcript.ts` — Transcript interface with meetingId field linking to meetings

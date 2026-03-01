@@ -10,11 +10,13 @@
 **Decision:** Use a `use_oidc` boolean variable (default `false`) to toggle between local SPN auth (with `client_secret`) and CI/CD OIDC auth (with `use_oidc = true`, no secret).
 
 **Rationale:**
+
 - Allows local dev with Service Principal credentials while supporting GitHub Actions OIDC
 - Avoids breaking existing local workflows that rely on SPN
 - Single codebase works in both environments without branching logic
 
 **Implementation:**
+
 - Added `use_oidc` variable to `iac/variables.tf` and `iac/azure/variables.tf`
 - Modified `azurerm` and `azuread` providers to conditionally set `client_secret = null` and `use_oidc = true` when `use_oidc` is true
 - Deploy workflows set `TF_VAR_use_oidc=true` in all Terraform steps
@@ -28,11 +30,13 @@
 **Decision:** Pass all Terraform variables via `TF_VAR_*` environment variables in workflow steps, not via `-var` CLI flags.
 
 **Rationale:**
+
 - Prevents secrets from appearing in logs
 - Consistent pattern across all steps (init, validate, plan, apply)
 - Easier to audit and maintain
 
 **Implementation:**
+
 - All Azure credentials passed as `TF_VAR_azure_*` and `ARM_*` env vars
 - Applied to both `deploy-aws.yml` and `deploy-azure.yml`
 
@@ -45,11 +49,13 @@
 **Decision:** Test workflows must explicitly `cd apps/aws-lambda` and specify `cache-dependency-path: "apps/aws-lambda/package-lock.json"`.
 
 **Rationale:**
+
 - No root `package.json` exists — project is multi-app monorepo
 - Default npm cache detection fails without explicit path
 - Prevents "npm ci" errors in CI
 
 **Implementation:**
+
 - Updated `test-and-lint.yml` to cd into app dir before npm ci
 - Updated `e2e-integration-tests.yml` to cd into app dir and add fallback for missing test patterns
 - Added graceful fallback for missing Python requirements in webhook tests
@@ -63,6 +69,7 @@
 **Decision:** Use `${{ secrets.COPILOT_ASSIGN_TOKEN || secrets.GITHUB_TOKEN }}` for Copilot assignment step in `squad-issue-assign.yml`.
 
 **Rationale:**
+
 - COPILOT_ASSIGN_TOKEN may not be configured in all repos
 - Fallback to GITHUB_TOKEN allows workflow to run (though Copilot assignment may fail)
 - Matches pattern already used in `squad-heartbeat.yml`
@@ -76,11 +83,13 @@
 **Decision:** Document all required secrets/variables in workflow file headers using clear comment blocks.
 
 **Rationale:**
+
 - Makes setup requirements visible to anyone reading the workflow
 - Prevents deployment failures due to missing configuration
 - Serves as inline documentation for repo setup
 
 **Implementation:**
+
 - Added ASCII-art bordered comment blocks at top of `deploy-aws.yml` and `deploy-azure.yml`
 - Listed all required secrets and variables with brief descriptions
 
@@ -93,17 +102,20 @@
 **Decision:** Fix all import paths and Jest configuration after code reorganization moved meeting-bot to new location.
 
 **Rationale:**
+
 - Code reorganization from `lambda/meeting-bot/` to `scenarios/lambda/meeting-bot/` broke unit test imports
 - Jest configuration needed to reflect new structure and resolve @aws-sdk
 - Pester tests require real assertions for error handling validation
 
 **Implementation:**
+
 - Fixed require paths in `test/unit/meeting-bot/graph-client.test.js` and `test/unit/meeting-bot/index.test.js`
 - Added `'<rootDir>/apps/aws-lambda/node_modules'` to Jest `modulePaths` for @aws-sdk resolution
 - Updated Jest coverage paths to reflect `scenarios/lambda/meeting-bot/` structure
 - Implemented real assertions in `test/scripts/generate-env.tests.ps1` for error handling, file format validation, and cross-platform script verification
 
 **Status:**
+
 - ✅ All 74 Jest tests passing
 - ✅ Pester error handling tests passing
 - ⚠️ Positive test cases remain placeholder (terraform mocking in PowerShell context requires future refinement)
@@ -117,6 +129,7 @@
 **Decision:** E2E tests for Teams Meeting Fetcher will use a human-in-the-loop pattern with Jest as the test framework and native Node.js for AWS/Graph API interactions.
 
 **Rationale:**
+
 1. Human-in-the-loop necessary: Teams meeting creation, bot installation, and real transcript generation cannot be automated without complex Teams API bot infrastructure
 2. Jest provides structure: Test phases (describe/test blocks) organize pre-flight, setup, human action, validation, teardown naturally
 3. Native Node.js minimizes dependencies: Using `child_process.execSync` for AWS CLI and `https` for Graph API keeps tests maintainable
@@ -124,6 +137,7 @@
 5. Rich console output: Box-drawing and emojis guide humans through the process effectively
 
 **Implementation:**
+
 - Test framework: Jest with 10-minute timeout, maxWorkers: 1, Node environment
 - Test structure: 3 AWS scenarios (teams-bot-e2e.test.js, eventhub-e2e.test.js, direct-graph-e2e.test.js)
 - Shared utilities: helpers.js with infrastructure checks, logging, result formatting
@@ -132,6 +146,7 @@
 - Phase-based test flow: Pre-flight checks → Setup → Human action prompt → Wait periods → Validation → Teardown → Summary
 
 **Benefits:**
+
 - Maintainable: No complex mocking/simulation infrastructure
 - Realistic: Tests actual Teams integration and Graph API
 - Debuggable: Rich logging shows exactly what's happening
@@ -139,6 +154,7 @@
 - Flexible: Easy to add new scenarios
 
 **Tradeoffs:**
+
 - Not CI/CD friendly: Requires human interaction
 - Slower: Each test takes 3-10 minutes
 - Non-deterministic: Teams/Graph processing timing varies
@@ -152,17 +168,19 @@
 **Decision:** All workflow files must install dependencies in app-specific directories only. Never run `npm ci` at the repo root. Always specify `cache-dependency-path` when using `cache: "npm"` in `setup-node`.
 
 **Rationale:**
+
 - No root `package.json` exists; project is a multi-app monorepo
 - Root `npm ci` fails immediately, blocking the entire workflow
 - `setup-node` with `cache: "npm"` without `cache-dependency-path` fails due to missing root `package-lock.json`
 
 **Pattern:**
+
 ```yaml
 - uses: actions/setup-node@v4
   with:
-    node-version: "18"
-    cache: "npm"
-    cache-dependency-path: "apps/aws-lambda/package-lock.json"
+    node-version: '18'
+    cache: 'npm'
+    cache-dependency-path: 'apps/aws-lambda/package-lock.json'
 
 - name: Install dependencies
   run: |
@@ -171,6 +189,7 @@
 ```
 
 **Implementation:**
+
 - Fixed 11 workflow files to follow this pattern
 - `test-and-lint.yml`, `e2e-integration-tests.yml`, `squad-ci.yml`, `squad-release.yml`, `squad-preview.yml`, `squad-insider-release.yml` already correct
 - Applied pattern consistently across all app-dependent workflows
@@ -184,16 +203,15 @@
 **Decision:** Teams Meeting Fetcher documentation is comprehensive but needs reorganization for new user onboarding. Create unified quick-start guides and fix critical path references.
 
 **Critical Issues Identified:**
+
 1. README.md references deprecated deployment paths (`cd iac/azure`, `cd iac/aws`)
 2. DEPLOYMENT.md uses wrong folder name (`infra/` vs actual `iac/`)
 3. Conflicting scenario terminology ("scenarios" vs "deployment patterns" vs "implementation approaches")
 
-**Major Issues Identified:**
-4. Missing scenario-specific environment variable mapping in CONFIGURATION.md
-5. Broken cross-references to non-existent files (ARCHITECTURE.md, TROUBLESHOOTING.md)
-6. Scattered prerequisites and cost information
+**Major Issues Identified:** 4. Missing scenario-specific environment variable mapping in CONFIGURATION.md 5. Broken cross-references to non-existent files (ARCHITECTURE.md, TROUBLESHOOTING.md) 6. Scattered prerequisites and cost information
 
 **Actions Taken:**
+
 - ✅ Created `QUICKSTART.md` at root — Unified entry point comparing all 3 scenarios
 - ✅ Created `scenarios/nobots-eventhub/QUICKSTART.md` — Event Hub quick start
 - ✅ Created `scenarios/lambda/meeting-bot/QUICKSTART.md` — Teams Bot quick start
@@ -201,27 +219,23 @@
 
 **Recommendations (Priority Order):**
 
-*Immediate (do first):*
+_Immediate (do first):_
+
 1. Fix DEPLOYMENT.md folder name (`infra/` → `iac/`)
 2. Remove deprecated deployment paths from README.md
 3. Add link to QUICKSTART.md at top of README.md
 
-*Short-term (this sprint):*
-4. Create `scenarios/README.md` explaining scenario structure
-5. Add scenario-specific config table to CONFIGURATION.md
-6. Fix broken cross-references, create missing docs (ARCHITECTURE.md, TROUBLESHOOTING.md, GLOSSARY.md)
+_Short-term (this sprint):_ 4. Create `scenarios/README.md` explaining scenario structure 5. Add scenario-specific config table to CONFIGURATION.md 6. Fix broken cross-references, create missing docs (ARCHITECTURE.md, TROUBLESHOOTING.md, GLOSSARY.md)
 
-*Long-term (future):*
-7. Create comprehensive `docs/GLOSSARY.md` for terminology
-8. Create `docs/ARCHITECTURE.md` with all 3 scenario architectures
-9. Expand `apps/README.md` with app architecture overview
-10. Add automated link checker to CI/CD
+_Long-term (future):_ 7. Create comprehensive `docs/GLOSSARY.md` for terminology 8. Create `docs/ARCHITECTURE.md` with all 3 scenario architectures 9. Expand `apps/README.md` with app architecture overview 10. Add automated link checker to CI/CD
 
 **Documentation Quality:**
+
 - Overall: ⭐⭐⭐⭐ (4/5 stars)
 - With fixes: ⭐⭐⭐⭐⭐ (5/5 stars)
 
 **Coverage Metrics:**
+
 - Root guides: ⭐⭐⭐⭐ 95% (with QUICKSTART.md)
 - Scenario guides: ⭐⭐⭐⭐⭐ 100% (with new quick starts)
 - App guides: ⭐⭐⭐ 75%
@@ -237,11 +251,13 @@
 **Decision:** Created `DEPLOYMENT_PREREQUISITES.md` as the canonical reference for all infrastructure prerequisites, secrets, variables, and setup steps required to deploy Teams Meeting Fetcher.
 
 **Rationale:**
+
 - GitHub Actions workflows were failing due to missing AWS OIDC provider registration — this is a manual prerequisite, not a code fix
 - No single document existed that mapped every secret/variable to its origin (manual vs pipeline-generated vs Terraform output)
 - New contributors had no way to know the full setup sequence from AWS OIDC to Terraform state to GitHub secrets
 
 **Key Points:**
+
 1. **AWS OIDC Provider** must be registered once per AWS account before any deploy workflow runs
 2. **Azure Federated Credentials** must be configured per branch (`main`, `develop`, PRs)
 3. **Terraform outputs** (Lambda names, API Gateway URLs) feed back into deploy workflows and Graph API configuration
@@ -249,6 +265,7 @@
 5. All values are tagged: `Manual`, `Pipeline-generated`, `Terraform output`, or `Auto-created`
 
 **Impact:**
+
 - All agents: Reference this doc when discussing deployment setup
 - Edie (Docs): Link to this from README.md and DEPLOYMENT.md
 - ivegamsft: Follow AWS OIDC setup (section 1.1) to unblock deploy workflows
@@ -260,6 +277,7 @@
 **By:** ivegamsft (via Copilot)
 
 **Directive:** For all Azure resources, RBAC is the only auth method — no KEY-based access. Most access will be via private link. Services must be locked down using firewalls. If a GitHub Actions runner needs access (e.g., Key Vault, Storage Account), it must:
+
 1. Use a single job
 2. Check its IP
 3. Add its IP to the service firewall
@@ -279,6 +297,7 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Implement a standardized pattern for GitHub Actions runners to temporarily gain firewall access to Azure resources (Key Vault, Storage Account) during CI/CD deployments.
 
 **Rationale:**
+
 - Key Vault and Storage Account both have `default_action = "Deny"` firewalls
 - GitHub Actions runners have dynamic public IPs that are not pre-whitelisted
 - Without firewall access, runners cannot read secrets, upload blobs, or verify deployment
@@ -307,6 +326,7 @@ Do NOT change settings unless public access is off completely — use specific I
    - DEPLOYMENT_RULES.md sections 9-12: RBAC-only policy, firewall rules, CI/CD pattern, private link
 
 **Constraints:**
+
 - `if: always()` on all cleanup steps — never leave stale IPs
 - Only modify firewall if `defaultAction` is `Deny`
 - Use `|| true` on remove commands to handle already-removed IPs
@@ -314,6 +334,7 @@ Do NOT change settings unless public access is off completely — use specific I
 - 15-second wait after adding IP for propagation
 
 **Required SPN Roles (in addition to data-plane roles):**
+
 - Key Vault Contributor — Manage Key Vault network/firewall rules
 - Storage Account Contributor — Manage Storage Account network rules
 - Network Contributor — Only if using VNet-based rules
@@ -327,11 +348,13 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Create comprehensive Terraform state backend setup documentation (S3 bucket + DynamoDB table) as a one-time prerequisite, positioned between AWS OIDC setup and Azure setup in DEPLOYMENT_PREREQUISITES.md.
 
 **Rationale:**
+
 - S3 + DynamoDB state backend is a prerequisite for all AWS Terraform deployments
 - Previous documentation lacked clear state backend setup instructions
 - Users need to understand the distinction between GitHub Variables (public: `gh variable set`) vs Secrets (encrypted: `gh secret set`)
 
 **Key Details:**
+
 - **S3 Bucket:** `tmf-terraform-state-{account_id}` (includes AWS account ID for global uniqueness)
 - **DynamoDB Lock Table:** `tmf-terraform-state-lock` (single table per account)
 - **State Key:** `teams-meeting-fetcher/terraform.tfstate` (namespaced under project name)
@@ -339,15 +362,17 @@ Do NOT change settings unless public access is off completely — use specific I
 - **GitHub Variables (4 total):** TF_STATE_BUCKET, TF_STATE_KEY, TF_STATE_REGION, TF_STATE_LOCK_TABLE
 
 **Implementation:**
+
 - New section 2 in DEPLOYMENT_PREREQUISITES.md (S3/DynamoDB setup, Variables config, Bootstrap/verify scripts, State migration)
 - All section numbers reorganized (old section 2→3, 3→4, etc.)
 - Bootstrap/verify scripts with TODO comments (scripts to be created by Fenster)
 - Cross-references updated in DEPLOYMENT.md and QUICKSTART.md
 
 **Impact:**
+
 - New contributors: Follow section 2 before first `terraform init`
 - Operations teams: Use bootstrap script to automate setup across repos
-- CI/CD operators: TF_STATE_* variables must be set before workflows run
+- CI/CD operators: TF*STATE*\* variables must be set before workflows run
 
 ---
 
@@ -358,29 +383,32 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Azure AD app registrations (Teams Meeting Fetcher, Teams Meeting Fetcher Bot, Lambda EventHub Consumer) are **created by Terraform**, not manually. They are NOT deployment prerequisites.
 
 **Rationale:**
+
 - `iac/azure/modules/azure-ad/main.tf` contains three `azuread_application` resources with auto-created service principals and passwords
 - Root `iac/main.tf` passes Azure module outputs directly into AWS module — no manual credential copying needed
 - This clarifies documentation that confused the deployment SPN (prerequisite) with application app registrations (Terraform-managed)
 
 **Correct Prerequisites:**
 
-| Prerequisite | Type | Purpose |
-|---|---|---|
-| AWS OIDC Provider + IAM Role | Manual (one-time) | GitHub Actions OIDC auth to AWS |
-| Terraform State Backend (S3 + DynamoDB) | Manual (one-time) | Remote state storage |
-| Azure Deployment SPN | Manual (one-time) | Terraform executor identity |
-| Azure SPN Permissions | Manual (one-time) | Contributor + Azure AD permissions |
-| GitHub Secrets/Variables | Manual (one-time) | Workflow configuration |
-| Lambda Zip Packages | Build step | Lambda code artifacts |
-| `terraform.tfvars` | Manual | Deployment configuration |
+| Prerequisite                            | Type              | Purpose                            |
+| --------------------------------------- | ----------------- | ---------------------------------- |
+| AWS OIDC Provider + IAM Role            | Manual (one-time) | GitHub Actions OIDC auth to AWS    |
+| Terraform State Backend (S3 + DynamoDB) | Manual (one-time) | Remote state storage               |
+| Azure Deployment SPN                    | Manual (one-time) | Terraform executor identity        |
+| Azure SPN Permissions                   | Manual (one-time) | Contributor + Azure AD permissions |
+| GitHub Secrets/Variables                | Manual (one-time) | Workflow configuration             |
+| Lambda Zip Packages                     | Build step        | Lambda code artifacts              |
+| `terraform.tfvars`                      | Manual            | Deployment configuration           |
 
 **Post-Deploy Manual Steps:**
+
 1. Grant admin consent for Graph API permissions on Terraform-created app registrations
 2. Update `bot_messaging_endpoint` in `terraform.tfvars` with API Gateway URL (chicken-and-egg: first deploy creates the URL)
 3. Update `graph_notification_url` with webhook endpoint URL
 4. Add users to admin security group created by Terraform
 
 **Impact:**
+
 - Documentation should distinguish between deployment SPN (prerequisite) and application app registrations (Terraform-managed)
 - Correct deployment sequence clarified for all agents
 
@@ -393,6 +421,7 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Delete squad-generated duplicate workflows; keep only squad-unique orchestration workflows.
 
 **Deleted (5 total):**
+
 - `squad-ci.yml` — duplicated `test-and-lint.yml` + `build-lambda-handler.yml` (prior session)
 - `squad-release.yml` — duplicated `release.yml` (prior session)
 - `squad-insider-release.yml` — no insider branch exists (prior session)
@@ -400,6 +429,7 @@ Do NOT change settings unless public access is off completely — use specific I
 - `squad-preview.yml` — Terraform check is no-op on stock runners (no terraform), manifest validation duplicated by `package-teams-app.yml`
 
 **Kept (7 squad-unique orchestration workflows):**
+
 - `squad-promote.yml` — branch promotion (dev → preview → main) with forbidden-path stripping
 - `squad-heartbeat.yml` — Ralph auto-triage on schedule/events
 - `squad-triage.yml` — keyword-based issue routing on `squad` label
@@ -409,11 +439,13 @@ Do NOT change settings unless public access is off completely — use specific I
 - `sync-squad-labels.yml` — syncs labels from team roster
 
 **Rationale:**
+
 - Squad init generates common CI/CD workflows, but this repo has well-tested originals
 - Keeping duplicates causes confusion (which runs? which is authoritative?) and wastes runner minutes
 - Squad orchestration workflows serve unique squad system purposes — no original equivalents exist
 
 **No further consolidation needed:**
+
 - All remaining workflows follow correct patterns (cache-dependency-path, app-specific npm ci, RBAC auth)
 - No fragile `cd && ... && cd` patterns exist
 - Total inventory: 25 workflows (down from 29)
@@ -427,12 +459,14 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Replace `AdministratorAccess` in bootstrap scripts with 9 scoped AWS managed policies matching the production `GitHubActionsTeamsMeetingFetcher` role. Replace IAM-user-era secret checks in verify scripts with OIDC-era checks including AWS-side resource verification.
 
 **Rationale:**
+
 - `AdministratorAccess` violated least-privilege. The 9 scoped policies (S3, Lambda, DynamoDB, API Gateway, IAM, EventBridge, SNS, CloudWatch Logs, CloudWatch) match exactly what the role needs.
 - The old role name `github-actions-oidc-role` didn't match the manually created `GitHubActionsTeamsMeetingFetcher` role.
 - Verify scripts checked for stale IAM-user secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) that are no longer used with OIDC.
 - No script verified AWS-side resources (OIDC provider existence, role existence, trust policy, attached policies).
 
 **Implementation:**
+
 1. `scripts/setup/bootstrap-github-oidc.ps1` and `.sh`:
    - Default role name: `GitHubActionsTeamsMeetingFetcher` (configurable via `-RoleName` / `--role-name`)
    - 9 scoped policies instead of `AdministratorAccess`
@@ -451,6 +485,7 @@ Do NOT change settings unless public access is off completely — use specific I
    - Added 5 new policies (IAM, EventBridge, SNS, CloudWatch Logs, CloudWatch) to existing 4
 
 **Impact:**
+
 - All agents: Bootstrap and verify scripts now match production OIDC configuration
 - New contributors: Running the bootstrap script produces a correctly scoped role
 - CI/CD: Verify script can be used as a pre-flight check before running deploy workflows
@@ -464,11 +499,13 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Rename `.github/workflows/deploy-aws.yml` to `deploy-unified.yml` and update workflow name to "Deploy Unified Infrastructure". Expand `on.push.paths` to include `iac/*.tf` and `iac/azure/**`.
 
 **Rationale:**
+
 - The workflow runs `iac/main.tf` which deploys BOTH Azure (Event Hub, Key Vault, app registrations) AND AWS (Lambda, DynamoDB, S3) — naming it "Deploy to AWS" was misleading
 - The `iac/azure/**` module is a dependency of the AWS module (`depends_on`), so changes there should trigger the unified pipeline
 - `iac/*.tf` contains the root `main.tf` entry point — changes there should trigger the workflow
 
 **What Changed:**
+
 1. File renamed via `git mv` (preserves git history)
 2. Workflow `name:` changed from "Deploy to AWS" to "Deploy Unified Infrastructure"
 3. `on.push.paths` expanded: added `iac/*.tf` and `iac/azure/**`
@@ -476,11 +513,13 @@ Do NOT change settings unless public access is off completely — use specific I
 5. All non-historical references across docs/prompts updated by Edie
 
 **What Did NOT Change:**
+
 - `deploy-azure.yml` — standalone Azure-only deployment (runs from `iac/azure/` directory)
 - Job names within the workflow (deploy job still says "Deploy to AWS" since it deploys Lambda code)
 - Historical `.squad/` records (orchestration logs, prior decisions)
 
 **Impact:**
+
 - Clear signaling that `deploy-unified.yml` orchestrates deployment of BOTH clouds
 - New contributors understand the standard deployment model (unified via `iac/main.tf`)
 - Workflow triggers appropriately on changes to root Terraform and Azure module
@@ -494,21 +533,25 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Create `.github/workflows/verify-bootstrap.yml` — a manual-dispatch workflow that verifies AWS OIDC, Azure OIDC, Terraform state backend, and GitHub secrets/variables are all correctly configured after running bootstrap scripts.
 
 **Rationale:**
+
 - No CI-level verification existed to confirm bootstrap was complete
 - Existing `verify-github-secrets.ps1` and `verify-terraform-backend.ps1` scripts run locally, but no validation from inside GitHub Actions (where OIDC actually matters)
 - Single workflow_dispatch workflow provides clear PASS/FAIL for each cloud + config area
 
 **Implementation:**
+
 - 4 jobs: `config-verify` (secrets/variables), `aws-verify` (OIDC provider, IAM role, 9 policies, S3 bucket, DynamoDB table), `azure-verify` (OIDC auth, tenant match, SP validation), `summary` (rollup)
 - OIDC-only auth for both clouds — no static keys
 - `[PASS]/[FAIL]/[WARN]/[SKIP]` output format matching existing verify scripts
 - DEPLOYMENT_PREREQUISITES.md updated with workflow reference and checklist item
 
 **Usage:**
+
 - After bootstrap, point users to `gh workflow run verify-bootstrap.yml` to confirm setup
 - Conditional job execution avoids noisy failures when only one cloud is bootstrapped
 
 **Impact:**
+
 - All agents: Reference this workflow when directing users to verify bootstrap completion
 - Edie (Docs): Workflow is already referenced in DEPLOYMENT_PREREQUISITES.md
 - CI/CD: Provides automated validation before deployment workflows run
@@ -523,16 +566,17 @@ Do NOT change settings unless public access is off completely — use specific I
 
 **Plan Summary:**
 
-| Phase | Focus | Duration | Owner |
-|-------|-------|----------|---|
-| **1: Pre-flight** | Credential/backend validation, blocker identification | 15-20 min | ivegamsft |
-| **2: Infrastructure** | Terraform init → plan → apply (101 resources) | 10-15 min | Deployment agent |
-| **3: Post-Deploy Config** | Graph API subscription, Lambda env vars, Key Vault/Storage firewall | 10 min | ivegamsft + automation |
-| **4: Testing** | Pre-flight checks (5m), quick test (5-10m), detailed E2E (30-45m) | 50-60 min | Hockney/Redfoot |
-| **5: Validation** | 25-point checklist (9 infra, 5 config, 6 functional) | 5 min | Keaton |
-| **6: Rollback** | Partial, full, and emergency procedures | 5-30 min | Keaton/Fenster |
+| Phase                     | Focus                                                               | Duration  | Owner                  |
+| ------------------------- | ------------------------------------------------------------------- | --------- | ---------------------- |
+| **1: Pre-flight**         | Credential/backend validation, blocker identification               | 15-20 min | ivegamsft              |
+| **2: Infrastructure**     | Terraform init → plan → apply (101 resources)                       | 10-15 min | Deployment agent       |
+| **3: Post-Deploy Config** | Graph API subscription, Lambda env vars, Key Vault/Storage firewall | 10 min    | ivegamsft + automation |
+| **4: Testing**            | Pre-flight checks (5m), quick test (5-10m), detailed E2E (30-45m)   | 50-60 min | Hockney/Redfoot        |
+| **5: Validation**         | 25-point checklist (9 infra, 5 config, 6 functional)                | 5 min     | Keaton                 |
+| **6: Rollback**           | Partial, full, and emergency procedures                             | 5-30 min  | Keaton/Fenster         |
 
 **Critical Blockers Identified:**
+
 1. Azure Client Secret expired → Update from Key Vault
 2. Lambda zip package not built → Run `npm ci && ./package.sh`
 3. Graph API Service Principal missing Calendars.Read → Assign role
@@ -540,6 +584,7 @@ Do NOT change settings unless public access is off completely — use specific I
 5. RBAC roles not propagating → Wait 5-10s after Terraform apply
 
 **Major Risks (8 documented):**
+
 - Wrong Azure tenant (mitigated by Phase 1.2 validation)
 - Event Hub in wrong region
 - Lambda timeout during polling
@@ -549,11 +594,13 @@ Do NOT change settings unless public access is off completely — use specific I
 - And 2 others
 
 **Decision Gates:**
+
 - **Gate 1 (Before Deploy):** Pre-flight complete, plan reviewed, approval needed
 - **Gate 2 (After Deploy):** Resources created, pre-flight checks pass, approval to test
 - **Gate 3 (After Testing):** 20/20 validation points, no critical errors, approval for production
 
 **Validation Criteria (Success = 20/20 points):**
+
 - 9 infrastructure components (Event Hub, Lambda, DynamoDB, S3, RBAC, Key Vault, Storage, etc.)
 - 5 configuration components (Graph subscription, Lambda env, Terraform state, GitHub secrets/variables)
 - 6 functional scenarios (event creation, notification, processing, storage, checkpoint tracking, transcript fetch)
@@ -561,6 +608,7 @@ Do NOT change settings unless public access is off completely — use specific I
 **Plan Location:** `.squad/decisions/inbox/keaton-nobots-eventhub-plan.md` (ready for execution post-approval)
 
 **Impact:**
+
 - Comprehensive deployment procedure for nobots-eventhub scenario
 - Clear decision gates prevent bad deployments
 - 25-point validation checklist ensures reliability
@@ -575,22 +623,26 @@ Do NOT change settings unless public access is off completely — use specific I
 **Summary:** Post-deployment verification completed for unified deployment (suffix `8akfpg`). All 126 Terraform-managed resources healthy and operational.
 
 **Azure Resources (East US):**
+
 - Event Hub Namespace `tmf-ehns-eus-8akfpg` — Active, 2 partitions
 - Event Hub `tmf-eh-eus-8akfpg` — Ready
 - Key Vault `tmf-kv-eus-8akfpg` — Healthy, URI: `https://tmf-kv-eus-8akfpg.vault.azure.net/`
 - Storage Account `tmfsteus8akfpg` — Available
 
 **AWS Resources (us-east-1):**
+
 - Lambda Functions: 5 deployed (subscription-renewal, eventhub-processor, meeting-bot, webhook-writer, webhook-authorizer) — all state None (ready)
 - DynamoDB Tables: 6 tables (eventhub-checkpoints, graph-subscriptions, meeting-bot-sessions-dev, state lock tables)
 - S3 Bucket: `tmf-webhooks-eus-dev`
 
 **Azure AD App Registrations:**
-- Teams Meeting Fetcher `63f2f070-e55d-40d3-93f9-f46229544066` — Admin consent granted ✅
-- Teams Meeting Fetcher Bot `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` — Admin consent granted ✅
-- Lambda EventHub Consumer `6dafa2b6-ec4c-4fb6-997c-6efcadcb22ab` — Admin consent granted ✅
+
+- Teams Meeting Fetcher `<YOUR_GRAPH_APP_ID>` — Admin consent granted ✅
+- Teams Meeting Fetcher Bot `<YOUR_TEAMS_BOT_APP_ID>` — Admin consent granted ✅
+- Lambda EventHub Consumer `<YOUR_AUX_APP_ID>` — Admin consent granted ✅
 
 **Technical Notes:**
+
 - Azure CLI syntax: `az eventhubs` (plural) is correct
 - Event Hub FQDN extraction: Strip protocol and port from `serviceBusEndpoint`
 - Lambda State=None: Normal for event-driven functions
@@ -605,22 +657,26 @@ Do NOT change settings unless public access is off completely — use specific I
 **By:** Fenster (DevOps/Infra)
 
 **Problem:** The `deploy-unified.yml` workflow's Terraform plan step hung for 36+ minutes because:
+
 1. `-input=false` was NOT set on `terraform plan` or `terraform apply` commands
 2. Six required Terraform variables had no defaults and were not passed as `TF_VAR_*` environment variables
 3. Terraform attempted to prompt for missing values in a non-interactive CI environment, causing an infinite hang
 
 **Decision:** All Terraform commands in CI/CD workflows MUST use `-input=false` flag on:
+
 - `terraform plan`
 - `terraform apply`
 - `terraform destroy`
 
 **Rationale:**
+
 1. **Fail-fast behavior:** Missing variables cause immediate error exit instead of silent hang
 2. **CI/CD compatibility:** GitHub Actions runners have no TTY for interactive input
 3. **Debugging clarity:** Errors surface immediately in logs instead of timeout failures
 4. **Security:** Prevents accidental prompts in automated environments
 
 **Implementation:**
+
 ```yaml
 - name: Terraform plan
   run: |
@@ -633,11 +689,13 @@ Do NOT change settings unless public access is off completely — use specific I
 ```
 
 **Also Added:**
-1. 6 missing TF_VAR_* environment variables to both plan and apply steps
+
+1. 6 missing TF*VAR*\* environment variables to both plan and apply steps
 2. `timeout-minutes: 30` on validate job as backstop (prevents 36+ minute hangs)
 3. Updated workflow documentation with required GitHub secrets/variables list
 
 **Impact:**
+
 - Terraform errors fail fast (30-60 seconds) instead of timing out (30+ minutes)
 - All agents: Always include `-input=false` in CI/CD Terraform steps
 
@@ -648,6 +706,7 @@ Do NOT change settings unless public access is off completely — use specific I
 **By:** Fenster (DevOps/Infra)
 
 **Problem:** 3-job workflow architecture (validate → build → deploy) broken for Azure Key Vault firewall management:
+
 - Key Vault has `default_action = "Deny"` firewall (RBAC-only, no key access)
 - GitHub Actions runners have dynamic public IPs
 - Validate job runs on Runner A (IP: 1.2.3.4), Deploy job runs on Runner B (IP: 5.6.7.8)
@@ -661,6 +720,7 @@ Do NOT change settings unless public access is off completely — use specific I
 3. **deploy-lambda** job: Lambda deploy (needs both infrastructure + build, only if mode=apply)
 
 **Key Features:**
+
 - `workflow_dispatch` input: `mode: plan | apply` (default: plan)
 - Push trigger: plan-only mode (no apply)
 - Apply requires: `workflow_dispatch` with `mode: apply`
@@ -669,6 +729,7 @@ Do NOT change settings unless public access is off completely — use specific I
 - Concurrency control: `cancel-in-progress: false` prevents concurrent deployments
 
 **Benefits:**
+
 1. Works with Azure firewalls — Same runner = same IP for plan and apply
 2. Saved Terraform plan is usable — Created and applied on same runner
 3. Proper IP cleanup — Added IP is the IP removed (stored in step output)
@@ -689,16 +750,18 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** The Teams Meeting Fetcher app registration must have **"Azure Event Hubs Data Sender" role** on the Event Hub namespace for Graph API to deliver change notifications. This role was missing from the Terraform deployment and was added manually.
 
 **What Happened:**
+
 - Graph API subscription creation succeeded
 - But notifications could NOT be delivered to Event Hub due to missing role
 - Role was manually added via `az role assignment create` for SP `39ebad56-19ea-41b7-8462-b0602343ded7`
-- Subscription ID: `d08febbf-a217-4cc1-8cce-d81879c41512` (for user `boldoriole@ibuyspy.net/events`)
+- Subscription ID: `<SUBSCRIPTION_ID_4>` (for user `user2@<YOUR_TENANT_DOMAIN>/events`)
 
 **Action Required:** Update Terraform `azure-ad` module to include Event Hub Data Sender role assignment on the Event Hub namespace.
 
 **Next Deployments:** Role will be automatically assigned by Terraform after module update.
 
 **Impact:**
+
 - All future deployments: Event Hub Data Sender role will be pre-configured
 - No manual role assignment needed
 - Graph API subscriptions will work immediately post-deploy
@@ -714,14 +777,17 @@ Do NOT change settings unless public access is off completely — use specific I
 **Finding:** Graph API subscriptions on `/groups/{id}/calendar/events` require a **Microsoft 365 (Unified) group** with a calendar. Security groups cannot be subscription targets.
 
 **Subscription Attempt:**
-- Tried: `/groups/2e572630-7b65-470d-82f2-0387ebb04524/calendar/events` (admin security group)
+
+- Tried: `/groups/<YOUR_GROUP_ID>/calendar/events` (admin security group)
 - Failed with: "App Only access is not allowed for target resource"
 
 **Workaround:** Use per-user subscriptions instead:
-- Created: `/users/boldoriole@ibuyspy.net/events` subscription ✅ (SUCCESS)
-- Subscription ID: `d08febbf-a217-4cc1-8cce-d81879c41512`
+
+- Created: `/users/user2@<YOUR_TENANT_DOMAIN>/events` subscription ✅ (SUCCESS)
+- Subscription ID: `<SUBSCRIPTION_ID_4>`
 
 **Future Fixes (Options):**
+
 1. Change Terraform to create an M365 group instead of security group (requires mailbox provisioning)
 2. Keep using per-user subscriptions (simpler, works now)
 3. Hybrid: Group for RBAC/management, per-user subscriptions for notifications
@@ -729,6 +795,7 @@ Do NOT change settings unless public access is off completely — use specific I
 **Current Approach:** All team member subscriptions will be per-user (`/users/{upn}/events`).
 
 **Impact:**
+
 - Per-user subscription model is simpler and works immediately
 - Can scale to multiple users by creating subscriptions for each user's calendar
 - Group-based subscriptions not viable with current security group setup
@@ -742,34 +809,37 @@ Do NOT change settings unless public access is off completely — use specific I
 **Decision:** Updated `scenarios/nobots-eventhub/.env` and `.env.example` with new resource values from the fresh Terraform deployment (suffix `8akfpg`), replacing all stale `6an5wk` references.
 
 **Key Rationale:**
+
 1. **Terraform Outputs as Source of Truth:** The `azure_app_client_secret` output from Terraform state contains the current valid secret for the main Graph API app registration
-2. **Group ID Changed:** New deployment created new Admin Security Group ID `2e572630-7b65-470d-82f2-0387ebb04524`
+2. **Group ID Changed:** New deployment created new Admin Security Group ID `<YOUR_GROUP_ID>`
 3. **API Gateway and Lambda URLs Updated:** Recreated endpoints in new deployment
-4. **Correct App Registration:** Main "Teams Meeting Fetcher" app (`63f2f070-e55d-40d3-93f9-f46229544066`) has required Graph API permissions (`Calendars.Read`, `Group.Read.All`)
+4. **Correct App Registration:** Main "Teams Meeting Fetcher" app (`<YOUR_GRAPH_APP_ID>`) has required Graph API permissions (`Calendars.Read`, `Group.Read.All`)
 
 **Updated Resource Values:**
 
-| Component | Old (6an5wk) | New (8akfpg) |
-|-----------|---|---|
-| Graph Client ID | `1b5a61f5-4c7f-41bf-9308-e4adaea6a7c8` | `63f2f070-e55d-40d3-93f9-f46229544066` |
-| Graph Client Secret | (expired) | `[REDACTED - rotate via Azure portal]` |
-| Admin Group ID | `5e7708f8-b0d2-467d-97f9-d9da4818084a` | `2e572630-7b65-470d-82f2-0387ebb04524` |
-| Resource Group | `tmf-rg-eus-6an5wk` | `tmf-rg-eus-8akfpg` |
-| Event Hub Namespace | `tmf-ehns-eus-6an5wk.servicebus.windows.net` | `tmf-ehns-eus-8akfpg.servicebus.windows.net` |
-| Event Hub Name | `tmf-eh-eus-6an5wk` | `tmf-eh-eus-8akfpg` |
-| Storage Account | `tmfsteus6an5wk` | `tmfsteus8akfpg` |
-| Key Vault Name | `tmf-kv-eus-6an5wk` | `tmf-kv-eus-8akfpg` |
-| Bot App ID | `a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4` | `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` |
-| API Gateway URL | `https://ir04kcl7bl.execute-api.us-east-1.amazonaws.com/dev/graph` | `https://45kg5tox6b.execute-api.us-east-1.amazonaws.com/dev/graph` |
-| Lambda Webhook URL | `https://4ej2x5p7al3tfefz7iiru7kwre0ityts.lambda-url.us-east-1.on.aws/` | `https://yfexrxjcakoanqr5kikkzif7e40xnqhj.lambda-url.us-east-1.on.aws/` |
+| Component           | Old (6an5wk)                                                            | New (8akfpg)                                                            |
+| ------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Graph Client ID     | `<YOUR_GRAPH_APP_ID>`                                                   | `<YOUR_GRAPH_APP_ID>`                                                   |
+| Graph Client Secret | (expired)                                                               | `[REDACTED - rotate via Azure portal]`                                  |
+| Admin Group ID      | `<YOUR_GROUP_ID>`                                                       | `<YOUR_GROUP_ID>`                                                       |
+| Resource Group      | `tmf-rg-eus-6an5wk`                                                     | `tmf-rg-eus-8akfpg`                                                     |
+| Event Hub Namespace | `<EVENT_HUB_NAMESPACE>.servicebus.windows.net`                          | `tmf-ehns-eus-8akfpg.servicebus.windows.net`                            |
+| Event Hub Name      | `<EVENT_HUB_NAME>`                                                      | `tmf-eh-eus-8akfpg`                                                     |
+| Storage Account     | `tmfsteus6an5wk`                                                        | `tmfsteus8akfpg`                                                        |
+| Key Vault Name      | `tmf-kv-eus-6an5wk`                                                     | `tmf-kv-eus-8akfpg`                                                     |
+| Bot App ID          | `a77b8ed1-1ff5-4bcb-bd9b-e4901de03cf4`                                  | `<YOUR_TEAMS_BOT_APP_ID>`                                               |
+| API Gateway URL     | `https://ir04kcl7bl.execute-api.us-east-1.amazonaws.com/dev/graph`      | `https://45kg5tox6b.execute-api.us-east-1.amazonaws.com/dev/graph`      |
+| Lambda Webhook URL  | `https://4ej2x5p7al3tfefz7iiru7kwre0ityts.lambda-url.us-east-1.on.aws/` | `https://yfexrxjcakoanqr5kikkzif7e40xnqhj.lambda-url.us-east-1.on.aws/` |
 
 **Next Steps:**
-1. Verify Admin Consent on app `63f2f070-e55d-40d3-93f9-f46229544066` for Calendars.Read, Group.Read.All
+
+1. Verify Admin Consent on app `<YOUR_GRAPH_APP_ID>` for Calendars.Read, Group.Read.All
 2. Verify RBAC roles: Event Hub Data Sender on Event Hub namespace
 3. Create Graph API subscriptions (per-user, not group-based)
 4. Test change notifications on calendar
 
 **Impact:**
+
 - All agents: Reference `scenarios/nobots-eventhub/.env` for current resource values
 - Keaton: Phase 3 (subscription creation) can proceed with new values
 - Hockney/Redfoot: E2E tests use new `8akfpg` resources
@@ -811,7 +881,6 @@ Wrap the `consumer.subscribe()` call in a try/catch block instead of chaining `.
 - Lambda env var CONSUMER_GROUP: `$Default`
 - Should align to `lambda-processor` for proper partition ownership
 
-
 ---
 
 ### ## 2026-02-25: Cross-Cloud Resource Wiring Must Use Module Outputs
@@ -821,11 +890,13 @@ Wrap the `consumer.subscribe()` call in a try/catch block instead of chaining `.
 **Decision:** When `iac/main.tf` passes Azure-created resource names to the AWS module, always use `module.azure.<output_name>`, never `var.<variable_name>` with manual defaults.
 
 **Rationale:**
+
 - The EventHub consumer group mismatch was caused by `iac/main.tf` passing `var.eventhub_consumer_group` (default `$Default`) instead of `module.azure.eventhub_lambda_consumer_group` (`lambda-processor`). The Lambda couldn't read messages because it was using the wrong consumer group.
 - Variables with hardcoded defaults create silent drift between what Azure provisions and what AWS consumes. Module outputs are always in sync with the actual deployed state.
 - This pattern already works correctly for `eventhub_namespace` and `eventhub_name` (lines 140-141 in main.tf use `module.azure.*`). The consumer group was the only one using a variable instead.
 
 **Implementation:**
+
 - `iac/main.tf` line 142: Changed from `var.eventhub_consumer_group` to `module.azure.eventhub_lambda_consumer_group`
 - Updated all variable defaults from `$Default` to `lambda-processor` for standalone AWS usage
 - Lambda code fix: replaced `.subscribe().catch()` with try-catch (subscribe returns Subscription, not Promise)
@@ -866,8 +937,6 @@ Until fixed, no data flows past EventHub. All DynamoDB tables and S3 buckets rem
 
 After fix, re-run E2E pipeline test: create meeting → verify EventHub notification → verify Lambda reads messages → verify DynamoDB/S3 populated.
 
-
-
 ---
 
 ## ## Azure Firewall Rules: Use /24 CIDR, Not /32 Single IP
@@ -878,18 +947,19 @@ After fix, re-run E2E pipeline test: create meeting → verify EventHub notifica
 **Decision:** All Azure firewall rule management for GitHub Actions runners must use a /24 CIDR range derived from the detected runner IP, not a single /32 IP address.
 
 **Rationale:**
+
 - GitHub Actions runners use multiple outbound IPs from the same subnet (NAT pool)
 - The IP returned by `api.ipify.org` may differ from the actual IP used for Azure API calls
 - This caused `ForbiddenByFirewall` errors on Key Vault during Terraform plan (detected IP: `20.161.60.20`, actual API IP: `20.161.60.19`)
 - A /24 CIDR covers all 256 IPs in the subnet, handling all runner outbound IPs
 
 **Implementation:**
+
 - Derive CIDR: `CIDR=$(echo "$IP" | sed 's/\.[0-9]*$/.0\/24/')`
 - Use CIDR for `az keyvault network-rule add/remove`, `az storage account network-rule add/remove`, and `TF_VAR_allowed_ip_addresses`
 - Applied to: `deploy-unified.yml`, `deploy-azure.yml`, `azure-resource-access.yml`, `azure-firewall-access/action.yml`
 
 **Scope:** All workflows and actions that manage Azure resource firewalls for CI/CD runner access.
-
 
 ---
 
@@ -921,14 +991,13 @@ End-to-end latency: ~17 seconds from Graph event creation to S3 storage.
 - Transcript fetching still requires real Teams meetings with speech -- calendar events alone don't generate transcripts.
 - The pipeline is polling every 1 minute via EventBridge, processing both partitions.
 
-
 ---
 
 ### 2026-02-25T03:56Z: User directive
+
 **By:** ivegamsft (via Copilot)
 **What:** Admin app authentication must use Entra ID (Azure AD). App registration must be created in Terraform. No separate CLI configuration — all infrastructure and config MUST be in IaC and/or workflows.
 **Why:** User request — captured for team memory
-
 
 ---
 
@@ -947,6 +1016,7 @@ The admin app (Express/TypeScript, Docker) needs AWS hosting. The existing infra
 Deploy admin app on ECS Fargate with a dedicated VPC, ALB, and ECR repository.
 
 ### Key choices:
+
 1. **Single NAT gateway** (not one per AZ) — cost optimization for dev/staging. Can scale to per-AZ NAT for prod.
 2. **Private subnets for ECS tasks** — no direct internet exposure, outbound via NAT for Graph API calls.
 3. **ALB on port 80** — HTTPS (443) can be added when a domain + ACM cert is provisioned.
@@ -956,6 +1026,7 @@ Deploy admin app on ECS Fargate with a dedicated VPC, ALB, and ECR repository.
 7. **256 CPU / 512 MiB memory** — minimal Fargate sizing to start, adjustable via variables.
 
 ### New resources:
+
 - 3 DynamoDB tables (meetings, transcripts, config)
 - 1 S3 bucket (sanitized transcripts)
 - Full VPC (2 public + 2 private subnets, IGW, NAT, route tables)
@@ -971,7 +1042,6 @@ Deploy admin app on ECS Fargate with a dedicated VPC, ALB, and ECR repository.
 - `deploy-unified.yml` now requires 3 new GitHub secrets and 1 new variable
 - First `terraform apply` after this change will create ~30 new AWS resources
 - Existing resources are untouched (no destructive changes)
-
 
 ---
 
@@ -990,6 +1060,7 @@ The admin app needs Entra ID (Azure AD) authentication for user sign-in via OIDC
 Added a third Azure AD app registration (`tmf_admin_app`) to the existing `azure-ad` Terraform module, following the exact same pattern as the Graph API and bot app registrations.
 
 Key choices:
+
 - **Single-tenant** (`AzureADMyOrg`) — this is an internal admin tool, not a multi-org app
 - **Delegated permissions** (Scope type) for `openid`, `profile`, `email`, `User.Read` — user sign-in flow, not daemon/service
 - **Client secret stored in AWS Secrets Manager** — same pattern as existing Graph client secret, injected via ECS `secrets` block
@@ -1004,17 +1075,16 @@ Key choices:
 - `iac/azure/main.tf` — passes display name + redirect URI to azure-ad module
 - `iac/azure/variables.tf` — admin_app_redirect_uri variable
 - `iac/azure/outputs.tf` — chains admin_app outputs through Azure module
-- `iac/aws/modules/admin-app/main.tf` — ENTRA_* env vars, ENTRA_CLIENT_SECRET in Secrets Manager
-- `iac/aws/modules/admin-app/variables.tf` — entra_* variables
+- `iac/aws/modules/admin-app/main.tf` — ENTRA\_\* env vars, ENTRA_CLIENT_SECRET in Secrets Manager
+- `iac/aws/modules/admin-app/variables.tf` — entra\_\* variables
 - `iac/aws/main.tf` — passes entra creds to admin_app module
-- `iac/aws/variables.tf` — admin_app_entra_* variables
+- `iac/aws/variables.tf` — admin*app_entra*\* variables
 - `iac/main.tf` — wires module.azure outputs to module.aws inputs
 - `iac/variables.tf` — admin_app_entra_redirect_uri root variable
 
 ## Post-Deploy
 
 Admin must grant delegated consent for the new app registration's Graph permissions.
-
 
 ---
 
@@ -1025,24 +1095,28 @@ Admin must grant delegated consent for the new app registration's Graph permissi
 **Status:** Implemented
 
 ## What Changed
+
 - Removed `DASHBOARD_PASSWORD`-based login entirely from the admin app.
 - Dashboard authentication now uses Entra ID (Azure AD) OIDC via `passport` + `passport-azure-ad`.
 - Auth flow: `/auth/login` -> Entra sign-in -> `/auth/callback` -> session established -> redirect to `/`.
 - Logout clears local session and redirects to Entra's logout endpoint.
 
 ## What's Preserved
+
 - **API key auth** (`x-api-key` header) still works for programmatic API access.
 - **Webhook bearer token auth** unchanged.
 - **Health check** (`/health`) still requires no auth.
 - **express-session** still used for OIDC session storage.
 
 ## Required Env Vars (set by Terraform)
+
 - `ENTRA_TENANT_ID` - Azure AD tenant ID
 - `ENTRA_CLIENT_ID` - App registration client ID
 - `ENTRA_CLIENT_SECRET` - App registration client secret
 - `ENTRA_REDIRECT_URI` - OAuth callback URL (defaults to `http://localhost:{PORT}/auth/callback`)
 
 ## Files Changed
+
 - `apps/admin-app/package.json` - Added `passport`, `passport-azure-ad`, types
 - `apps/admin-app/src/config/index.ts` - Added `entra` config section, removed `dashboardPassword`
 - `apps/admin-app/src/middleware/entraAuth.ts` - New: passport OIDC strategy configuration
@@ -1057,11 +1131,11 @@ Admin must grant delegated consent for the new app registration's Graph permissi
 - `apps/admin-app/.env.development` - Removed DASHBOARD_PASSWORD
 
 ## Note for Fenster
+
 The app registration needs these redirect URIs configured:
+
 - `https://{ALB_DOMAIN}/auth/callback` (production)
 - `http://localhost:3000/auth/callback` (development)
-
-
 
 ## Decision: Never add keepers to random_string.suffix
 
@@ -1076,7 +1150,6 @@ The app registration needs these redirect URIs configured:
 
 **Rule:** If you need environment-specific resource isolation, use separate Terraform workspaces or state files — never change the random suffix.
 
-
 # Decision: Webhook auth secret stored in Secrets Manager alongside existing app secrets
 
 **Author:** Fenster  
@@ -1084,9 +1157,11 @@ The app registration needs these redirect URIs configured:
 **Status:** Implemented
 
 ## Context
+
 McManus added notification forwarding from the EventHub Lambda to the admin app. Both sides need a shared `WEBHOOK_AUTH_SECRET` for Bearer token authentication.
 
 ## Decision
+
 - `WEBHOOK_AUTH_SECRET` is added as a new key in the existing admin-app Secrets Manager secret (`tmf/admin-app-{suffix}`), alongside `GRAPH_CLIENT_SECRET`, `SESSION_SECRET`, `API_KEY`, `DASHBOARD_PASSWORD`, and `ENTRA_CLIENT_SECRET`.
 - The admin app ECS task reads it via the `secrets` block (ECS-native Secrets Manager injection).
 - The EventHub Lambda gets the same value via Terraform variable → env var (conditionally merged, empty default).
@@ -1094,15 +1169,16 @@ McManus added notification forwarding from the EventHub Lambda to the admin app.
 - `WEBHOOK_CLIENT_STATE` is passed as a plain-text env var to the admin app (same pattern as other non-secret config).
 
 ## Rationale
+
 - Reuses the existing Secrets Manager secret rather than creating a new one (cost, simplicity).
 - Conditional merge pattern (`var != "" ? {...} : {}`) ensures backward compatibility — existing deployments without webhook config continue to work.
 - Dynamic Lambda update in the deploy workflow mirrors the established Entra redirect URI update pattern.
 
 ## Impact
+
 - Terraform: New variables with empty defaults at all three levels (root, aws, module). Non-breaking.
 - Deploy workflow: New step after Entra URI update. Non-breaking (Lambda function name resolved from Terraform output).
 - Secrets Manager secret version will be recreated on next `terraform apply` (new key added). This is expected and non-disruptive.
-
 
 # Decision: EventHub-to-Meetings Pipeline via Webhook Forwarding
 
@@ -1126,7 +1202,6 @@ The EventHub Lambda forwards parsed Graph notification payloads to the admin app
 - **Deployment:** Admin app must be deployed first (webhook route available) before Lambda can forward. S3 archival continues independently.
 - **New env vars for admin app:** `WEBHOOK_AUTH_SECRET`, `WEBHOOK_CLIENT_STATE` -- need to be set in the container app config.
 
-
 ---
 
 ## 2026-02-26: EventHub Lambda Deploy Gap and HTTPS Webhook URL
@@ -1140,6 +1215,7 @@ The EventHub Lambda forwards parsed Graph notification payloads to the admin app
 **Problem:** `deploy-unified.yml` creates placeholder zips before `terraform apply`, but only rebuilds/redeploys the main Lambda and authorizer — not the eventhub-processor Lambda. The `deploy-lambda-eventhub.yml` workflow handles this separately but is not triggered by deploy-unified. When deploy-unified or any Terraform apply runs, the eventhub Lambda gets overwritten with `placeholder.js`.
 
 **Fix needed (Fenster):** Either:
+
 - Add an eventhub Lambda build+deploy step to `deploy-unified.yml` (after Terraform apply), OR
 - Trigger `deploy-lambda-eventhub.yml` as a dependent workflow from deploy-unified
 
@@ -1156,6 +1232,7 @@ The EventHub Lambda forwards parsed Graph notification payloads to the admin app
 **Problem:** Lambda env vars were missing `WEBHOOK_AUTH_SECRET` (required for forwarding to be enabled) and `NODE_TLS_REJECT_UNAUTHORIZED=0` (required for self-signed certs). These need to be wired in Terraform.
 
 **Fix needed (Fenster):** Add these env vars to `iac/aws/modules/eventhub-processor/` Terraform module:
+
 - `WEBHOOK_AUTH_SECRET` — from Secrets Manager
 - `NODE_TLS_REJECT_UNAUTHORIZED` = `"0"` (until proper TLS certs are configured)
 
@@ -1164,7 +1241,6 @@ The EventHub Lambda forwards parsed Graph notification payloads to the admin app
 ---
 
 **Impact:** Without these fixes, every Terraform deployment breaks the eventhub Lambda, and the meeting notification pipeline silently stops working.
-
 
 ---
 
@@ -1187,6 +1263,7 @@ Isaac directive: "use the raw data and make the meeting details a deliberate act
 ## Implementation
 
 ### What's in a Graph change notification (this is ALL we store automatically):
+
 ```json
 {
   "subscriptionId": "...",
@@ -1197,11 +1274,13 @@ Isaac directive: "use the raw data and make the meeting details a deliberate act
   "tenantId": "..."
 }
 ```
+
 NO subject, NO description, NO attendees, NO organizer, NO times. Just "something changed at this resource path."
 
 ### Changes Made
 
 **1. Meeting Model (`apps/admin-app/src/models/meeting.ts`)**
+
 - Added `resource?: string` — the Graph resource path (needed to fetch details later)
 - Added `rawNotification?: Record<string, any>` — the full notification payload as received
 - Added `detailsFetched?: boolean` — flag indicating whether details have been enriched from Graph
@@ -1211,6 +1290,7 @@ NO subject, NO description, NO attendees, NO organizer, NO times. Just "somethin
 **2. Meeting Service (`apps/admin-app/src/services/meetingService.ts`)**
 
 **Refactored `processNotification()`** — NO Graph API calls:
+
 - Extracts event ID from resource path
 - On delete: marks existing meeting as cancelled (if found)
 - On create/update: stores lightweight record with empty subject/attendees
@@ -1218,11 +1298,13 @@ NO subject, NO description, NO attendees, NO organizer, NO times. Just "somethin
 - Stores full notification in `rawNotification`
 
 **Removed:**
+
 - `createMeeting()` (auto-enrichment logic)
 - `updateMeeting()` (auto-enrichment logic)
 - Auto-triggered `checkForTranscript()` calls
 
 **Added:**
+
 - `fetchDetails(meetingId: string)` — enriches a single meeting from Graph API
   - Fetches event from `/${meeting.resource}`
   - Populates subject, attendees, times, organizer
@@ -1234,6 +1316,7 @@ NO subject, NO description, NO attendees, NO organizer, NO times. Just "somethin
   - Returns `{ success: string[], failed: Array<{ id, error }> }`
 
 **Kept (unchanged):**
+
 - `getMeetingDetails()` — fetches online meeting settings (transcription config)
 - `toggleTranscription()` — enable/disable transcription
 - `checkForTranscript()` — but now only callable as deliberate action
@@ -1242,10 +1325,12 @@ NO subject, NO description, NO attendees, NO organizer, NO times. Just "somethin
 **3. Meeting Routes (`apps/admin-app/src/routes/meetings.ts`)**
 
 **Added:**
+
 - `POST /batch-fetch-details` — batch enrichment endpoint (registered BEFORE `/:id` route)
 - `POST /:id/fetch-details` — single meeting enrichment endpoint
 
 **Kept (unchanged):**
+
 - `GET /:id/details` — online meeting settings (transcription config)
 - `PATCH /:id/transcription` — toggle transcription
 
@@ -1277,7 +1362,7 @@ Compiled successfully: `cd apps/admin-app && npx tsc --noEmit` (exit code 0)
 
 **By:** Isaac (via Copilot)
 
-**What:** Only the test users (trustingboar@ibuyspy.net, boldoriole@ibuyspy.net) have Teams Premium licenses and transcripts. Isaac's account (a-ivega@ibuyspy.net) is NOT licensed or monitored — do not create subscriptions or expect meetings/transcripts from it. The subscription McManus created for a-ivega can stay for now but is unnecessary.
+**What:** Only the test users (user3@<YOUR_TENANT_DOMAIN>, user2@<YOUR_TENANT_DOMAIN>) have Teams Premium licenses and transcripts. Isaac's account (user1@<YOUR_TENANT_DOMAIN>) is NOT licensed or monitored — do not create subscriptions or expect meetings/transcripts from it. The subscription McManus created for a-ivega can stay for now but is unnecessary.
 
 **Why:** User request — captured for team memory
 
@@ -1287,8 +1372,8 @@ Compiled successfully: `cd apps/admin-app && npx tsc --noEmit` (exit code 0)
 
 **Author:** Kobayashi (Teams Architect)  
 **Date:** 2026-02-27  
-**Tenant:** ibuyspy.net  
-**Test Users:** trustingboar@ibuyspy.net, boldoriole@ibuyspy.net  
+**Tenant:** <YOUR_TENANT_DOMAIN>  
+**Test Users:** user3@<YOUR_TENANT_DOMAIN>, user2@<YOUR_TENANT_DOMAIN>  
 **Context:** Teams Premium enabled, but meetings are not auto-transcribing.
 
 ### Executive Summary
@@ -1316,13 +1401,13 @@ Connect-MicrosoftTeams
 # Step 1: Create the application access policy
 New-CsApplicationAccessPolicy `
     -Identity "TMF-AppAccess-Policy" `
-    -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" `
+    -AppIds "<YOUR_GRAPH_APP_ID>" `
     -Description "Allow Teams Meeting Fetcher app to access online meetings"
 
 # Step 2a: Grant to specific user(s)
 Grant-CsApplicationAccessPolicy `
     -PolicyName "TMF-AppAccess-Policy" `
-    -Identity "dbb98842-0024-4474-a69a-a27acd735bef"
+    -Identity "<USER_OBJECT_ID_2>"
 
 # Step 2b: OR grant to the entire tenant (simpler for dev/test)
 Grant-CsApplicationAccessPolicy `
@@ -1336,37 +1421,38 @@ Grant-CsApplicationAccessPolicy `
 
 ```powershell
 Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
-Get-CsOnlineUser -Identity "a-ivega@ibuyspy.net" | Select-Object ApplicationAccessPolicy
+Get-CsOnlineUser -Identity "user1@<YOUR_TENANT_DOMAIN>" | Select-Object ApplicationAccessPolicy
 ```
 
 ### Layer 3: Graph API App Permissions
 
 **Required Additional Permissions:**
 
-| Permission | Purpose | Priority |
-|-----------|---------|----------|
-| **OnlineMeetings.Read.All** | Read online meeting details for users | CRITICAL |
-| **OnlineMeetingTranscript.Read.All** | Read meeting transcripts | CRITICAL |
-| **OnlineMeetingRecording.Read.All** | Read meeting recordings | HIGH |
+| Permission                           | Purpose                               | Priority |
+| ------------------------------------ | ------------------------------------- | -------- |
+| **OnlineMeetings.Read.All**          | Read online meeting details for users | CRITICAL |
+| **OnlineMeetingTranscript.Read.All** | Read meeting transcripts              | CRITICAL |
+| **OnlineMeetingRecording.Read.All**  | Read meeting recordings               | HIGH     |
 
 **How to Add Permissions:**
 
-1. Go to **Azure Portal** > **App registrations** > **Teams Meeting Fetcher** (`63f2f070-e55d-40d3-93f9-f46229544066`)
+1. Go to **Azure Portal** > **App registrations** > **Teams Meeting Fetcher** (`<YOUR_GRAPH_APP_ID>`)
 2. Click **API permissions** > **Add a permission** > **Microsoft Graph** > **Application permissions**
 3. Search and add:
    - `OnlineMeetings.Read.All`
    - `OnlineMeetingTranscript.Read.All`
    - `OnlineMeetingRecording.Read.All`
-4. Click **Grant admin consent for ibuyspy.net**
+4. Click **Grant admin consent for <YOUR_TENANT_DOMAIN>**
 
 ### Priority Action Checklist
 
 **Immediate (Do Now):**
 
 - [ ] **Create Application Access Policy** (Layer 2) — This is the confirmed blocker
+
   ```powershell
   Connect-MicrosoftTeams
-  New-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy" -AppIds "63f2f070-e55d-40d3-93f9-f46229544066" -Description "Teams Meeting Fetcher app access"
+  New-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy" -AppIds "<YOUR_GRAPH_APP_ID>" -Description "Teams Meeting Fetcher app access"
   Grant-CsApplicationAccessPolicy -PolicyName "TMF-AppAccess-Policy" -Global
   ```
 
@@ -1376,17 +1462,17 @@ Get-CsOnlineUser -Identity "a-ivega@ibuyspy.net" | Select-Object ApplicationAcce
 
 - [ ] **Test Graph API access** — After 30 min propagation, test: `GET https://graph.microsoft.com/v1.0/users/{userId}/onlineMeetings`
 
-**Note:** Isaac's account (a-ivega@ibuyspy.net) does NOT have Teams Premium licenses. Only test users (trustingboar, boldoriole) are licensed and monitored.
+**Note:** Isaac's account (user1@<YOUR_TENANT_DOMAIN>) does NOT have Teams Premium licenses. Only test users (trustingboar, boldoriole) are licensed and monitored.
 
 ### Current Pipeline Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Calendar event subscriptions | WORKING | 4 active subscriptions confirmed |
-| Calendar event reading | WORKING | Calendars.Read permission granted, events visible |
-| OnlineMeetings API | BLOCKED | 403 - No application access policy |
-| Transcripts API | BLOCKED | Needs OnlineMeetingTranscript.Read.All + access policy |
-| Recordings API | BLOCKED | Needs OnlineMeetingRecording.Read.All + access policy |
+| Component                    | Status  | Notes                                                  |
+| ---------------------------- | ------- | ------------------------------------------------------ |
+| Calendar event subscriptions | WORKING | 4 active subscriptions confirmed                       |
+| Calendar event reading       | WORKING | Calendars.Read permission granted, events visible      |
+| OnlineMeetings API           | BLOCKED | 403 - No application access policy                     |
+| Transcripts API              | BLOCKED | Needs OnlineMeetingTranscript.Read.All + access policy |
+| Recordings API               | BLOCKED | Needs OnlineMeetingRecording.Read.All + access policy  |
 
 ---
 
@@ -1420,7 +1506,7 @@ Set `API_KEY` to `tmf-batch-fetch-2026` in Secrets Manager and forced ECS redepl
 ## 2026-02-27: Lambda Direct DynamoDB Write — Change Data Feed Pattern
 
 **By:** McManus (Backend Dev)  
-**Date:** 2026-02-27  
+**Date:** 2026-02-27
 
 ### Decision
 
@@ -1525,8 +1611,6 @@ Added **retry logic with exponential backoff** to Lambda webhook forwarding:
 
 **Why:** User request — decouples the pipeline so admin-app downtime/IP changes don't break notification ingestion. Eliminates WEBHOOK_URL, retry logic, and the IP-drift problem.
 
-
-
 ---
 
 # Decision: Graph API Permissions for Teams Meeting Fetcher SPN
@@ -1537,11 +1621,12 @@ Added **retry logic with exponential backoff** to Lambda webhook forwarding:
 
 ## Context
 
-Kobayashi identified 3 missing Graph API permissions on the TMF SPN (63f2f070-e55d-40d3-93f9-f46229544066) needed for transcription/recording access. The existing `scripts/grant-graph-permissions.ps1` used the deprecated AzureAD module and had incorrect permission IDs.
+Kobayashi identified 3 missing Graph API permissions on the TMF SPN (<YOUR_GRAPH_APP_ID>) needed for transcription/recording access. The existing `scripts/grant-graph-permissions.ps1` used the deprecated AzureAD module and had incorrect permission IDs.
 
 ## Findings
 
 After auditing via `az rest` against the Graph appRoleAssignments endpoint:
+
 - **OnlineMeetingTranscript.Read.All** — already granted (Feb 24)
 - **OnlineMeetingRecording.Read.All** — already granted (Feb 24)
 - **OnlineMeetings.Read.All** — was the only one actually missing
@@ -1563,7 +1648,6 @@ The old script had wrong IDs for OnlineMeetingRecording.Read.All and OnlineMeeti
 
 Use `az` CLI + `az rest` for Graph permission management going forward. The AzureAD PowerShell module is deprecated and should not be used for new operations.
 
-
 ---
 
 # Teams Policy Status Assessment — Kobayashi
@@ -1576,23 +1660,28 @@ Use `az` CLI + `az rest` for Graph permission management going forward. The Azur
 
 ## Finding 1: Calendar Cleanup Assessment ✅
 
-### Test User: boldoriole@ibuyspy.net
+### Test User: user2@<YOUR_TENANT_DOMAIN>
+
 - **Calendar Status:** Has 10 active events in calendar (as of 2026-02-27)
 - **Event Types:** Mix of auto-generated test events and real sales calls scheduled for April 2026
 - **Event Age:** Events created 2026-02-26 to 2026-02-27 (recent test generation)
 - **Recent Event:** "E2E DynamoDB Direct Write 005135" created today at 00:51:36 UTC
 
-### Test User: trustingboar@ibuyspy.net
+### Test User: user3@<YOUR_TENANT_DOMAIN>
+
 - **Status:** Not yet queried (requires Graph API call in interactive context)
 
 ### Recommendation: ⚠️ CONDITIONAL CLEANUP
+
 **If starting fresh transcription tests:**
+
 - The "E2E DynamoDB Direct Write" events are clutter from previous e2e test runs
 - The April sales call events are test fixtures — not real meetings
 - **Action:** Delete auto-generated test events from boldoriole calendar before starting new transcription test runs
 - **Impact:** Minimal; these are not interfering with functionality, just cluttering the calendar for manual verification
 
 **If calendar is clean enough:**
+
 - No action needed if tests can filter by creation date or use a dedicated test calendar
 
 ---
@@ -1605,7 +1694,7 @@ Use `az` CLI + `az rest` for Graph permission management going forward. The Azur
 
 ### Context
 
-Isaac created a real Teams meeting with a transcript and recording (organizer: boldoriole@ibuyspy.net). The meeting never appeared in DynamoDB and was never processed by the pipeline.
+Isaac created a real Teams meeting with a transcript and recording (organizer: user2@<YOUR_TENANT_DOMAIN>). The meeting never appeared in DynamoDB and was never processed by the pipeline.
 
 ### Findings
 
@@ -1654,6 +1743,7 @@ The subscription renewal Lambda (`tmf-subscription-renewal-dev`) was broken beca
 **Decision:** Always resolve the organizer's userId GUID via `GET /users/{email}` (returns `id` field) before calling the onlineMeetings endpoint. This is a hard requirement of CsApplicationAccessPolicy with client_credentials (app-only) auth flow.
 
 **Implementation:**
+
 - Modified `meetingService.fetchDetails()` to:
   1. Resolve organizer email → userId GUID via `/users/{email}?$select=id`
   2. Use GUID in `/users/{userId}/onlineMeetings?$filter=JoinWebUrl eq '...'`
@@ -1661,6 +1751,7 @@ The subscription renewal Lambda (`tmf-subscription-renewal-dev`) was broken beca
 - Pattern already existed in `discoverTranscriptsForUser()` — now consistent across both code paths.
 
 **Impact:**
+
 - Unblocks the entire transcript pipeline (Phase 2 candidates depend on `onlineMeetingId` being populated)
 - Adds one extra Graph API call per enrichment (user lookup), but this is cached by the Graph SDK and is a lightweight call
 - No changes to the Meeting model or DynamoDB schema
@@ -1676,17 +1767,20 @@ The subscription renewal Lambda (`tmf-subscription-renewal-dev`) was broken beca
 **Context:** Push Protection blocked pushes due to hardcoded secrets in `test-scripts/probe-transcript*.py` files. Isaac requested a comprehensive cleanup of all test-scripts.
 
 **Findings:**
+
 - The 5 tracked test-scripts (create-graph-subscription.py, create-meetings.ps1, test-complete-flow.ps1, test-eventhub-flow.py, verify-end-to-end.py) were **already clean** — they use `os.getenv()` / `$env:` with missing-var validation. No code changes needed for tracked files.
 - The hardcoded secrets (`9CD8Q~...` client_secret, tenant_id, client_id) existed only in 3 **untracked** `probe-transcript*.py` files (already gitignored). Cleaned those locally to use `os.environ.get()` with validation.
 - No other files in the repo contain real hardcoded secrets. Test files use `'test-client-secret'` placeholders. Docs use `"xxx"` or `"<placeholder>"` examples.
 
 **Decision:**
+
 1. Hardened `.gitignore` with broader test-scripts patterns: `*.env`, `*.local`, `*secret*`, `*credential*`, `nobots*/`
 2. Kept all 5 tracked scripts as-is (already secure)
 3. Cleaned probe-transcript files locally (env vars + validation)
 4. Did NOT remove any files from git tracking per Isaac's request
 
 **Impact:**
+
 - Future untracked files in test-scripts with sensitive names will be auto-ignored
 - Tracked files remain useful and functional — no behavioral changes
 - The exposed secret (`9CD8Q~...`) should still be rotated (it was in git history from the earlier blocked push attempt)
@@ -1728,18 +1822,20 @@ Entra redirect URI was NOT updated — may need manual update if OAuth login is 
 
 ### Data Extracted from Configuration Files
 
-| Component | Value | Location |
-|-----------|-------|----------|
-| **Group ID (Test Users)** | `2e572630-7b65-470d-82f2-0387ebb04524` | `.env.local.azure:29` |
-| **Admin Group ID (Alternate)** | `5e7708f8-b0d2-467d-97f9-d9da4818084a` | `.env.local.azure:20` |
-| **Bot App ID (for Graph)** | `63f2f070-e55d-40d3-93f9-f46229544066` | `.env.local.azure:8` |
-| **Teams Bot App ID** | `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` | `.env.local.azure:49` |
-| **Catalog App ID** | **UNKNOWN** — Needs PowerShell Query | — |
-| **Policy Names** | "Recorded Line" (Setup + Meeting) | Script at line 56 |
-| **App Access Policy Name** | "MeetingFetcher-Policy" | Script at line 173 |
+| Component                      | Value                                | Location              |
+| ------------------------------ | ------------------------------------ | --------------------- |
+| **Group ID (Test Users)**      | `<YOUR_GROUP_ID>`                    | `.env.local.azure:29` |
+| **Admin Group ID (Alternate)** | `<YOUR_GROUP_ID>`                    | `.env.local.azure:20` |
+| **Bot App ID (for Graph)**     | `<YOUR_GRAPH_APP_ID>`                | `.env.local.azure:8`  |
+| **Teams Bot App ID**           | `<YOUR_TEAMS_BOT_APP_ID>`            | `.env.local.azure:49` |
+| **Catalog App ID**             | **UNKNOWN** — Needs PowerShell Query | —                     |
+| **Policy Names**               | "Recorded Line" (Setup + Meeting)    | Script at line 56     |
+| **App Access Policy Name**     | "MeetingFetcher-Policy"              | Script at line 173    |
 
 ### What We Know from My History
+
 From my previous investigation (2026-02-27):
+
 - **Critical Issue Found:** Application Access Policy is MISSING
   - Error: `403 "No application access policy found for this app"` when Graph queries `/users/{userId}/onlineMeetings`
   - This blocks ALL meeting transcription retrieval, even if recording works
@@ -1747,6 +1843,7 @@ From my previous investigation (2026-02-27):
 ### Next Steps (REQUIRES INTERACTIVE POWERSHELL)
 
 **Step 1: Get Catalog App ID**
+
 ```powershell
 Connect-MicrosoftTeams
 Get-TeamsApp -DistributionMethod Organization | Where-Object { $_.DisplayName -like "*Meeting*" } | Format-Table Id, DisplayName
@@ -1755,25 +1852,28 @@ Get-TeamsApp -DistributionMethod Organization | Where-Object { $_.DisplayName -l
 ```
 
 **Step 2: Run DryRun Check**
+
 ```powershell
 .\scripts\setup\setup-teams-policies.ps1 `
-  -GroupId "2e572630-7b65-470d-82f2-0387ebb04524" `
+  -GroupId "<YOUR_GROUP_ID>" `
   -CatalogAppId "<CATALOG-ID-FROM-STEP-1>" `
-  -BotAppId "63f2f070-e55d-40d3-93f9-f46229544066" `
+  -BotAppId "<YOUR_GRAPH_APP_ID>" `
   -DryRun
 ```
 
 This will show:
+
 - Whether policies "Recorded Line" already exist
 - Whether Application Access Policy "MeetingFetcher-Policy" exists
 - What would be assigned to the group
 
 **Step 3: If DryRun Shows Missing Policies**
+
 ```powershell
 .\scripts\setup\setup-teams-policies.ps1 `
-  -GroupId "2e572630-7b65-470d-82f2-0387ebb04524" `
+  -GroupId "<YOUR_GROUP_ID>" `
   -CatalogAppId "<CATALOG-ID>" `
-  -BotAppId "63f2f070-e55d-40d3-93f9-f46229544066"
+  -BotAppId "<YOUR_GRAPH_APP_ID>"
 ```
 
 Note: Changes take 4-24 hours to propagate to users.
@@ -1791,26 +1891,26 @@ Note: Changes take 4-24 hours to propagate to users.
 
 ## Summary Table
 
-| Task | Status | Blocker? | Notes |
-|------|--------|----------|-------|
-| Find GroupId | ✅ DONE | No | `2e572630-7b65-470d-82f2-0387ebb04524` |
-| Find BotAppId | ✅ DONE | No | `63f2f070-e55d-40d3-93f9-f46229544066` |
-| Find CatalogAppId | ⏳ PENDING | Yes | Requires PowerShell query |
-| Check policies exist | ⏳ PENDING | Yes | Requires PowerShell interactive |
-| Calendar cleanup needed? | ⚠️ CONDITIONAL | No | Events exist but non-blocking |
-| Application Access Policy | ⚠️ CRITICAL | Yes | Known missing from prior check |
+| Task                      | Status         | Blocker? | Notes                           |
+| ------------------------- | -------------- | -------- | ------------------------------- |
+| Find GroupId              | ✅ DONE        | No       | `<YOUR_GROUP_ID>`               |
+| Find BotAppId             | ✅ DONE        | No       | `<YOUR_GRAPH_APP_ID>`           |
+| Find CatalogAppId         | ⏳ PENDING     | Yes      | Requires PowerShell query       |
+| Check policies exist      | ⏳ PENDING     | Yes      | Requires PowerShell interactive |
+| Calendar cleanup needed?  | ⚠️ CONDITIONAL | No       | Events exist but non-blocking   |
+| Application Access Policy | ⚠️ CRITICAL    | Yes      | Known missing from prior check  |
 
 ---
 
 ## Decision
 
 **Recommendation to Isaac:**
+
 1. Run PowerShell script `scripts/temp-check-policies.ps1` (in Teams Admin account) to get current policy state
 2. Get the Catalog App ID from `Get-TeamsApp` output
 3. Run the setup script in DryRun mode to see what needs to be configured
 4. If Application Access Policy is missing, run non-DryRun to create it
 5. Calendar cleanup is optional—only if test events are cluttering manual verification
-
 
 ---
 
@@ -1822,21 +1922,21 @@ Note: Changes take 4-24 hours to propagate to users.
 
 ## Context
 
-McManus confirmed 7 Graph API application permissions on the Teams Meeting Fetcher SPN (63f2f070-e55d-40d3-93f9-f46229544066). Several IaC files and bootstrap scripts were out of sync — some had wrong GUIDs, missing permissions, or stale entries.
+McManus confirmed 7 Graph API application permissions on the Teams Meeting Fetcher SPN (<YOUR_GRAPH_APP_ID>). Several IaC files and bootstrap scripts were out of sync — some had wrong GUIDs, missing permissions, or stale entries.
 
 ## Decision
 
 All 7 TMF SPN permissions are now declared consistently across Terraform and bootstrap scripts:
 
-| Permission | Application GUID |
-|---|---|
-| Calendars.Read | 798ee544-9d2d-430c-a058-570e29e34338 |
-| Group.Read.All | 5b567255-7703-4780-807c-7be8301ae99b |
-| User.Read.All | df021288-bdef-4463-88db-98f22de89214 |
-| OnlineMeetings.Read.All | c1684f21-1984-47fa-9d61-2dc8c296bb70 |
+| Permission                       | Application GUID                     |
+| -------------------------------- | ------------------------------------ |
+| Calendars.Read                   | 798ee544-9d2d-430c-a058-570e29e34338 |
+| Group.Read.All                   | 5b567255-7703-4780-807c-7be8301ae99b |
+| User.Read.All                    | df021288-bdef-4463-88db-98f22de89214 |
+| OnlineMeetings.Read.All          | c1684f21-1984-47fa-9d61-2dc8c296bb70 |
 | OnlineMeetingTranscript.Read.All | a4a80d8d-d283-4bd8-8504-555ec3870630 |
-| OnlineMeetingRecording.Read.All | a4a08342-c95d-476b-b943-97e100569c8d |
-| Subscription.ReadWrite.All | 482be48f-8d13-42ab-b51e-677fdd881820 |
+| OnlineMeetingRecording.Read.All  | a4a08342-c95d-476b-b943-97e100569c8d |
+| Subscription.ReadWrite.All       | 482be48f-8d13-42ab-b51e-677fdd881820 |
 
 ## Files Changed
 
@@ -1855,7 +1955,6 @@ All 7 TMF SPN permissions are now declared consistently across Terraform and boo
 ## Key Finding
 
 Two permission GUIDs from the task brief were incorrect: OnlineMeetings.Read.All and OnlineMeetingRecording.Read.All. Verified correct Application-type GUIDs against graphpermissions.merill.net reference data.
-
 
 ---
 
@@ -1956,6 +2055,7 @@ Updated all project documentation to clearly list the **complete 7 Graph API per
 ### Testing/Verification
 
 Documentation is internal and doesn't require functional testing. Changes verified by:
+
 1. Reviewing all updated files for consistency
 2. Verifying all 7 permissions appear the same way across docs
 3. Confirming all entry points have clear paths to prerequisites
@@ -1963,7 +2063,6 @@ Documentation is internal and doesn't require functional testing. Changes verifi
 ---
 
 **Approval:** Ready for merge to main; supersedes any outdated permission lists in older docs.
-
 
 ---
 
@@ -1979,7 +2078,8 @@ Today's Terraform apply deployed a 190-byte placeholder Lambda zip to `tmf-event
 ### Root Cause
 
 The Terraform `aws_lambda_function` resource in `iac/aws/` references a zip file that does not exist or is out of date at plan time. The Lambda code at `apps/aws-lambda-eventhub/` requires:
-1. `npm install --production` 
+
+1. `npm install --production`
 2. Compression into a `lambda-deploy.zip` (15.8MB)
 3. Manual deployment via `aws lambda update-function-code`
 
@@ -2016,12 +2116,14 @@ Without these steps completed first, `terraform apply` deploys whatever placehol
 **Decision:** All Microsoft Graph API permission grants (admin consent) MUST be managed through Terraform `azuread_app_role_assignment` resources — never via `az` CLI or Azure Portal manual clicks.
 
 **Rationale:**
+
 - McManus previously used `az` CLI to add/remove Graph permissions, causing state drift between what Terraform knows and what Azure has
 - This led to "Not granted" entries in the Portal, stale "Other permissions", and general confusion about what's actually consented
 - IaC is the single source of truth: `terraform apply` now declares permissions AND grants consent in one step
 - The `grant-graph-permissions.ps1` script is demoted to bootstrap/fallback only
 
 **Implementation:**
+
 - `iac/azure/modules/azure-ad/main.tf` now has:
   - `data.azuread_service_principal.graph` — looks up Microsoft Graph SP at plan time
   - `azuread_app_role_assignment.tmf_graph_consent` — 6 permission grants for TMF SPN
@@ -2033,10 +2135,6 @@ Without these steps completed first, `terraform apply` deploys whatever placehol
 **Impact:** Next `terraform apply` will create 11 new `azuread_app_role_assignment` resources (6 TMF + 5 Bot) and remove the `Subscription.ReadWrite.All` declaration from the TMF app registration.
 
 ---
-
-
-
-
 
 ---
 
@@ -2069,17 +2167,16 @@ The transcript poller is working correctly. The zero transcript count is a data 
 
 ## Data Summary (DynamoDB tmf-meetings-8akfpg)
 
-| Metric | Count |
-|--------|-------|
-| Total meetings | 1105 |
-| With onlineMeetingId | 80 |
-| With joinWebUrl | 1053 |
-| With detailsFetched=true | 845 |
-| With transcriptCount > 0 | 0 |
-| Status=scheduled | 1024 |
-| EndTime in past | 45 (41 cancelled, 4 test) |
-| Past meetings with onlineMeetingId | 0 |
-
+| Metric                             | Count                     |
+| ---------------------------------- | ------------------------- |
+| Total meetings                     | 1105                      |
+| With onlineMeetingId               | 80                        |
+| With joinWebUrl                    | 1053                      |
+| With detailsFetched=true           | 845                       |
+| With transcriptCount > 0           | 0                         |
+| Status=scheduled                   | 1024                      |
+| EndTime in past                    | 45 (41 cancelled, 4 test) |
+| Past meetings with onlineMeetingId | 0                         |
 
 ## # Transcript Fetching Architecture Proposal# Transcript Fetching Architecture Proposal
 
@@ -2097,6 +2194,7 @@ The admin app shows 1,105 meetings captured via EventHub notifications, but 0 tr
 ## Current State
 
 ### What exists and works
+
 1. **EventHub Lambda** (`apps/aws-lambda-eventhub/handler.js`) — Polls Azure EventHub, writes calendar event notifications to DynamoDB and S3.
 2. **Admin App** (`apps/admin-app`) — Full transcript model, service, and API routes:
    - `transcriptService.fetchAndStore(meeting, graphTranscriptId)` — Fetches VTT content via Graph API, stores in S3 (raw + sanitized), updates DynamoDB.
@@ -2106,6 +2204,7 @@ The admin app shows 1,105 meetings captured via EventHub notifications, but 0 tr
 3. **Graph API permissions** — `OnlineMeetings.Read.All`, `OnlineMeetingTranscript.Read.All` granted. CsApplicationAccessPolicy propagated and verified.
 
 ### What's missing
+
 - **Nothing triggers `checkForTranscript()`**. The function exists but no cron, event handler, or API endpoint invokes it on completed meetings.
 - **Meeting status never advances past "scheduled"**. The EventHub captures calendar event `created`/`updated` notifications, but there is no logic to detect that a meeting has ended and is ready for transcript retrieval.
 - **No `onlineMeetingId` on most records**. This field is populated only when `fetchDetails()` is called. Without it, `checkForTranscript()` cannot construct the Graph API URL.
@@ -2115,6 +2214,7 @@ The admin app shows 1,105 meetings captured via EventHub notifications, but 0 tr
 ### Step 1: Resolve `onlineMeetingId` from the calendar event
 
 The EventHub notification gives us a calendar event resource path:
+
 ```
 groups/{groupId}/calendar/events/{eventId}
 ```
@@ -2122,34 +2222,42 @@ groups/{groupId}/calendar/events/{eventId}
 Calling `fetchDetails()` on this event returns `onlineMeetingId` (the Graph online meeting ID) and `organizerEmail`. Both are required.
 
 ### Step 2: List transcripts for the meeting
+
 ```
 GET /users/{organizerEmail}/onlineMeetings/{onlineMeetingId}/transcripts
 ```
+
 Returns an array of transcript objects. Each has an `id` (the `graphTranscriptId`).
 
 > **Alternative (app-level, no user scope):**
+>
 > ```
 > GET /communications/onlineMeetings/{onlineMeetingId}/transcripts
 > ```
+>
 > The admin app already uses this path in `transcriptService.fetchAndStore()`.
 
 ### Step 3: Download transcript content
+
 ```
 GET /communications/onlineMeetings/{onlineMeetingId}/transcripts/{transcriptId}/content
 ```
+
 Returns VTT (WebVTT) format text. Already implemented in `transcriptService`.
 
 ## Timing Constraints
 
-| Factor | Detail |
-|--------|--------|
-| **Transcript availability** | Transcripts are available 1-5 minutes after the meeting ends and transcription completes. For long meetings, processing can take up to 20 minutes. |
-| **Meeting end detection** | Calendar event `updated` notifications fire when a meeting is modified (including cancellation), but Graph does **not** send a "meeting ended" event via calendar subscriptions. The `changeType` values from EventHub are `created`, `updated`, `deleted` — none mean "ended". |
-| **onlineMeeting status** | The `onlineMeetings` resource has no reliable "ended" status field queryable from calendar event subscriptions. Meeting end must be inferred from time (`endTime` in the past). |
-| **Subscription scope** | Current subscription monitors `groups/{groupId}/calendar/events` — this captures scheduling events, not meeting lifecycle (join/leave/end). |
+| Factor                      | Detail                                                                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Transcript availability** | Transcripts are available 1-5 minutes after the meeting ends and transcription completes. For long meetings, processing can take up to 20 minutes.                                                                                                                              |
+| **Meeting end detection**   | Calendar event `updated` notifications fire when a meeting is modified (including cancellation), but Graph does **not** send a "meeting ended" event via calendar subscriptions. The `changeType` values from EventHub are `created`, `updated`, `deleted` — none mean "ended". |
+| **onlineMeeting status**    | The `onlineMeetings` resource has no reliable "ended" status field queryable from calendar event subscriptions. Meeting end must be inferred from time (`endTime` in the past).                                                                                                 |
+| **Subscription scope**      | Current subscription monitors `groups/{groupId}/calendar/events` — this captures scheduling events, not meeting lifecycle (join/leave/end).                                                                                                                                     |
 
 ### Key Insight
+
 **Calendar event notifications tell us meetings are scheduled, not that they've happened.** To know a meeting has ended, we must either:
+
 1. Compare `endTime` to current time (poll-based), or
 2. Subscribe to a different resource — `communications/onlineMeetings/getAllTranscripts` — which fires when a transcript becomes available (event-driven).
 
@@ -2191,6 +2299,7 @@ Add a scheduled Lambda (or cron job within admin-app) that runs every 5-15 minut
 ### Option B: Event-Driven via Transcript Subscription
 
 Create a Graph subscription for transcript creation events:
+
 ```
 Resource: users/{userId}/onlineMeetings/getAllTranscripts(meetingOrganizerUserId='{userId}')
 ChangeType: created
@@ -2211,21 +2320,25 @@ This fires the moment a transcript is available. The notification contains `meet
 ### Phase 1: Detail Enrichment + Transcript Poller
 
 **Step 1: Batch-enrich existing meetings**
+
 - Call `POST /meetings/batch-fetch-details` for all 1,105 meetings in "scheduled" status to populate `onlineMeetingId` and `organizerEmail`.
 - This is already supported by the admin app API.
 
 **Step 2: Add transcript polling endpoint**
+
 - Add `POST /meetings/poll-transcripts` route to admin-app that:
   1. Queries meetings where `status = 'scheduled'`, `endTime < now - 5min`, `onlineMeetingId` is present, `transcriptionId` is absent.
   2. For each, calls `meetingService.checkForTranscript(meeting)`.
   3. Returns summary: `{ checked: N, found: N, failed: N }`.
 
 **Step 3: Schedule the poller**
+
 - Option A: AWS EventBridge rule triggers a Lambda that calls `POST /meetings/poll-transcripts` every 10 minutes.
 - Option B: Add `node-cron` to admin-app to self-poll (simpler, but ties lifecycle to app process).
 - Option C: External cron (GitHub Actions scheduled workflow, or AWS CloudWatch Events + Lambda).
 
 **Step 4: Auto-enrich on notification**
+
 - Modify the EventHub Lambda (`writeMeetingNotification`) to also trigger detail enrichment when it writes a new meeting, so future meetings arrive with `onlineMeetingId` already populated.
 
 ### Phase 2: Transcript Event Subscription (Future)
@@ -2291,7 +2404,6 @@ Graph API Calendar Subscription
 
 **Next step:** Isaac to confirm approach, then implementation begins with Step 1 (batch enrichment of existing meetings).
 
-
 ---
 
 ## # Transcript Pipeline Gap Analysis# Transcript Pipeline Gap Analysis
@@ -2307,6 +2419,7 @@ Dashboard shows 1105 meetings but 0 transcripts processed, 0 pending. All meetin
 ## What EXISTS
 
 ### Admin App (complete storage + API layer)
+
 - **Transcript model** (`models/transcript.ts`): Full status lifecycle — pending, fetching, raw_stored, sanitizing, completed, failed
 - **TranscriptService** (`services/transcriptService.ts`): `fetchAndStore()` method that fetches VTT from Graph API, stores raw to S3, optionally sanitizes, updates DynamoDB
 - **TranscriptStore** (`services/transcriptStore.ts`): Full DynamoDB CRUD for transcripts table (paginated)
@@ -2315,15 +2428,18 @@ Dashboard shows 1105 meetings but 0 transcripts processed, 0 pending. All meetin
 - **Config**: DynamoDB transcripts table, S3 raw/sanitized buckets, sanitization settings — all wired up
 
 ### Meeting Bot (independent transcript handling)
+
 - Fetches transcripts on `meetingEnd` event and posts to Teams chat
 - Has its own Graph subscription for `getAllTranscripts()` notifications
 - Saves VTT to its own S3 bucket — does NOT write to admin app's DynamoDB transcripts table
 
 ### EventHub Lambda (meeting notifications only)
+
 - Polls EventHub, archives to S3, writes meeting notifications to DynamoDB meetings table
 - No transcript awareness whatsoever — doesn't check for transcripts or trigger any downstream processing
 
 ### Test/Utility Scripts
+
 - `probe-transcript*.py`, `04-poll-transcription.py`, `05-fetch-transcript.py`: Manual Graph API testing scripts
 - `process_transcript_notification.py`: Parses transcript webhook notifications
 - `create-transcript-subscription.py`: Creates Graph transcript subscriptions
@@ -2334,6 +2450,7 @@ Dashboard shows 1105 meetings but 0 transcripts processed, 0 pending. All meetin
 **There is no automated trigger that connects meeting notifications to transcript fetching in the admin app.**
 
 Specifically:
+
 1. **No background worker/poller** in the admin app that scans for meetings with `onlineMeetingId` set and calls `checkForTranscript()`
 2. **No event-driven trigger** from the EventHub Lambda to the admin app's transcript check
 3. **No API endpoint** that could be called externally to trigger transcript processing for a meeting
@@ -2344,29 +2461,32 @@ The `meetingService.checkForTranscript()` method is fully implemented but **neve
 ## Recommended Fix (two options)
 
 ### Option A: Background Poller in Admin App (simpler)
+
 Add a `setInterval`-based worker in `server.ts` or a new `services/transcriptWorker.ts` that:
+
 1. Periodically scans DynamoDB meetings table for meetings where `detailsFetched === true`, `onlineMeetingId` is set, `status === 'scheduled'`, and `transcriptionId` is not set
 2. Calls `meetingService.checkForTranscript(meeting)` for each
 3. Handles rate limiting (Graph API ~100ms pacing)
 4. Configurable poll interval (e.g., every 5 minutes)
 
 ### Option B: Event-Driven Lambda Trigger (more scalable)
+
 Add a new Lambda or extend the EventHub Lambda to:
+
 1. After writing a meeting notification, call the admin app's API to trigger transcript check
 2. Or use EventBridge/SQS to decouple the trigger
 
 ### Recommendation
+
 **Option A** for immediate unblocking — it's contained within the admin app, requires no infrastructure changes, and the `checkForTranscript()` method is already battle-ready.
 
 ## Dependencies
+
 - Meetings must have `onlineMeetingId` populated (requires `fetchDetails` to have run first)
 - Meetings must have actually occurred with transcription enabled
 - Graph API access (CsApplicationAccessPolicy) confirmed working
 
-
 ---
-
-
 
 ---
 
@@ -2398,3 +2518,329 @@ Transient errors (429 rate limits, 500 server errors, network timeouts) continue
 - Meetings marked as permanently failed are still visible in DynamoDB with error details for debugging
 - No data loss — meetings retain all existing fields, just gain the failure marker
 
+---
+
+### 2026-02-28T17:35:32Z: User directive
+
+**By:** Isaac (via Copilot)
+**What:** For any meetings created as part of scripts, transcription should be turned on automatically.
+**Why:** User request — captured for team memory. Ensures E2E test meetings and script-created meetings always produce transcripts without manual intervention.
+
+---
+
+# Decision: Unified Access & Permissions Guide
+
+**Date:** 2026-02-28  
+**Owner:** Edie (Documentation Specialist)  
+**Status:** Complete  
+**Stakeholders:** Isaac (requested), McManus (Graph API expertise), Fenster (IaC), Scribe (team decisions)
+
+---
+
+## Problem Statement
+
+Teams Meeting Fetcher has **six independent access layers** that must be correctly configured for the app to read meeting transcripts via Graph API. Currently, this knowledge is scattered across:
+
+1. `docs/TEAMS_ADMIN_CONFIGURATION.md` (admin setup, Layers 1–4)
+2. `docs/TEAMS-ADMIN-POLICIES.md` (policies, partial)
+3. `CONFIGURATION.md` (app config, partial permission references)
+4. Source code comments (API path lessons)
+5. Team slack history (hard-won errors)
+
+**Result:** New team members don't know where to start, and critical lessons (like "CsApplicationAccessPolicy takes 30 minutes to propagate" or "userId must be a GUID for app-only auth") get rediscovered painfully.
+
+---
+
+## Solution: ACCESS_AND_PERMISSIONS.md
+
+Created a **unified, single-source-of-truth document** at the repo root (`ACCESS_AND_PERMISSIONS.md`, ~31KB) that covers:
+
+### 1. **Architecture Overview** (Mermaid diagram)
+
+Shows all 6 layers stacking vertically, with visual distinction for which failures come from which layer (e.g., 403 "No application access policy found" specifically points to Layer 4).
+
+### 2. **Detailed Layer Documentation**
+
+Each layer (Entra App Registration → Graph Permissions → Admin Consent → CsApplicationAccessPolicy → Teams Policies → API Calls) explained with:
+
+- What it is and why it exists
+- How to verify it's working
+- Specific failure symptoms
+- Propagation timelines
+
+### 3. **Hard-Won Lessons Section**
+
+**8 pitfalls** extracted from real deployments, each with:
+
+- Symptom (what you see in logs/errors)
+- Root cause
+- Fix with code examples
+- Lesson for the next person
+
+Examples:
+
+- Pitfall 1: Using `/communications/onlineMeetings/` (delegated auth path) with app-only credentials
+- Pitfall 2: Passing email instead of GUID to `/users/{userId}/onlineMeetings`
+- **Pitfall 3:** Missing `$format=text/vtt` on transcript content endpoint → 400 error
+- **Pitfall 4:** CsApplicationAccessPolicy not created or not propagated → 403 "No application access policy found"
+- Pitfall 5: Graph permissions granted but admin consent missing
+- Pitfall 6: Transcript empty array (no recording, or still processing)
+- Pitfall 7: Calendar event missing onlineMeetingId
+- Pitfall 8: Propagation delays (10–15 min for permissions, **30 min for policy**)
+
+### 4. **API Path Reference**
+
+Clear, side-by-side comparison:
+
+- **App-only auth paths** (what we use): `/users/{userId}/onlineMeetings/{id}/transcripts/{transcriptId}/content?$format=text/vtt`
+- **Delegated auth paths** (what doesn't work): `/me/onlineMeetings/{id}/transcripts/...`
+- Examples from actual code (transcriptService.ts, meetingService.ts)
+
+### 5. **Step-by-Step Setup**
+
+Linear walkthrough (Steps 1–5) from app registration through environment config, with exact Azure CLI/PowerShell commands and expected outputs.
+
+### 6. **Verification Checklist**
+
+Layer-by-layer testing with actual commands:
+
+```powershell
+Get-CsApplicationAccessPolicy -Identity "TMF-AppAccess-Policy"
+Get-CsOnlineUser -Identity "user@yourtenant.com" | Select-Object ApplicationAccessPolicy
+```
+
+### 7. **Troubleshooting Decision Tree**
+
+Flowchart: "Does Graph API return 403?" → branches to "No application access policy" vs. "Insufficient privileges" vs. "Invalid client" with specific fixes for each.
+
+---
+
+## Key Decisions Made
+
+1. **Location:** Repo root (`ACCESS_AND_PERMISSIONS.md`), not buried in `docs/`, so it's the first thing people find when cloning.
+
+2. **Audience:** Assumes basic familiarity with Azure/Teams but zero familiarity with this specific app. Explains "why" for each layer, not just "how."
+
+3. **Tone:** Written for someone who has 2 hours before a deadline. Every section is actionable. No fluff.
+
+4. **Structure:** Follows the **access flow** (how the app authenticates and accesses data), not the **setup flow** (which team does what first). This makes it easier to debug: "I got error X, which layer does it come from?"
+
+5. **Cross-references:** Links back to TEAMS_ADMIN_CONFIGURATION.md, CONFIGURATION.md, etc. instead of duplicating content. No single-source-of-truth can be perfect, but this one **explains what each layer does and when to debug it**.
+
+6. **Hard-won lessons:** Extracted 8 real pitfalls from project history (CsApplicationAccessPolicy discovery, GUID vs. email bug, $format parameter mystery, etc.) and formatted as actionable troubleshooting.
+
+---
+
+## Impact
+
+### For Isaac (requester)
+
+- Single document to link in onboarding
+- Covers "the complete end-to-end access flow" exactly as requested
+- Includes CsApplicationAccessPolicy (which he identified as critical blocker)
+
+### For New Team Members
+
+- First Google hit when searching "Teams Meeting Fetcher permissions"
+- Clear architecture diagram showing layer stack
+- Immediate answer to "Why did I get 403?"
+
+### For DevOps/SRE
+
+- Verification checklist is copy-paste ready
+- Propagation timelines listed (saves 30 minutes of confusion)
+- Decision tree for triage
+
+### For Future Docs
+
+- Edie now has a reference architecture for other multi-layer docs
+- Pattern: Architecture → Layers → Pitfalls → Checklist → Cross-refs
+
+---
+
+## What This Doesn't Replace
+
+This document **doesn't replace** existing docs; it **unifies and cross-references** them:
+
+- `TEAMS_ADMIN_CONFIGURATION.md` — Still the detailed admin-focused guide (layers 1–4 from the admin's POV)
+- `CONFIGURATION.md` — Still the app configuration reference
+- `DEPLOYMENT_PREREQUISITES.md` — Still covers IaC and CI/CD prep
+
+What this document **adds:**
+
+- Single entry point (esp. for developers who just cloned the repo)
+- Architecture diagram showing how layers interact
+- Real-world debugging patterns (Pitfalls section)
+- API path examples from source code
+
+---
+
+## Next Steps (for team)
+
+- [ ] Link `ACCESS_AND_PERMISSIONS.md` from `README.md` "Access & Permissions" section (if it doesn't exist yet)
+- [ ] Use as template for new team members' onboarding (Point to this doc first, then walk through one layer at a time)
+- [ ] Add to .squad/skills/ if the team discovers another layer-based architecture in future docs
+- [ ] Update if new Graph API versions change paths or permissions
+
+---
+
+## Lessons for Future Docs
+
+The "hard-won lessons" pattern worked well:
+
+1. Pitfall = Real error observed in production or test
+2. Symptom = What the user sees
+3. Cause = Why it happened
+4. Fix = Exact steps to recover
+5. Lesson = What to remember next time
+
+This pattern scales to other docs with multiple layers or complex debugging.
+
+---
+
+# Decision: Calendars.ReadWrite Permission Added for E2E Testing
+
+**By:** Fenster (DevOps/Infra)
+**Date:** 2026-02-28
+
+## Context
+
+During E2E pipeline validation, creating a Teams calendar event via Graph API failed with `ErrorAccessDenied`. The app only had `Calendars.Read` (application permission), not `Calendars.ReadWrite`.
+
+## Decision
+
+Added `Calendars.ReadWrite` (application permission, GUID `ef54d2bf-783f-4e0f-bca1-3210c0444d99`) to the TMF app registration and granted admin consent.
+
+## Impact
+
+- The app can now create calendar events via Graph API (needed for automated E2E tests and potentially future features).
+- **Action required:** Sync this permission to `scripts/permissions.json` and the Terraform `azuread_app_role_assignment` resources to keep IaC canonical.
+
+## E2E Test Results (2026-02-28)
+
+All 5 steps PASSED:
+
+1. Meeting created via Graph API for user2@<YOUR_TENANT_DOMAIN>
+2. Graph notification delivered to EventHub (via subscription, NOT webhook-writer Lambda)
+3. EventHub processor Lambda wrote to DynamoDB within ~3 minutes
+4. Meeting confirmed in DynamoDB with full data
+5. Manual poller enriched meeting, onlineMeetingId confirmed
+
+Pipeline is fully operational end-to-end.
+
+## Architectural Note
+
+The `tmf-webhook-writer-dev` Lambda is NOT in the active pipeline. Graph subscriptions route directly to EventHub via `EventHub:https://...` notificationUrl. The webhook-writer Lambda is a legacy/alternative path and receives zero traffic.
+
+---
+
+# Decision: Renewal Lambda Build Workflow
+
+**Author:** Fenster (DevOps)
+**Date:** 2026-02-28
+**Status:** Implemented
+
+## Context
+
+The subscription-renewal Lambda was the only Lambda without a CI build workflow. Every other Lambda had a `build-lambda-*.yml` + `deploy-lambda-*.yml` pair:
+
+- build-lambda-eventhub.yml + deploy-lambda-eventhub.yml
+- build-lambda-authorizer.yml + deploy-lambda-authorizer.yml
+- build-lambda-handler.yml + deploy-lambda-handler.yml
+- build-lambda-meeting-bot.yml + deploy-lambda-meeting-bot.yml
+
+The renewal Lambda only had `deploy-lambda-renewal.yml`, and that workflow was packaging the zip with ONLY `renewal-function.py` — no Python dependencies. This was the root cause of the "missing requests module" failure that killed all Graph subscriptions on 2026-02-28.
+
+## Decision
+
+1. **Created `build-lambda-renewal.yml`** — CI build for develop branch pushes and PRs. Installs Python 3.11, runs `pip install -r requirements.txt -t .`, validates syntax with `py_compile`, packages zip with all dependencies, verifies `requests` module is in the zip, uploads artifact.
+
+2. **Fixed `deploy-lambda-renewal.yml`** — Added `setup-python@v5` and `pip install -r requirements.txt -t .` steps before packaging. Changed path trigger from `scenarios/lambda/renewal-function.py` to `scenarios/lambda/**` so dependency changes (requirements.txt) also trigger deploy.
+
+3. **Kept self-contained deploy pattern** — Consistent with all other deploy workflows in this repo, the deploy workflow builds inline rather than consuming artifacts from the build workflow. The build workflow is for CI validation on develop/PRs.
+
+## Terraform Lifecycle Verification
+
+All 5 Lambda Terraform modules have `lifecycle { ignore_changes = [filename, source_code_hash] }`:
+
+- `iac/aws/modules/subscription-renewal/main.tf:111`
+- `iac/aws/modules/authorizer/main.tf:42`
+- `iac/aws/modules/eventhub-processor/main.tf:119`
+- `iac/aws/modules/meeting-bot/main.tf:118`
+- `iac/aws/modules/lambda/main.tf:86`
+
+This means `terraform apply` will NOT overwrite deployed Lambda code with placeholder zips. Safe.
+
+## Risk
+
+The zip glob explicitly lists Python package directories (requests, certifi, charset_normalizer, idna, urllib3). If `requirements.txt` adds new dependencies, the zip command must be updated to include them. The alternative (`zip -r renewal-function.zip .`) would work but includes unnecessary files. Tradeoff: explicit is safer for Lambda size limits.
+
+---
+
+# Decision: Re-enrichment Strategy for Updated Meetings
+
+**Author:** McManus (Backend Dev)
+**Date:** 2026-03-05
+**Status:** Implemented
+
+## Context
+
+When a calendar event is updated (rescheduled, renamed, etc.), the webhook notification flows through EventHub → Lambda → DynamoDB and sets `changeType: 'updated'`. But the transcript poller Phase 1 skipped all meetings with `detailsFetched: true`, so updated details were never re-fetched from Graph API.
+
+## Decision
+
+Use `changeType` as a re-enrichment trigger with a `'processed'` reset state:
+
+1. **Phase 1 filter** now includes meetings where `changeType === 'updated'` regardless of `detailsFetched` status
+2. **After enrichment**, `changeType` is reset to `'processed'` so the meeting doesn't re-enrich every 5-minute cycle
+3. **Permanent failure skip** preserved — `enrichmentStatus: 'permanent_failure'` still blocks re-enrichment
+
+## Files Changed
+
+- `apps/admin-app/src/models/meeting.ts` — added `'processed'` to changeType union
+- `apps/admin-app/src/services/transcriptPoller.ts` — Phase 1 filter condition
+- `apps/admin-app/src/services/meetingService.ts` — changeType reset in fetchDetails()
+
+## Alternatives Considered
+
+- **Separate `needsReEnrichment` flag:** More explicit but adds another field to track. changeType already carries the right semantics.
+- **Clear `detailsFetched` on update:** Would work but loses the information that the meeting was previously enriched, complicating diagnostics.
+
+## Impact
+
+- Updated meetings now get fresh subject, times, organizer, and attendees from Graph API on the next poller cycle
+- No risk of infinite re-enrichment — the `'processed'` state is a stable terminal state
+- Zero impact on existing permanent failure handling
+
+---
+
+# Decision: Transcript List Enrichment Pattern
+
+**By:** Verbal (Teams Developer)
+**Date:** 2026-02-28
+
+## Decision
+
+Enrich the `GET /api/transcripts` response with meeting data inline (subject, startTime, endTime, organizerDisplayName, attendeesCount) rather than creating a separate endpoint or requiring frontend to make N+1 API calls.
+
+## Rationale
+
+- Keeps frontend simple — one API call returns everything needed for the transcript table
+- `meetingStore.get()` already exists and handles DynamoDB key resolution
+- Per-transcript meeting lookup uses `Promise.all` for parallel execution
+- Graceful degradation: if meeting lookup fails for a transcript, it returns `meeting: null` and the UI shows "Unknown Meeting"
+- No new API surface — just enriched existing response
+
+## Impact
+
+- `apps/admin-app/src/routes/transcripts.ts` now depends on `meetingStore`
+- Transcript list response includes a `meeting` property on each transcript object
+- Frontend reads `t.meeting.subject`, `t.meeting.organizerDisplayName`, etc.
+
+## 2026-02-28 — Documentation and Memory Sanitization
+
+**By:** Copilot  
+**What:** Sanitized deployment-specific identifiers from project documentation and squad memory files by replacing tenant/app/group/subscription/user/resource identifiers with placeholders (for example `<YOUR_TENANT_ID>`, `<YOUR_GRAPH_APP_ID>`, `<YOUR_GROUP_ID>`, `<EVENT_HUB_NAMESPACE>`).  
+**Why:** Reduce confusion for new environments and prevent deployment-specific values from being treated as required defaults.
+
+**Decision:** Going forward, user-facing and squad memory markdown should use placeholders for environment-specific identifiers unless a real value is strictly required for a live incident timeline.

@@ -2,7 +2,7 @@
 
 ## Team Updates
 
-📌 Team update (20260227T023500Z): McManus confirmed all 7 Graph API permissions now granted on Teams Meeting Fetcher SPN (63f2f070-e55d-40d3-93f9-f46229544066). Fenster synchronized IaC across Terraform and bootstrap scripts (corrected 2 wrong GUIDs from original task). Edie updated 5 documentation files with complete 7-permission list. Core blockers identified: (1) CsApplicationAccessPolicy still missing (requires Teams Admin PowerShell), (2) Isaac's account not licensed for Teams Premium (only test users). — decided by McManus/Fenster/Edie
+📌 Team update (20260227T023500Z): McManus confirmed all 7 Graph API permissions now granted on Teams Meeting Fetcher SPN (<YOUR_GRAPH_APP_ID>). Fenster synchronized IaC across Terraform and bootstrap scripts (corrected 2 wrong GUIDs from original task). Edie updated 5 documentation files with complete 7-permission list. Core blockers identified: (1) CsApplicationAccessPolicy still missing (requires Teams Admin PowerShell), (2) Isaac's account not licensed for Teams Premium (only test users). — decided by McManus/Fenster/Edie
 
 ## Project Context
 
@@ -26,18 +26,18 @@
 1. **Retrieved Azure App Secret from Terraform Outputs:**
    - Used `terraform output -json` instead of Key Vault access (RBAC permissions not configured for local user)
    - Secret was marked sensitive but available in Terraform state: `[REDACTED - rotate via Azure portal]`
-   - This is the "Teams Meeting Fetcher" app (`63f2f070-e55d-40d3-93f9-f46229544066`) which has Graph API permissions
+   - This is the "Teams Meeting Fetcher" app (`<YOUR_GRAPH_APP_ID>`) which has Graph API permissions
 
 2. **Updated Resource Values:**
    - All Azure resources now use `8akfpg` suffix (Key Vault, Storage Account, Event Hub Namespace/Name)
-   - New Admin Security Group ID: `2e572630-7b65-470d-82f2-0387ebb04524` (Terraform-managed)
+   - New Admin Security Group ID: `<YOUR_GROUP_ID>` (Terraform-managed)
    - New API Gateway URL: `https://45kg5tox6b.execute-api.us-east-1.amazonaws.com/dev/graph`
    - New Lambda Function URL: `https://yfexrxjcakoanqr5kikkzif7e40xnqhj.lambda-url.us-east-1.on.aws/`
 
 3. **Graph API App Registration:**
-   - Main app ID: `63f2f070-e55d-40d3-93f9-f46229544066` (Teams Meeting Fetcher) — THIS is the one for Graph subscriptions
-   - Bot app ID: `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2` (Teams Meeting Fetcher Bot)
-   - Lambda EventHub Consumer app ID: `6dafa2b6-ec4c-4fb6-997c-6efcadcb22ab`
+   - Main app ID: `<YOUR_GRAPH_APP_ID>` (Teams Meeting Fetcher) — THIS is the one for Graph subscriptions
+   - Bot app ID: `<YOUR_TEAMS_BOT_APP_ID>` (Teams Meeting Fetcher Bot)
+   - Lambda EventHub Consumer app ID: `<YOUR_AUX_APP_ID>`
    - The main app has Calendars.Read and Group.Read.All permissions (verified by user's admin consent)
 
 4. **Subscription Script Requirements (from auth_helper.py and create-group-eventhub-subscription.py):**
@@ -62,11 +62,11 @@ copy scenarios\nobots-eventhub\.env .env.local.azure
 
 # Option 2: Run from scenarios directory
 cd scenarios\nobots-eventhub
-python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e572630-7b65-470d-82f2-0387ebb04524 --expiration-hours 48 --change-type created,updated
+python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id <YOUR_GROUP_ID> --expiration-hours 48 --change-type created,updated
 ```
 
 **Critical Notes:**
-- Admin consent MUST be granted on app `63f2f070-e55d-40d3-93f9-f46229544066` for `Calendars.Read` and `Group.Read.All` (user confirmed this is done)
+- Admin consent MUST be granted on app `<YOUR_GRAPH_APP_ID>` for `Calendars.Read` and `Group.Read.All` (user confirmed this is done)
 - App must have "Azure Event Hubs Data Sender" RBAC role on Event Hub namespace (Terraform should have assigned this)
 - The Event Hub namespace uses RBAC-only auth (no SAS connection strings for Graph subscription)
 - Blob storage endpoint (`https://tmfsteus8akfpg.blob.core.windows.net`) is required for rich notifications
@@ -75,13 +75,13 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
 
 ### 2026-02-27: Teams Auto-Transcription Configuration Investigation
 
-**Context:** Isaac enabled Teams Premium for ibuyspy.net tenant but meetings are not auto-transcribing. Investigated the full configuration stack required.
+**Context:** Isaac enabled Teams Premium for <YOUR_TENANT_DOMAIN> tenant but meetings are not auto-transcribing. Investigated the full configuration stack required.
 
 **Key Findings:**
 
 1. **Application Access Policy is MISSING (Critical Blocker):**
    - Graph API returns `403 "No application access policy found for this app"` when querying `/users/{userId}/onlineMeetings`
-   - The app `63f2f070-e55d-40d3-93f9-f46229544066` needs a `CsApplicationAccessPolicy` created via Teams PowerShell
+   - The app `<YOUR_GRAPH_APP_ID>` needs a `CsApplicationAccessPolicy` created via Teams PowerShell
    - This is a Teams-specific requirement beyond normal Graph API permissions
    - Fix: `New-CsApplicationAccessPolicy` + `Grant-CsApplicationAccessPolicy` (takes up to 30 min to propagate)
 
@@ -100,7 +100,7 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
    - Layer 2: CsApplicationAccessPolicy (confirmed missing)
    - Layer 3: Graph API application permissions (partially missing)
 
-**User (a-ivega@ibuyspy.net):** ID = `dbb98842-0024-4474-a69a-a27acd735bef`
+**User (user1@<YOUR_TENANT_DOMAIN>):** ID = `<USER_OBJECT_ID_2>`
 **Active Subscriptions:** 4 calendar event subscriptions confirmed working.
 
 **Decision:** Full configuration checklist written to `.squad/decisions/inbox/kobayashi-teams-transcription-config.md`. Application Access Policy creation is the #1 priority action item.
@@ -111,16 +111,16 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id 2e57
 
 **Key Findings:**
 
-1. **Calendar Status — boldoriole@ibuyspy.net:**
+1. **Calendar Status — user2@<YOUR_TENANT_DOMAIN>:**
    - Has 10 active events (created 2026-02-26 to 2026-02-27)
    - Mix of auto-generated test events ("E2E DynamoDB Direct Write 005135") and scheduled sales calls
    - Events are non-blocking but clutter calendar for manual verification
    - Recommendation: Clean up before starting fresh recording test runs (optional)
 
 2. **Configuration IDs Located:**
-   - Group ID (test users): `2e572630-7b65-470d-82f2-0387ebb04524`
-   - Bot App ID (Graph): `63f2f070-e55d-40d3-93f9-f46229544066`
-   - Teams Bot App ID: `acc484fb-6a5e-4cd2-a1cc-f0dfc1668af2`
+   - Group ID (test users): `<YOUR_GROUP_ID>`
+   - Bot App ID (Graph): `<YOUR_GRAPH_APP_ID>`
+   - Teams Bot App ID: `<YOUR_TEAMS_BOT_APP_ID>`
    - Catalog App ID: **UNKNOWN** (requires interactive PowerShell query)
 
 3. **Policy Status Check:**
