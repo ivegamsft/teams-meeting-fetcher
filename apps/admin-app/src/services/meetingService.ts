@@ -117,6 +117,20 @@ export const meetingService = {
       }
     }
 
+    const graphAttendees = eventData.attendees || [];
+    const mappedAttendees = graphAttendees.map((a: any) => ({
+      id: a.emailAddress?.address || '',
+      email: a.emailAddress?.address || '',
+      displayName: a.emailAddress?.name || '',
+      role: a.type === 'required' ? 'required' : 'optional',
+      status: a.status?.response || 'notResponded',
+    }));
+    if (graphAttendees.length === 0) {
+      console.warn(`[MeetingService] Graph returned 0 attendees for ${meetingId} (subject: "${eventData.subject}") — event may have been created without attendees`);
+    } else {
+      console.log(`[MeetingService] Enriched ${meetingId} with ${mappedAttendees.length} attendee(s): ${mappedAttendees.map((a: any) => a.email).join(', ')}`);
+    }
+
     const enriched: Meeting = {
       ...meeting,
       subject: eventData.subject || 'Untitled Meeting',
@@ -126,13 +140,7 @@ export const meetingService = {
       organizerId: eventData.organizer?.emailAddress?.address || '',
       organizerEmail: eventData.organizer?.emailAddress?.address || '',
       organizerDisplayName: eventData.organizer?.emailAddress?.name || '',
-      attendees: (eventData.attendees || []).map((a: any) => ({
-        id: a.emailAddress?.address || '',
-        email: a.emailAddress?.address || '',
-        displayName: a.emailAddress?.name || '',
-        role: a.type === 'required' ? 'required' : 'optional',
-        status: a.status?.response || 'notResponded',
-      })),
+      attendees: mappedAttendees,
       status: meeting.status === 'notification_received' ? 'scheduled' : meeting.status,
       joinWebUrl,
       onlineMeetingId,
@@ -350,12 +358,8 @@ export const meetingService = {
           const om = resp.value[0];
           console.log(`[MeetingService] Resolved meeting "${meeting.subject}" -> onlineMeetingId ${om.id}`);
 
-          // Update meeting with onlineMeetingId
-          await meetingStore.put({
-            ...meeting,
-            onlineMeetingId: om.id,
-            updatedAt: new Date().toISOString(),
-          });
+          // Targeted update — avoids overwriting enriched fields (attendees, etc.)
+          await meetingStore.updateOnlineMeetingId(meeting.meeting_id, om.id);
 
           // Check for transcripts
           try {
@@ -366,12 +370,7 @@ export const meetingService = {
             if (transcripts.value && transcripts.value.length > 0) {
               console.log(`[MeetingService] Found ${transcripts.value.length} transcript(s) for "${meeting.subject}"`);
 
-              await meetingStore.put({
-                ...meeting,
-                onlineMeetingId: om.id,
-                status: 'completed',
-                updatedAt: new Date().toISOString(),
-              });
+              await meetingStore.updateOnlineMeetingId(meeting.meeting_id, om.id, 'completed');
 
               const latest = transcripts.value[transcripts.value.length - 1];
               await transcriptService.fetchAndStore(meeting, latest.id);

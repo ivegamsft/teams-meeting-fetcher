@@ -191,4 +191,27 @@ export const meetingStore = {
       },
     }));
   },
+
+  async updateOnlineMeetingId(id: string, onlineMeetingId: string, status?: string): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) return;
+
+    const updateExpr = status
+      ? 'SET onlineMeetingId = :omid, #status = :status, updatedAt = :now'
+      : 'SET onlineMeetingId = :omid, updatedAt = :now';
+
+    const exprValues: Record<string, any> = {
+      ':omid': onlineMeetingId,
+      ':now': new Date().toISOString(),
+    };
+    if (status) exprValues[':status'] = status;
+
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: key,
+      UpdateExpression: updateExpr,
+      ...(status ? { ExpressionAttributeNames: { '#status': 'status' } } : {}),
+      ExpressionAttributeValues: exprValues,
+    }));
+  },
 };

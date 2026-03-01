@@ -143,6 +143,12 @@ def create_appointment(rep_email, lead, start_dt, end_dt, index, total, stats):
         "location": {
             "displayName": "Microsoft Teams Meeting"
         },
+        "attendees": [
+            {
+                "emailAddress": {"address": lead["email"], "name": f"{lead['first_name']} {lead['last_name']}"},
+                "type": "required",
+            },
+        ],
         "isOnlineMeeting": True,
         "onlineMeetingProvider": "teamsForBusiness"
     }

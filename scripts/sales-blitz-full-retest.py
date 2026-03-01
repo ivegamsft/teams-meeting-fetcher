@@ -198,6 +198,12 @@ def create_single_event(rep_email, lead, start_dt, end_dt, index, total):
         "start": {"dateTime": start_dt.strftime("%Y-%m-%dT%H:%M:%S"), "timeZone": "Eastern Standard Time"},
         "end": {"dateTime": end_dt.strftime("%Y-%m-%dT%H:%M:%S"), "timeZone": "Eastern Standard Time"},
         "location": {"displayName": "Microsoft Teams Meeting"},
+        "attendees": [
+            {
+                "emailAddress": {"address": lead["email"], "name": f"{lead['first_name']} {lead['last_name']}"},
+                "type": "required",
+            },
+        ],
         "isOnlineMeeting": True,
         "onlineMeetingProvider": "teamsForBusiness",
     }
