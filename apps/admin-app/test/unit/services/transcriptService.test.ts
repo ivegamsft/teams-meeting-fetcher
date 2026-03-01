@@ -72,7 +72,7 @@ const mockGetGraphClient = getGraphClient as jest.Mock;
 const mockS3Send = s3Client.send as jest.Mock;
 
 const mockMeeting: Meeting = {
-  id: 'meeting-1',
+  meeting_id: 'meeting-1',
   tenantId: 'test-tenant',
   subject: 'Test Meeting',
   description: '',
@@ -98,20 +98,28 @@ describe('transcriptService', () => {
     jest.clearAllMocks();
     mockApiGet = jest.fn();
     mockResponseType = jest.fn(() => ({ get: mockApiGet }));
-    mockGraphApi = jest.fn(() => ({ responseType: mockResponseType }));
+    const apiObj: any = {
+      responseType: mockResponseType,
+      get: mockApiGet,
+    };
+    apiObj.select = jest.fn().mockReturnValue(apiObj);
+    apiObj.query = jest.fn().mockReturnValue(apiObj);
+    mockGraphApi = jest.fn(() => apiObj);
     mockGetGraphClient.mockReturnValue({ api: mockGraphApi });
   });
 
   describe('fetchAndStore', () => {
     test('fetches transcript and stores to S3', async () => {
       const rawContent = 'WEBVTT\n\n00:00:00.000 --> 00:00:05.000\nHello world';
-      mockApiGet.mockResolvedValue(rawContent);
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' }) // resolve userId
+        .mockResolvedValueOnce(rawContent); // fetch content
       mockS3Send.mockResolvedValue({});
       (transcriptStore.put as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateS3Paths as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.get as jest.Mock).mockResolvedValue({
-        id: 'mock-transcript-uuid',
+        transcript_id: 'mock-transcript-uuid',
         meetingId: 'meeting-1',
         status: 'completed',
       });
@@ -133,12 +141,14 @@ describe('transcriptService', () => {
     });
 
     test('sanitizes when sanitization enabled', async () => {
-      mockApiGet.mockResolvedValue('raw transcript content');
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' })
+        .mockResolvedValueOnce('raw transcript content');
       mockS3Send.mockResolvedValue({});
       (transcriptStore.put as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateS3Paths as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
-      (transcriptStore.get as jest.Mock).mockResolvedValue({ id: 'mock-transcript-uuid' });
+      (transcriptStore.get as jest.Mock).mockResolvedValue({ transcript_id: 'mock-transcript-uuid' });
       (meetingStore.setTranscriptionId as jest.Mock).mockResolvedValue(undefined);
       (meetingStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
       (configStore.incrementCounter as jest.Mock).mockResolvedValue(undefined);
@@ -150,12 +160,14 @@ describe('transcriptService', () => {
     });
 
     test('handles non-string content response', async () => {
-      mockApiGet.mockResolvedValue({ data: 'json response' });
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' })
+        .mockResolvedValueOnce({ data: 'json response' });
       mockS3Send.mockResolvedValue({});
       (transcriptStore.put as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateS3Paths as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
-      (transcriptStore.get as jest.Mock).mockResolvedValue({ id: 'mock-transcript-uuid' });
+      (transcriptStore.get as jest.Mock).mockResolvedValue({ transcript_id: 'mock-transcript-uuid' });
       (meetingStore.setTranscriptionId as jest.Mock).mockResolvedValue(undefined);
       (meetingStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
       (configStore.incrementCounter as jest.Mock).mockResolvedValue(undefined);
@@ -193,12 +205,14 @@ describe('transcriptService', () => {
       const origEnabled = configMod.config.sanitization.enabled;
       configMod.config.sanitization.enabled = false;
 
-      mockApiGet.mockResolvedValue('raw content');
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' })
+        .mockResolvedValueOnce('raw content');
       mockS3Send.mockResolvedValue({});
       (transcriptStore.put as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateS3Paths as jest.Mock).mockResolvedValue(undefined);
       (transcriptStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
-      (transcriptStore.get as jest.Mock).mockResolvedValue({ id: 'mock-transcript-uuid' });
+      (transcriptStore.get as jest.Mock).mockResolvedValue({ transcript_id: 'mock-transcript-uuid' });
       (meetingStore.setTranscriptionId as jest.Mock).mockResolvedValue(undefined);
       (meetingStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
       (configStore.incrementCounter as jest.Mock).mockResolvedValue(undefined);
@@ -249,7 +263,7 @@ describe('transcriptService', () => {
   describe('getTranscript', () => {
     test('delegates to transcriptStore', async () => {
       const mockT: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed',
         language: 'en', createdAt: '', updatedAt: '',
       };
       (transcriptStore.get as jest.Mock).mockResolvedValue(mockT);
@@ -271,7 +285,7 @@ describe('transcriptService', () => {
   describe('getTranscriptContent', () => {
     test('retrieves raw content from S3', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         rawS3Path: 's3://test-raw-bucket/raw/m-1/t-1.vtt',
         createdAt: '', updatedAt: '',
       };
@@ -285,7 +299,7 @@ describe('transcriptService', () => {
 
     test('retrieves sanitized content from S3', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         sanitizedS3Path: 's3://test-sanitized-bucket/sanitized/m-1/t-1.vtt',
         createdAt: '', updatedAt: '',
       };
@@ -299,7 +313,7 @@ describe('transcriptService', () => {
 
     test('returns null when no S3 path', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         createdAt: '', updatedAt: '',
       };
 
@@ -309,7 +323,7 @@ describe('transcriptService', () => {
 
     test('returns null for invalid S3 path format', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         rawS3Path: 'invalid-path',
         createdAt: '', updatedAt: '',
       };
@@ -320,7 +334,7 @@ describe('transcriptService', () => {
 
     test('returns null on S3 error', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         rawS3Path: 's3://bucket/key.vtt',
         createdAt: '', updatedAt: '',
       };
@@ -334,7 +348,7 @@ describe('transcriptService', () => {
 
     test('defaults to sanitized type', async () => {
       const transcript: Transcript = {
-        id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
+        transcript_id: 't-1', meetingId: 'm-1', status: 'completed', language: 'en',
         sanitizedS3Path: 's3://bucket/sanitized.vtt',
         createdAt: '', updatedAt: '',
       };

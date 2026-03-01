@@ -62,7 +62,7 @@ describe('Transcript Routes - /api/transcripts', () => {
     test('returns list of transcripts', async () => {
       const mockTranscripts = [
         createMockTranscript(),
-        createMockTranscript({ id: 'transcript-002', meetingId: 'meeting-002' }),
+        createMockTranscript({ transcript_id: 'transcript-002', meetingId: 'meeting-002' }),
       ];
       mockDynamoSend.mockResolvedValueOnce({ Items: mockTranscripts });
 
@@ -118,14 +118,17 @@ describe('Transcript Routes - /api/transcripts', () => {
 
     test('returns a single transcript', async () => {
       const mockTranscript = createMockTranscript();
-      mockDynamoSend.mockResolvedValueOnce({ Item: mockTranscript });
+      // _resolveKey QueryCommand then GetCommand
+      mockDynamoSend
+        .mockResolvedValueOnce({ Items: [{ transcript_id: 'transcript-001', meeting_id: 'meeting-001' }] })
+        .mockResolvedValueOnce({ Item: mockTranscript });
 
       const response = await request(app)
         .get('/api/transcripts/transcript-001')
         .set('X-API-Key', TEST_API_KEY);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('id', 'transcript-001');
+      expect(response.body).toHaveProperty('transcript_id', 'transcript-001');
       expect(response.body).toHaveProperty('meetingId', 'meeting-001');
       expect(response.body).toHaveProperty('status', 'completed');
     });

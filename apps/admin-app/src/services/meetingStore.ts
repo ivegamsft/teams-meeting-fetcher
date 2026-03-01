@@ -214,4 +214,70 @@ export const meetingStore = {
       ExpressionAttributeValues: exprValues,
     }));
   },
+
+  async findByOnlineMeetingId(onlineMeetingId: string): Promise<Meeting | null> {
+    const scanParams: Record<string, unknown> = {
+      TableName: TABLE,
+      FilterExpression: 'onlineMeetingId = :omid',
+      ExpressionAttributeValues: { ':omid': onlineMeetingId },
+    };
+    const result = await dynamoDb.send(new ScanCommand(scanParams as any));
+    if (result.Items && result.Items.length > 0) {
+      return result.Items[0] as Meeting;
+    }
+    return null;
+  },
+
+  async mergeDuplicate(duplicateId: string, canonicalId: string): Promise<void> {
+    const key = await this._resolveKey(duplicateId);
+    if (!key) throw new Error(`Meeting ${duplicateId} not found`);
+
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: key,
+      UpdateExpression: 'SET #status = :status, mergedInto = :canonical, updatedAt = :now',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':status': 'merged',
+        ':canonical': canonicalId,
+        ':now': new Date().toISOString(),
+      },
+    }));
+  },
+
+  async updateCallRecordData(id: string, data: { callRecordId?: string; actualStart?: string; actualEnd?: string; duration?: number; lifecycleState?: string }): Promise<void> {
+    const key = await this._resolveKey(id);
+    if (!key) throw new Error(`Meeting ${id} not found`);
+
+    const setParts: string[] = ['updatedAt = :now'];
+    const exprValues: Record<string, any> = { ':now': new Date().toISOString() };
+
+    if (data.callRecordId !== undefined) {
+      setParts.push('callRecordId = :crid');
+      exprValues[':crid'] = data.callRecordId;
+    }
+    if (data.actualStart !== undefined) {
+      setParts.push('actualStart = :astart');
+      exprValues[':astart'] = data.actualStart;
+    }
+    if (data.actualEnd !== undefined) {
+      setParts.push('actualEnd = :aend');
+      exprValues[':aend'] = data.actualEnd;
+    }
+    if (data.duration !== undefined) {
+      setParts.push('duration = :dur');
+      exprValues[':dur'] = data.duration;
+    }
+    if (data.lifecycleState !== undefined) {
+      setParts.push('lifecycleState = :lcs');
+      exprValues[':lcs'] = data.lifecycleState;
+    }
+
+    await dynamoDb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: key,
+      UpdateExpression: `SET ${setParts.join(', ')}`,
+      ExpressionAttributeValues: exprValues,
+    }));
+  },
 };

@@ -336,6 +336,142 @@ async function writeMeetingNotification(meetingsTableName, notification) {
   return { written: true, meetingId, action: 'created' };
 }
 
+function classifyNotification(notification) {
+  const resource = notification.resource || '';
+  const odataType = (notification.resourceData && notification.resourceData['@odata.type']) || '';
+
+  if (resource.startsWith('communications/callRecords')) {
+    return 'callRecord';
+  }
+  if (resource.includes('/transcripts(') || odataType.includes('callTranscript')) {
+    return 'transcript';
+  }
+  if (resource.includes('/recordings(') || odataType.includes('callRecording')) {
+    return 'recording';
+  }
+  return 'calendarEvent';
+}
+
+async function writeCallRecordNotification(meetingsTableName, notification) {
+  const callRecordId = notification.resourceData && notification.resourceData.id;
+  if (!callRecordId) {
+    console.warn('Skipping call record notification with no resourceData.id');
+    return { written: false, reason: 'no_call_record_id' };
+  }
+
+  const now = new Date().toISOString();
+  const meetingId = `cr_${callRecordId}`;
+
+  await ddb.send(new PutCommand({
+    TableName: meetingsTableName,
+    Item: {
+      meeting_id: meetingId,
+      created_at: now,
+      callRecordId,
+      resource: notification.resource,
+      changeType: notification.changeType || 'created',
+      status: 'ended',
+      lifecycleState: 'ended',
+      rawNotification: notification,
+      subject: '',
+      startTime: '',
+      endTime: '',
+      organizerId: '',
+      organizerEmail: '',
+      organizerDisplayName: '',
+      detailsFetched: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  }));
+  return { written: true, meetingId, action: 'created' };
+}
+
+function extractIdFromResource(resource, entityName) {
+  // Match patterns like onlineMeetings('id') or transcripts('id')
+  const pattern = new RegExp(`${entityName}\\('([^']+)'\\)`);
+  const match = resource.match(pattern);
+  return match ? match[1] : null;
+}
+
+async function writeTranscriptNotification(meetingsTableName, notification) {
+  const resource = notification.resource || '';
+  const onlineMeetingId = extractIdFromResource(resource, 'onlineMeetings');
+  const transcriptId = extractIdFromResource(resource, 'transcripts');
+
+  if (!onlineMeetingId) {
+    console.warn('Skipping transcript notification — could not extract onlineMeetingId from:', resource);
+    return { written: false, reason: 'no_online_meeting_id' };
+  }
+
+  const now = new Date().toISOString();
+  const meetingId = `tr_${onlineMeetingId}`;
+
+  await ddb.send(new PutCommand({
+    TableName: meetingsTableName,
+    Item: {
+      meeting_id: meetingId,
+      created_at: now,
+      onlineMeetingId,
+      transcriptId: transcriptId || undefined,
+      transcriptNotifiedAt: now,
+      resource,
+      changeType: notification.changeType || 'created',
+      status: 'notification_received',
+      rawNotification: notification,
+      subject: '',
+      startTime: '',
+      endTime: '',
+      organizerId: '',
+      organizerEmail: '',
+      organizerDisplayName: '',
+      detailsFetched: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  }));
+  return { written: true, meetingId, action: 'created' };
+}
+
+async function writeRecordingNotification(meetingsTableName, notification) {
+  const resource = notification.resource || '';
+  const onlineMeetingId = extractIdFromResource(resource, 'onlineMeetings');
+  const recordingId = extractIdFromResource(resource, 'recordings');
+
+  if (!onlineMeetingId) {
+    console.warn('Skipping recording notification — could not extract onlineMeetingId from:', resource);
+    return { written: false, reason: 'no_online_meeting_id' };
+  }
+
+  const now = new Date().toISOString();
+  const meetingId = `rec_${onlineMeetingId}`;
+
+  await ddb.send(new PutCommand({
+    TableName: meetingsTableName,
+    Item: {
+      meeting_id: meetingId,
+      created_at: now,
+      onlineMeetingId,
+      recordingId: recordingId || undefined,
+      recordingNotifiedAt: now,
+      resource,
+      changeType: notification.changeType || 'created',
+      status: 'notification_received',
+      rawNotification: notification,
+      subject: '',
+      startTime: '',
+      endTime: '',
+      organizerId: '',
+      organizerEmail: '',
+      organizerDisplayName: '',
+      detailsFetched: false,
+      createdAt: now,
+      updatedAt: now,
+    },
+  }));
+  return { written: true, meetingId, action: 'created' };
+}
+
 exports.handler = async (event, context) => {
   const eventHubName = requireEnv('EVENT_HUB_NAME');
   const eventHubNamespaceRaw = requireEnv('EVENT_HUB_NAMESPACE');
@@ -466,7 +602,23 @@ exports.handler = async (event, context) => {
 
         for (const notification of notifications) {
           try {
-            const result = await writeMeetingNotification(meetingsTableName, notification);
+            const notificationType = classifyNotification(notification);
+            let result;
+            switch (notificationType) {
+              case 'callRecord':
+                result = await writeCallRecordNotification(meetingsTableName, notification);
+                break;
+              case 'transcript':
+                result = await writeTranscriptNotification(meetingsTableName, notification);
+                break;
+              case 'recording':
+                result = await writeRecordingNotification(meetingsTableName, notification);
+                break;
+              case 'calendarEvent':
+              default:
+                result = await writeMeetingNotification(meetingsTableName, notification);
+                break;
+            }
             if (result.written) {
               dynamoWriteCount++;
             }

@@ -49,7 +49,7 @@ export const TEST_WEBHOOK_SECRET = TEST_ENV.WEBHOOK_AUTH_SECRET;
 
 export function createMockMeeting(overrides: Partial<Meeting> = {}): Meeting {
   return {
-    id: 'meeting-001',
+    meeting_id: 'meeting-001',
     tenantId: 'test-tenant-id',
     subject: 'Test Meeting',
     description: 'A test meeting',
@@ -71,7 +71,8 @@ export function createMockMeeting(overrides: Partial<Meeting> = {}): Meeting {
 
 export function createMockSubscription(overrides: Partial<Subscription> = {}): Subscription {
   return {
-    id: 'sub-001',
+    subscription_id: 'sub-001',
+    subscriptionType: 'calendar',
     userId: 'user-001',
     userEmail: 'user@example.com',
     userDisplayName: 'Test User',
@@ -90,7 +91,7 @@ export function createMockSubscription(overrides: Partial<Subscription> = {}): S
 
 export function createMockTranscript(overrides: Partial<Transcript> = {}): Transcript {
   return {
-    id: 'transcript-001',
+    transcript_id: 'transcript-001',
     meetingId: 'meeting-001',
     status: 'completed',
     language: 'en',
@@ -105,10 +106,9 @@ export function createMockTranscript(overrides: Partial<Transcript> = {}): Trans
 
 export function createMockAppConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
-    id: 'primary',
+    config_key: 'primary',
     tenantId: 'test-tenant-id',
-    entraGroupId: 'test-group-id',
-    webhookUrl: 'https://example.com/webhooks/graph',
+    monitoredGroups: [],
     monitoredMeetingsCount: 5,
     transcriptionsProcessed: 3,
     transcriptionsPending: 1,

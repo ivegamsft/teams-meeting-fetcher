@@ -17,7 +17,8 @@ import { Subscription } from '../../../src/models';
 const mockSend = dynamoDb.send as jest.Mock;
 
 const mockSubscription: Subscription = {
-  id: 'sub-1',
+  subscription_id: 'sub-1',
+  subscriptionType: 'calendar',
   userId: 'user-1',
   userEmail: 'user@test.com',
   userDisplayName: 'Test User',
@@ -45,21 +46,23 @@ describe('subscriptionStore', () => {
       expect(mockSend).toHaveBeenCalledTimes(1);
 
       const call = mockSend.mock.calls[0][0];
-      expect(call.input.Item).toEqual(mockSubscription);
+      expect(call.input.Item.subscription_id).toBe('sub-1');
       expect(call.input.TableName).toBe('test-subscriptions-table');
     });
   });
 
   describe('get', () => {
     test('returns subscription when found', async () => {
-      mockSend.mockResolvedValue({ Item: mockSubscription });
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({ Item: mockSubscription });
 
       const result = await subscriptionStore.get('sub-1');
       expect(result).toEqual(mockSubscription);
     });
 
     test('returns null when not found', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend.mockResolvedValueOnce({ Items: [] });
 
       const result = await subscriptionStore.get('nonexistent');
       expect(result).toBeNull();
@@ -117,20 +120,24 @@ describe('subscriptionStore', () => {
 
   describe('updateStatus', () => {
     test('updates status without error message', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({});
 
       await subscriptionStore.updateStatus('sub-1', 'expired');
-      const call = mockSend.mock.calls[0][0];
-      expect(call.input.Key).toEqual({ id: 'sub-1' });
+      const call = mockSend.mock.calls[1][0];
+      expect(call.input.Key).toEqual({ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' });
       expect(call.input.ExpressionAttributeValues[':status']).toBe('expired');
       expect(call.input.UpdateExpression).not.toContain('errorMessage');
     });
 
     test('updates status with error message', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({});
 
       await subscriptionStore.updateStatus('sub-1', 'error', 'Something failed');
-      const call = mockSend.mock.calls[0][0];
+      const call = mockSend.mock.calls[1][0];
       expect(call.input.ExpressionAttributeValues[':err']).toBe('Something failed');
       expect(call.input.UpdateExpression).toContain('errorMessage');
     });
@@ -138,31 +145,37 @@ describe('subscriptionStore', () => {
 
   describe('updateExpiry', () => {
     test('updates expiration date', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({});
 
       await subscriptionStore.updateExpiry('sub-1', '2025-09-01T00:00:00Z');
-      const call = mockSend.mock.calls[0][0];
+      const call = mockSend.mock.calls[1][0];
       expect(call.input.ExpressionAttributeValues[':exp']).toBe('2025-09-01T00:00:00Z');
     });
   });
 
   describe('updateLastNotification', () => {
     test('sets lastNotificationAt timestamp', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({});
 
       await subscriptionStore.updateLastNotification('sub-1');
-      const call = mockSend.mock.calls[0][0];
+      const call = mockSend.mock.calls[1][0];
       expect(call.input.UpdateExpression).toContain('lastNotificationAt');
     });
   });
 
   describe('delete', () => {
     test('deletes subscription by id', async () => {
-      mockSend.mockResolvedValue({});
+      mockSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({});
 
       await subscriptionStore.delete('sub-1');
-      const call = mockSend.mock.calls[0][0];
-      expect(call.input.Key).toEqual({ id: 'sub-1' });
+      const call = mockSend.mock.calls[1][0];
+      expect(call.input.Key).toEqual({ subscription_id: 'sub-1', created_at: '2025-07-01T00:00:00Z' });
     });
   });
 });

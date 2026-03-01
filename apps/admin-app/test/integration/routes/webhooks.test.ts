@@ -136,7 +136,8 @@ describe('Webhook Routes - /api/webhooks', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('processed', 1);
+      expect(response.body).toHaveProperty('processed', 0);
+      expect(response.body).toHaveProperty('deprecated', true);
     });
 
     test('skips notifications with invalid clientState', async () => {

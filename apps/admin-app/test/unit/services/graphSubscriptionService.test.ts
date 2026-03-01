@@ -4,8 +4,9 @@ jest.mock('../../../src/config/graph', () => ({
 
 jest.mock('../../../src/config', () => ({
   config: {
-    graph: { tenantId: 'test-tenant', entraGroupId: 'test-group' },
+    graph: { tenantId: 'test-tenant' },
     webhook: { notificationUrl: 'https://webhook.test', clientState: 'test-state' },
+    eventhub: { namespace: 'test-ns.servicebus.windows.net', name: 'test-hub', tenantDomain: 'test-domain' },
     aws: {
       dynamodb: { subscriptionsTable: 'test-subs' },
     },
@@ -26,19 +27,27 @@ jest.mock('../../../src/services/subscriptionStore', () => ({
   },
 }));
 
+jest.mock('../../../src/services/configStore', () => ({
+  configStore: {
+    getMonitoredGroups: jest.fn(),
+  },
+}));
+
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),
 }));
 
 import { graphSubscriptionService } from '../../../src/services/graphSubscriptionService';
 import { subscriptionStore } from '../../../src/services/subscriptionStore';
+import { configStore } from '../../../src/services/configStore';
 import { getGraphClient } from '../../../src/config/graph';
 import { Subscription } from '../../../src/models';
 
 const mockGetGraphClient = getGraphClient as jest.Mock;
 
 const mockSubscription: Subscription = {
-  id: 'graph-sub-1',
+  subscription_id: 'graph-sub-1',
+  subscriptionType: 'calendar',
   userId: 'user-1',
   userEmail: 'user@test.com',
   userDisplayName: 'Test User',
@@ -92,11 +101,11 @@ describe('graphSubscriptionService', () => {
       expect(mockApi).toHaveBeenCalledWith('/subscriptions');
       expect(mockPost).toHaveBeenCalled();
       const postBody = mockPost.mock.calls[0][0];
-      expect(postBody.notificationUrl).toBe('https://webhook.test');
+      expect(postBody.notificationUrl).toContain('EventHub:');
       expect(postBody.changeType).toBe('created,updated,deleted');
 
       expect(subscriptionStore.put).toHaveBeenCalled();
-      expect(result.id).toBe('graph-sub-new');
+      expect(result.subscription_id).toBe('graph-sub-new');
       expect(result.status).toBe('active');
     });
 
@@ -217,82 +226,18 @@ describe('graphSubscriptionService', () => {
     });
   });
 
-  describe('subscribeToGroupMembers', () => {
-    test('creates subscriptions for new members', async () => {
-      mockGet.mockResolvedValue({
-        value: [
-          { id: 'member-1', mail: 'm1@test.com', displayName: 'Member 1' },
-          { id: 'member-2', mail: 'm2@test.com', displayName: 'Member 2' },
-        ],
-      });
-      (subscriptionStore.listAll as jest.Mock).mockResolvedValue([]);
-      mockPost.mockResolvedValue({
-        id: 'new-sub',
-        expirationDateTime: '2025-08-01T00:00:00Z',
-      });
-      (subscriptionStore.put as jest.Mock).mockResolvedValue(undefined);
-
-      const result = await graphSubscriptionService.subscribeToGroupMembers();
-      expect(result.length).toBe(2);
-    });
-
-    test('skips existing subscriptions', async () => {
-      mockGet.mockResolvedValue({
-        value: [{ id: 'member-1', mail: 'm1@test.com', displayName: 'Member 1' }],
-      });
-      (subscriptionStore.listAll as jest.Mock).mockResolvedValue([
-        { ...mockSubscription, userId: 'member-1' },
-      ]);
-
-      const result = await graphSubscriptionService.subscribeToGroupMembers();
-      expect(result.length).toBe(0);
-    });
-
-    test('throws when no group ID configured', async () => {
-      const configMod = require('../../../src/config');
-      const origGroupId = configMod.config.graph.entraGroupId;
-      configMod.config.graph.entraGroupId = '';
-
-      await expect(
-        graphSubscriptionService.subscribeToGroupMembers()
-      ).rejects.toThrow('ENTRA_GROUP_ID is not configured');
-
-      configMod.config.graph.entraGroupId = origGroupId;
-    });
-
-    test('continues on individual subscription failure', async () => {
-      mockGet.mockResolvedValue({
-        value: [
-          { id: 'member-1', mail: 'm1@test.com', displayName: 'Member 1' },
-          { id: 'member-2', mail: 'm2@test.com', displayName: 'Member 2' },
-        ],
-      });
-      (subscriptionStore.listAll as jest.Mock).mockResolvedValue([]);
-
-      let callCount = 0;
-      mockPost.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) throw new Error('Failed for member 1');
-        return { id: 'new-sub', expirationDateTime: '2025-08-01T00:00:00Z' };
-      });
-      (subscriptionStore.put as jest.Mock).mockResolvedValue(undefined);
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const result = await graphSubscriptionService.subscribeToGroupMembers();
-      expect(result.length).toBe(1);
-      consoleSpy.mockRestore();
-    });
-  });
-
   describe('syncGroupMembers', () => {
     test('adds new members and removes departed', async () => {
+      (configStore.getMonitoredGroups as jest.Mock).mockResolvedValue([
+        { groupId: 'test-group', displayName: 'Test Group', addedAt: '2025-01-01T00:00:00Z' },
+      ]);
       mockGet.mockResolvedValue({
         value: [
           { id: 'member-new', mail: 'new@test.com', displayName: 'New Member' },
         ],
       });
       (subscriptionStore.listAll as jest.Mock).mockResolvedValue([
-        { ...mockSubscription, userId: 'member-departed', id: 'sub-departed' },
+        { ...mockSubscription, userId: 'member-departed', subscription_id: 'sub-departed' },
       ]);
       mockPost.mockResolvedValue({
         id: 'sub-new',
@@ -308,24 +253,23 @@ describe('graphSubscriptionService', () => {
       expect(result.removed).toContain('member-departed');
     });
 
-    test('throws when no group ID configured', async () => {
-      const configMod = require('../../../src/config');
-      const origGroupId = configMod.config.graph.entraGroupId;
-      configMod.config.graph.entraGroupId = '';
+    test('throws when no monitored groups configured', async () => {
+      (configStore.getMonitoredGroups as jest.Mock).mockResolvedValue([]);
 
       await expect(
         graphSubscriptionService.syncGroupMembers()
-      ).rejects.toThrow('ENTRA_GROUP_ID is not configured');
-
-      configMod.config.graph.entraGroupId = origGroupId;
+      ).rejects.toThrow('No monitored groups configured');
     });
 
     test('handles errors during sync gracefully', async () => {
+      (configStore.getMonitoredGroups as jest.Mock).mockResolvedValue([
+        { groupId: 'test-group', displayName: 'Test Group', addedAt: '2025-01-01T00:00:00Z' },
+      ]);
       mockGet.mockResolvedValue({
         value: [{ id: 'member-1', mail: 'm1@test.com', displayName: 'M1' }],
       });
       (subscriptionStore.listAll as jest.Mock).mockResolvedValue([
-        { ...mockSubscription, userId: 'old-member', id: 'sub-old' },
+        { ...mockSubscription, userId: 'old-member', subscription_id: 'sub-old' },
       ]);
       mockPost.mockRejectedValue(new Error('Create failed'));
       mockDelete.mockRejectedValue(new Error('Delete failed'));

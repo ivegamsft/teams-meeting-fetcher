@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { graphSubscriptionService } from '../services/graphSubscriptionService';
+import { SubscriptionType } from '../models';
 
 const router = Router();
 
@@ -81,6 +82,25 @@ router.post('/sync-group', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error('Failed to sync group members:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const VALID_TENANT_TYPES: SubscriptionType[] = ['callRecords', 'transcripts', 'recordings'];
+
+router.post('/tenant-wide', async (req: Request, res: Response) => {
+  try {
+    const { type } = req.body;
+
+    if (!type || !VALID_TENANT_TYPES.includes(type)) {
+      res.status(400).json({ error: `type must be one of: ${VALID_TENANT_TYPES.join(', ')}` });
+      return;
+    }
+
+    const subscription = await graphSubscriptionService.createTenantSubscription(type);
+    res.status(201).json(subscription);
+  } catch (err: any) {
+    console.error('Failed to create tenant-wide subscription:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

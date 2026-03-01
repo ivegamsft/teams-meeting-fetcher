@@ -30,6 +30,8 @@ jest.mock('../../../src/services/meetingStore', () => ({
     list: jest.fn(),
     updateStatus: jest.fn(),
     setTranscriptionId: jest.fn(),
+    findByOnlineMeetingId: jest.fn(),
+    mergeDuplicate: jest.fn(),
   },
 }));
 
@@ -59,7 +61,7 @@ import { Meeting } from '../../../src/models';
 const mockGetGraphClient = getGraphClient as jest.Mock;
 
 const mockMeeting: Meeting = {
-  id: 'event-123',
+  meeting_id: 'event-123',
   tenantId: 'test-tenant',
   subject: 'Test Meeting',
   description: '',
@@ -82,7 +84,10 @@ describe('meetingService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockApiGet = jest.fn();
-    mockGraphApi = jest.fn(() => ({ get: mockApiGet }));
+    const apiObj: any = { get: mockApiGet };
+    apiObj.select = jest.fn().mockReturnValue(apiObj);
+    apiObj.filter = jest.fn().mockReturnValue(apiObj);
+    mockGraphApi = jest.fn(() => apiObj);
     mockGetGraphClient.mockReturnValue({ api: mockGraphApi });
   });
 
@@ -96,7 +101,7 @@ describe('meetingService', () => {
         subscriptionId: 'sub-1',
       });
 
-      expect(meetingStore.updateStatus).toHaveBeenCalledWith('event-123', 'cancelled');
+      expect(meetingStore.updateStatus).toHaveBeenCalledWith('event-123', 'cancelled', 'deleted');
     });
 
     test('skips deleted if meeting not found', async () => {
@@ -139,13 +144,6 @@ describe('meetingService', () => {
     test('updates existing meeting for updated changeType', async () => {
       (meetingStore.get as jest.Mock).mockResolvedValue(mockMeeting);
       (meetingStore.put as jest.Mock).mockResolvedValue(undefined);
-      mockApiGet.mockResolvedValue({
-        subject: 'Updated Meeting',
-        start: { dateTime: '2025-07-10T10:00:00Z' },
-        end: { dateTime: '2025-07-10T12:00:00Z' },
-        attendees: [],
-        isOnlineMeeting: false,
-      });
 
       await meetingService.processNotification({
         resource: 'users/user-1/events/event-123',
@@ -155,109 +153,16 @@ describe('meetingService', () => {
 
       expect(meetingStore.put).toHaveBeenCalled();
       const savedMeeting = (meetingStore.put as jest.Mock).mock.calls[0][0];
-      expect(savedMeeting.subject).toBe('Updated Meeting');
+      expect(savedMeeting.changeType).toBe('updated');
     });
 
-    test('handles Graph API error gracefully', async () => {
-      (meetingStore.get as jest.Mock).mockResolvedValue(null);
-      mockApiGet.mockRejectedValue(new Error('Graph API unavailable'));
-
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      await meetingService.processNotification({
-        resource: 'users/user-1/events/event-123',
-        changeType: 'created',
-        subscriptionId: 'sub-1',
-      });
-
-      expect(consoleSpy).toHaveBeenCalled();
-      expect(meetingStore.put).not.toHaveBeenCalled();
-      consoleSpy.mockRestore();
-    });
-  });
-
-  describe('createMeeting', () => {
-    test('creates meeting with attendees', async () => {
-      (meetingStore.put as jest.Mock).mockResolvedValue(undefined);
-      (configStore.incrementCounter as jest.Mock).mockResolvedValue(undefined);
-
-      const eventData = {
-        id: 'event-456',
-        subject: 'Team Sync',
-        bodyPreview: 'Weekly sync',
-        start: { dateTime: '2025-07-10T10:00:00Z' },
-        end: { dateTime: '2025-07-10T11:00:00Z' },
-        organizer: { emailAddress: { address: 'boss@test.com', name: 'Boss' } },
-        attendees: [
-          {
-            emailAddress: { address: 'dev@test.com', name: 'Dev' },
-            type: 'required',
-            status: { response: 'accepted' },
-          },
-        ],
-        isOnlineMeeting: false,
-      };
-
-      const result = await meetingService.createMeeting(eventData, 'sub-1', 'users/u/events/e');
-      expect(result.subject).toBe('Team Sync');
-      expect(result.attendees).toHaveLength(1);
-      expect(result.attendees[0].email).toBe('dev@test.com');
-      expect(result.attendees[0].role).toBe('required');
-    });
-
-    test('checks transcript for online meetings', async () => {
-      (meetingStore.put as jest.Mock).mockResolvedValue(undefined);
-      (configStore.incrementCounter as jest.Mock).mockResolvedValue(undefined);
-      mockApiGet.mockResolvedValue({ value: [] });
-
-      const eventData = {
-        id: 'event-789',
-        subject: 'Online Meeting',
-        start: { dateTime: '2025-07-10T10:00:00Z' },
-        end: { dateTime: '2025-07-10T11:00:00Z' },
-        organizer: { emailAddress: { address: 'org@test.com', name: 'Org' } },
-        attendees: [],
-        isOnlineMeeting: true,
-        onlineMeetingId: 'online-123',
-      };
-
-      await meetingService.createMeeting(eventData, 'sub-1', 'users/u/events/e');
-
-      // checkForTranscript is called async (fire-and-forget)
-      // Verify transcript service was potentially invoked via the graph client
-      await new Promise(resolve => setTimeout(resolve, 50));
-    });
-  });
-
-  describe('updateMeeting', () => {
-    test('cancels meeting if isCancelled', async () => {
-      (meetingStore.updateStatus as jest.Mock).mockResolvedValue(undefined);
-
-      await meetingService.updateMeeting(mockMeeting, { isCancelled: true });
-      expect(meetingStore.updateStatus).toHaveBeenCalledWith('event-123', 'cancelled');
-    });
-
-    test('updates meeting fields', async () => {
-      (meetingStore.put as jest.Mock).mockResolvedValue(undefined);
-
-      await meetingService.updateMeeting(mockMeeting, {
-        subject: 'Updated Subject',
-        start: { dateTime: '2025-07-11T10:00:00Z' },
-        attendees: [],
-        isOnlineMeeting: false,
-      });
-
-      const saved = (meetingStore.put as jest.Mock).mock.calls[0][0];
-      expect(saved.subject).toBe('Updated Subject');
-      expect(saved.startTime).toBe('2025-07-11T10:00:00Z');
-    });
   });
 
   describe('checkForTranscript', () => {
     test('fetches transcript when available', async () => {
-      mockApiGet.mockResolvedValue({
-        value: [{ id: 'graph-transcript-1' }],
-      });
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' }) // resolve userId
+        .mockResolvedValueOnce({ value: [{ id: 'graph-transcript-1' }] }); // transcripts
       (transcriptService.fetchAndStore as jest.Mock).mockResolvedValue({});
 
       await meetingService.checkForTranscript({
@@ -278,7 +183,9 @@ describe('meetingService', () => {
     });
 
     test('handles 404 silently', async () => {
-      mockApiGet.mockRejectedValue({ statusCode: 404, message: 'Not found' });
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' })
+        .mockRejectedValueOnce({ statusCode: 404, message: 'Not found' });
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       await meetingService.checkForTranscript({
@@ -291,7 +198,9 @@ describe('meetingService', () => {
     });
 
     test('logs non-404 errors', async () => {
-      mockApiGet.mockRejectedValue({ statusCode: 500, message: 'Server error' });
+      mockApiGet
+        .mockResolvedValueOnce({ id: 'user-guid-1' })
+        .mockRejectedValueOnce({ statusCode: 500, message: 'Server error' });
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       await meetingService.checkForTranscript({

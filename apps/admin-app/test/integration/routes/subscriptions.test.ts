@@ -69,7 +69,7 @@ describe('Subscription Routes - /api/subscriptions', () => {
     });
 
     test('returns list of subscriptions', async () => {
-      const mockSubs = [createMockSubscription(), createMockSubscription({ id: 'sub-002' })];
+      const mockSubs = [createMockSubscription(), createMockSubscription({ subscription_id: 'sub-002' })];
       mockDynamoSend.mockResolvedValueOnce({ Items: mockSubs });
 
       const response = await request(app)
@@ -130,7 +130,7 @@ describe('Subscription Routes - /api/subscriptions', () => {
         });
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('id', 'graph-sub-001');
+      expect(response.body).toHaveProperty('subscription_id', 'graph-sub-001');
       expect(response.body).toHaveProperty('userId', 'user-001');
       expect(response.body).toHaveProperty('status', 'active');
     });
@@ -172,9 +172,14 @@ describe('Subscription Routes - /api/subscriptions', () => {
       const renewedSub = createMockSubscription({
         expirationDateTime: '2025-03-01T00:00:00Z',
       });
+      const key = { subscription_id: 'sub-001', created_at: '2025-01-01T00:00:00Z' };
       mockGraphApi.mockResolvedValueOnce({ expirationDateTime: '2025-03-01T00:00:00Z' });
       mockDynamoSend
+        .mockResolvedValueOnce({ Items: [key] }) // _resolveKey for get (subscriptionType lookup)
+        .mockResolvedValueOnce({ Item: renewedSub }) // get result
+        .mockResolvedValueOnce({ Items: [key] }) // _resolveKey for updateExpiry
         .mockResolvedValueOnce({}) // updateExpiry
+        .mockResolvedValueOnce({ Items: [key] }) // _resolveKey for get after renewal
         .mockResolvedValueOnce({ Item: renewedSub }); // get after renewal
 
       const response = await request(app)
@@ -182,10 +187,14 @@ describe('Subscription Routes - /api/subscriptions', () => {
         .set('X-API-Key', TEST_API_KEY);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('id', 'sub-001');
+      expect(response.body).toHaveProperty('subscription_id', 'sub-001');
     });
 
     test('returns 500 when renewal fails', async () => {
+      const key = { subscription_id: 'sub-001', created_at: '2025-01-01T00:00:00Z' };
+      mockDynamoSend
+        .mockResolvedValueOnce({ Items: [key] }) // _resolveKey for get
+        .mockResolvedValueOnce({ Item: createMockSubscription() }); // get result
       mockGraphApi.mockRejectedValueOnce(new Error('Renewal failed'));
 
       const response = await request(app)
@@ -205,7 +214,9 @@ describe('Subscription Routes - /api/subscriptions', () => {
 
     test('deletes a subscription', async () => {
       mockGraphApi.mockResolvedValueOnce(undefined); // graph delete
-      mockDynamoSend.mockResolvedValueOnce({}); // dynamo delete
+      mockDynamoSend
+        .mockResolvedValueOnce({ Items: [{ subscription_id: 'sub-001', created_at: '2025-01-01T00:00:00Z' }] }) // _resolveKey
+        .mockResolvedValueOnce({}); // dynamo delete
 
       const response = await request(app)
         .delete('/api/subscriptions/sub-001')
@@ -235,6 +246,10 @@ describe('Subscription Routes - /api/subscriptions', () => {
     });
 
     test('syncs group members', async () => {
+      // Mock configStore.get() for getMonitoredGroups
+      mockDynamoSend.mockResolvedValueOnce({
+        Item: { config_key: 'primary', monitoredGroups: [{ groupId: 'test-group', displayName: 'Test', addedAt: '2025-01-01' }] },
+      });
       // Mock Graph API for getting group members
       mockGraphApi.mockResolvedValueOnce({ value: [] });
       // Mock listAll for existing subscriptions
@@ -251,7 +266,8 @@ describe('Subscription Routes - /api/subscriptions', () => {
     });
 
     test('returns 500 on sync error', async () => {
-      mockGraphApi.mockRejectedValueOnce(new Error('Sync failed'));
+      // configStore.get() returns empty groups → throws
+      mockDynamoSend.mockResolvedValueOnce({ Item: { config_key: 'primary', monitoredGroups: [] } });
 
       const response = await request(app)
         .post('/api/subscriptions/sync-group')

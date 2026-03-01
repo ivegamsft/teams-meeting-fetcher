@@ -7,8 +7,8 @@ jest.mock('../../../src/config', () => ({
     aws: {
       dynamodb: { configTable: 'test-config-table' },
     },
-    graph: { tenantId: 'test-tenant', entraGroupId: 'test-group' },
-    webhook: { notificationUrl: 'https://test.webhook.url' },
+    graph: { tenantId: 'test-tenant' },
+    eventhub: { namespace: 'test-ns', name: 'test-hub' },
   },
 }));
 
@@ -25,8 +25,9 @@ describe('configStore', () => {
   describe('get', () => {
     test('returns config when found', async () => {
       const mockConfig = {
-        id: 'primary',
+        config_key: 'primary',
         tenantId: 'test-tenant',
+        monitoredGroups: [],
         monitoredMeetingsCount: 5,
       };
       mockSend.mockResolvedValue({ Item: mockConfig });
@@ -52,7 +53,7 @@ describe('configStore', () => {
       expect(mockSend).toHaveBeenCalledTimes(1);
 
       const call = mockSend.mock.calls[0][0];
-      expect(call.input.Item.id).toBe('primary');
+      expect(call.input.Item.config_key).toBe('primary');
       expect(call.input.Item.monitoredMeetingsCount).toBe(0);
       expect(call.input.Item.tenantId).toBe('my-tenant');
     });
@@ -63,19 +64,6 @@ describe('configStore', () => {
       await configStore.put({ monitoredMeetingsCount: 10 });
       const call = mockSend.mock.calls[0][0];
       expect(call.input.Item.monitoredMeetingsCount).toBe(10);
-    });
-  });
-
-  describe('updateEntraGroupId', () => {
-    test('sends update command with group id', async () => {
-      mockSend.mockResolvedValue({});
-
-      await configStore.updateEntraGroupId('new-group-id');
-      expect(mockSend).toHaveBeenCalledTimes(1);
-
-      const call = mockSend.mock.calls[0][0];
-      expect(call.input.Key).toEqual({ id: 'primary' });
-      expect(call.input.ExpressionAttributeValues[':gid']).toBe('new-group-id');
     });
   });
 
@@ -108,7 +96,7 @@ describe('configStore', () => {
       expect(mockSend).toHaveBeenCalledTimes(1);
 
       const call = mockSend.mock.calls[0][0];
-      expect(call.input.UpdateExpression).toContain('lastWebhookReceived');
+      expect(call.input.UpdateExpression).toContain('lastWebhookAt');
     });
   });
 });

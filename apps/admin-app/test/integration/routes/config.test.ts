@@ -50,7 +50,7 @@ import {
 
 describe('Config Routes - /api/config', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   describe('GET /api/config', () => {
@@ -70,7 +70,7 @@ describe('Config Routes - /api/config', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('tenantId');
-      expect(response.body).toHaveProperty('entraGroupId');
+      expect(response.body).toHaveProperty('monitoredMeetingsCount');
     });
 
     test('creates default config when none exists', async () => {
@@ -105,40 +105,25 @@ describe('Config Routes - /api/config', () => {
       expect(response.status).toBe(401);
     });
 
-    test('updates entraGroupId', async () => {
-      const updatedConfig = createMockAppConfig({ entraGroupId: 'new-group-id' });
-      mockDynamoSend
-        .mockResolvedValueOnce({}) // updateEntraGroupId
-        .mockResolvedValueOnce({ Item: updatedConfig }); // get after update
-
+    test('returns 404 since PUT config is no longer supported', async () => {
       const response = await request(app)
         .put('/api/config')
         .set('X-API-Key', TEST_API_KEY)
-        .send({ entraGroupId: 'new-group-id' });
+        .send({ tenantId: 'new-tenant' });
 
-      expect(response.status).toBe(200);
-      expect(response.body.entraGroupId).toBe('new-group-id');
-    });
-
-    test('returns 500 on update error', async () => {
-      mockDynamoSend.mockRejectedValueOnce(new Error('Update failed'));
-
-      const response = await request(app)
-        .put('/api/config')
-        .set('X-API-Key', TEST_API_KEY)
-        .send({ entraGroupId: 'new-group' });
-
-      expect(response.status).toBe(500);
-      expect(response.body).toHaveProperty('error');
+      // PUT route was removed — expect 404
+      expect(response.status).toBe(404);
     });
   });
 
   describe('GET /api/config/health', () => {
-    test('is accessible without API key (dashboardAuth skips /health path)', async () => {
+    test('is accessible with API key', async () => {
       mockGetGraphToken.mockResolvedValueOnce('mock-token');
       mockDynamoSend.mockResolvedValueOnce({ Item: createMockAppConfig() });
 
-      const response = await request(app).get('/api/config/health');
+      const response = await request(app)
+        .get('/api/config/health')
+        .set('X-API-Key', TEST_API_KEY);
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('status');
     });

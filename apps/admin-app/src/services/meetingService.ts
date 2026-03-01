@@ -117,7 +117,17 @@ export const meetingService = {
       }
     }
 
-    const graphAttendees = eventData.attendees || [];
+    // Dedup: check for existing record with same onlineMeetingId
+    if (onlineMeetingId) {
+      const existing = await meetingStore.findByOnlineMeetingId(onlineMeetingId);
+      if (existing && existing.meeting_id !== meeting.meeting_id) {
+        console.log(`Dedup: meeting ${meeting.meeting_id} merging into canonical ${existing.meeting_id} (shared onlineMeetingId: ${onlineMeetingId})`);
+        await meetingStore.mergeDuplicate(meeting.meeting_id, existing.meeting_id);
+        return meeting;
+      }
+    }
+
+    const graphAttendees= eventData.attendees || [];
     const mappedAttendees = graphAttendees.map((a: any) => ({
       id: a.emailAddress?.address || '',
       email: a.emailAddress?.address || '',

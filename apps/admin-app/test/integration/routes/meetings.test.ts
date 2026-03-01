@@ -62,7 +62,7 @@ describe('Meeting Routes - /api/meetings', () => {
     });
 
     test('returns list of meetings', async () => {
-      const mockMeetings = [createMockMeeting(), createMockMeeting({ id: 'meeting-002' })];
+      const mockMeetings = [createMockMeeting(), createMockMeeting({ meeting_id: 'meeting-002' })];
       mockDynamoSend.mockResolvedValueOnce({ Items: mockMeetings, Count: 2 });
 
       const response = await request(app)
@@ -108,19 +108,21 @@ describe('Meeting Routes - /api/meetings', () => {
 
     test('returns a single meeting', async () => {
       const mockMeeting = createMockMeeting();
-      mockDynamoSend.mockResolvedValueOnce({ Item: mockMeeting });
+      mockDynamoSend
+        .mockResolvedValueOnce({ Items: [{ meeting_id: 'meeting-001', created_at: '2025-01-01T09:00:00Z' }] })
+        .mockResolvedValueOnce({ Item: mockMeeting });
 
       const response = await request(app)
         .get('/api/meetings/meeting-001')
         .set('X-API-Key', TEST_API_KEY);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('id', 'meeting-001');
+      expect(response.body).toHaveProperty('meeting_id', 'meeting-001');
       expect(response.body).toHaveProperty('subject', 'Test Meeting');
     });
 
     test('returns 404 when meeting not found', async () => {
-      mockDynamoSend.mockResolvedValueOnce({ Item: undefined });
+      mockDynamoSend.mockResolvedValueOnce({ Items: [] });
 
       const response = await request(app)
         .get('/api/meetings/nonexistent')
@@ -162,7 +164,7 @@ describe('Meeting Routes - /api/meetings', () => {
         .set('X-API-Key', TEST_API_KEY);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('id', 'transcript-001');
+      expect(response.body).toHaveProperty('transcript_id', 'transcript-001');
       expect(response.body).toHaveProperty('meetingId', 'meeting-001');
     });
 
