@@ -201,3 +201,27 @@ python ..\..\scripts\graph\create-group-eventhub-subscription.py --group-id <YOU
 **Output:** Created `docs/teams-meeting-semantic-model.md` — comprehensive reference document with entity relationship diagrams, lifecycle state machine, auth model matrix, subscription evaluation, and phased implementation plan.
 
 **Decision:** Written to `.squad/decisions/inbox/kobayashi-meeting-semantic-model.md`.
+
+### 2026-02-28: UI Semantic Model — User-Facing Entity Hierarchy
+
+**Context:** Isaac confused by admin UI conflating "calendar event" with "meeting." Everything called a "meeting" even if never held. Asked for a clean user-facing model that shows the progression: Calendar Item → Meeting → Transcribed Meeting.
+
+**Key Decisions:**
+
+1. **Entity naming:** Use "Event" as the row entity, with lifecycle stages "Scheduled → Held → Transcribed" as badge states. Never show Graph API terms (CalendarEvent, OnlineMeeting, CallRecord) in the primary UI.
+
+2. **Stage resolution logic:** Computed client-side from existing data fields (`resolveStage()` function). No backend changes needed for Phase 1. Maps internal statuses (`notification_received`, `scheduled`, `completed`) to user-facing stages.
+
+3. **Unified Events view:** Recommend merging Meetings and Transcripts tabs into single "Events" tab with progressive disclosure. Stage filter replaces Status filter. "Has Transcript" is a convenience shortcut.
+
+4. **Terminal states:** "Not Held" (24h past endTime, no callRecord/transcript), "Cancelled" (event deleted), "No Transcript" (48h past meeting end, no transcript).
+
+5. **Raw data access:** Collapsible "Raw API Data" section in detail modal showing CalendarEvent, OnlineMeeting, CallRecord, TranscriptRecord JSON. Collapsed by default — admin/debug use only.
+
+6. **Edge cases handled:** Ad hoc calls (no calendar event, enter at Held stage), transcript-before-callRecord race condition (skip straight to Transcribed), partial data display rules.
+
+7. **Three-phase migration:** Phase 1 (badges + rename, no backend), Phase 2 (merge tabs + filters), Phase 3 (raw data + callRecord integration).
+
+**Output:** Created `docs/ui-semantic-model.md` — comprehensive UI design document with entity hierarchy, lifecycle diagrams, data availability matrix, badge design, modal layout, and phased migration plan.
+
+**Decision:** Written to `.squad/decisions/inbox/kobayashi-ui-semantic-model.md`.

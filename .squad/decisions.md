@@ -141,6 +141,44 @@
 - Test framework: Jest with 10-minute timeout, maxWorkers: 1, Node environment
 - Test structure: 3 AWS scenarios (teams-bot-e2e.test.js, eventhub-e2e.test.js, direct-graph-e2e.test.js)
 - Shared utilities: helpers.js with infrastructure checks, logging, result formatting
+
+---
+
+## 2026-02-28: UI Semantic Model — User-Facing Entity Hierarchy
+
+**By:** Kobayashi (Teams Architect)  
+**Date:** 2026-02-28  
+**Requested by:** Isaac (ivegamsft)  
+**Document:** `docs/ui-semantic-model.md`
+
+### Decision
+
+Define a user-facing semantic model that abstracts Graph API internals into three lifecycle stages: **Scheduled → Held → Transcribed**. Merge the current Meetings + Transcripts tabs into a unified "Events" view with progressive disclosure.
+
+### Key Points
+
+1. **Entity = "Event", not "Meeting":** The admin UI should call each row an "Event." The lifecycle stage (Scheduled, Held, Transcribed, Not Held, Cancelled) describes how far it progressed. This fixes the current confusion where everything is labeled "meeting" even if nobody met.
+
+2. **Stage computed client-side:** A `resolveStage()` function maps internal statuses to UI stages. No backend changes required for Phase 1.
+
+3. **Unified Events tab:** One table replaces two tabs. Stage filter and "Has Transcript" filter cover all current use cases. Progressive disclosure in the detail modal — sections appear only when data exists for that lifecycle stage.
+
+4. **Raw data preserved:** Collapsible "Raw API Data" section in the detail modal shows the underlying Graph API objects (CalendarEvent, OnlineMeeting, CallRecord, Transcript). This is for admin/debugging, not the primary view.
+
+5. **Isaac's question answered:** Yes, a calendar item can become a meeting and then be transcribed — AND also: some meetings have no calendar item (ad hoc calls), and some may get transcripts before we confirm they were "held" (race condition between callRecords and getAllTranscripts subscriptions).
+
+### Impact
+
+- Companion document to `docs/teams-meeting-semantic-model.md` (API-level model)
+- Guides UI implementation across three phases (badge rename → tab merge → raw data + callRecord)
+- No backend changes required for Phase 1
+- Phase 3 requires `callRecordId`, `actualStart`, `actualEnd` fields in meeting model
+
+### Team Action Items
+
+- **UI implementer:** Start with Phase 1 (badge CSS + `resolveStage()` function in app.js)
+- **Backend:** When callRecords subscription is implemented (Phase 2 of API model), store callRecordId/actualStart/actualEnd on the meeting record
+- **All:** Use "Event" and stage names (Scheduled/Held/Transcribed) in conversation, not internal status names
 - Documentation: Comprehensive E2E_RUNBOOK.md (1,433 lines) with setup, usage, troubleshooting
 - Helper functions return structured results: `{ exists: boolean, error?: string, ...metadata }`
 - Phase-based test flow: Pre-flight checks â†’ Setup â†’ Human action prompt â†’ Wait periods â†’ Validation â†’ Teardown â†’ Summary
