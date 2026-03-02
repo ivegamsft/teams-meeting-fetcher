@@ -68,6 +68,18 @@
 - **Cross-references** to TEAMS_ADMIN_CONFIGURATION.md, CONFIGURATION.md, and other existing docs to avoid duplication while providing a unified entry point
 - Total: ~900 lines, ~31KB, authored for someone who just cloned the repo and needs to deploy by Friday
 
+### 2026-02-28: Service Principal Permission Matrix (Edie)
+
+- Updated `ACCESS_AND_PERMISSIONS.md` to document all 5 Service Principal Names (SPNs) and their distinct permission requirements.
+- Fixed stale data in Layer 2: Changed `Calendars.Read` (798ee544) → `Calendars.ReadWrite` (ef54d2bf); added `CallRecords.Read.All` (45bbb07e); removed invalid `Subscription.ReadWrite.All` row; updated count from 7 to 8 permissions.
+- Added new "Service Principal Matrix" section between Architecture Overview and Access Layers with:
+  - Summary table showing all 5 SPNs (TMF App, TMF Bot App, TMF Lambda App, TMF Admin App, Deploy SPN) with purpose, permission type, count, and privilege level
+  - Detailed permission breakdown per SPN with exact Graph API permission IDs
+  - Clear callout: "Only the TMF App requires the full 8-permission set and CsApplicationAccessPolicy"
+  - Security principle explanation: Least privilege by design — only 1 of 5 SPNs has highest privileges
+- Updated Summary Table, Quick Navigation, and Architecture Overview diagram to reflect 8 permissions instead of 7.
+- Key insight documented: TMF Bot (5 permissions, no CsApplicationAccessPolicy), TMF Lambda (0 Graph permissions, EventHub only), TMF Admin (4 delegated permissions for user auth), Deploy SPN (1-2 permissions for IaC management) all have narrower scopes than TMF App.
+
 ## Team Updates
 
 📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed doc references for temp-lambda/tasks — reported by Fenster and Edie — decided by Scribe

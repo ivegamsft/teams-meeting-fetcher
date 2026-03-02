@@ -37,3 +37,6 @@
   - Key Vault (`tmf-kv-eus-8akfpg`) has public network access disabled — CLI access blocked but not needed for pipeline
   - EventHub message retention is 24 hours; messages from Feb 25-27 (5668, 5177, 28) were all consumed
   - 3 active Graph subscriptions (trustingboar, boldoriole, and one more user) all pointing to same EventHub
+
+
+📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture decision merged. Redfoot owns E2E tests for each new subscription type (callRecords, transcripts, recordings) with full lifecycle coverage: subscription creation → notification delivery → DynamoDB write → enrichment → dedup verification. Tests validate that meeting status transitions correctly (scheduled → in_progress → ended → transcribed) with proper timestamp and duration capture. — decided by Keaton

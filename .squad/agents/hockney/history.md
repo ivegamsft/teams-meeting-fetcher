@@ -29,4 +29,6 @@
   - Here-string and escaping complexities in dynamically generated mock scripts
 - Note: The error handling tests (which don't require terraform mocking) all pass successfully
 
+📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture decision merged. Hockney owns unit tests for Lambda notification classifier and handlers (callRecord, transcript, recording), subscription creation methods, and meeting model/store dedup logic. Subscription renewal frequency increases (~2.94 days for tenant-wide vs 7 days for calendar). Tests needed for all new Model fields (callRecordId, actualStart, actualEnd, duration, lifecycleState, transcriptNotifiedAt, recordingNotifiedAt) and subscription type discrimination. — decided by Keaton
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

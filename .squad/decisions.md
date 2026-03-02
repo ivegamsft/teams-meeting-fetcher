@@ -2985,3 +2985,231 @@ The existing transcript poller becomes a fallback safety net, not the primary me
 - Reference document: `docs/teams-meeting-semantic-model.md`
 - Includes: entity relationship diagrams, lifecycle state machine, auth model matrix, API examples
 
+
+
+# Decision: Document All 5 SPNs and Permission Segregation
+
+**Date:** 2026-02-28  
+**Proposed by:** Edie (Documentation Specialist)  
+**Status:** Implemented  
+
+## Context
+
+The Teams Meeting Fetcher system uses 5 distinct Service Principal Names (SPNs), but prior documentation only focused on the main TMF App. This created confusion about which permissions were needed where, and obscured the security architecture's least-privilege design.
+
+## Decision
+
+Document all 5 SPNs in `ACCESS_AND_PERMISSIONS.md` with a comprehensive "Service Principal Matrix" section:
+
+1. **TMF App (Teams Meeting Fetcher)** — Main app, 8 Graph API application permissions, CsApplicationAccessPolicy required, HIGHEST privileges
+2. **TMF Bot App** — Meeting bot, 5 Graph API application permissions, multi-tenant, no CsApplicationAccessPolicy
+3. **TMF Lambda App** — AWS Lambda EventHub consumer, ZERO Graph permissions, EventHub access only
+4. **TMF Admin App** — Admin UI user authentication, 4 Graph API delegated permissions, single-tenant
+5. **Deploy SPN** — GitHub Actions CI/CD, 1-2 Graph API application permissions for IaC management
+
+## Rationale
+
+- **Clarity:** Developers and operators need to know which SPN to configure for which component
+- **Security:** Documenting the privilege segregation reinforces least-privilege architecture
+- **Troubleshooting:** Permission errors can now be diagnosed by identifying which SPN is failing
+- **Accuracy:** Fixed stale data (Calendars.Read → Calendars.ReadWrite, added CallRecords.Read.All, removed invalid Subscription.ReadWrite.All)
+
+## Key Insight
+
+**Only 1 of 5 SPNs (TMF App) requires the full permission set and CsApplicationAccessPolicy.** This is the system's highest-privilege identity and the only one that polls meetings, retrieves transcripts, and manages calendar events.
+
+## Implementation
+
+- Added "Service Principal Matrix" section with summary table and detailed per-SPN breakdowns
+- Updated all references from "7 permissions" to "8 permissions" (TMF App only)
+- Fixed Layer 2 permission table with correct GUIDs and purposes
+- Updated Quick Navigation, Summary Table, and Architecture Overview diagram
+
+## Impact
+
+- Teams deploying the system now understand they're managing 5 identities, not 1
+- Security reviews can verify least-privilege separation
+- Troubleshooting documentation is scoped to the correct SPN
+- IaC contributors (Fenster) have authoritative reference for Terraform modules
+
+## Cross-References
+
+- Source of truth: `iac/azure/modules/azure-ad/main.tf`
+- Related docs: `CONFIGURATION.md`, `DEPLOYMENT.md`, Terraform README files
+
+
+
+# Decision: Subscription Pipeline Expansion Architecture
+
+**By:** Keaton (Lead/Architect)
+**Date:** 2026-03-01
+**Requested by:** Isaac (ivegamsft)
+**Status:** PROPOSED (awaiting team review)
+
+## Context
+
+Real Teams meetings complete (recording + transcript generated) but pipeline detects no lifecycle events. Status stays "scheduled" forever. Root cause: only calendar event subscriptions exist (`/users/{id}/events`). No call record, transcript push, or recording push subscriptions.
+
+## Decision
+
+Expand the subscription pipeline with three new Graph API subscription types, each flowing through the existing EventHub -> Lambda -> DynamoDB path.
+
+### New Subscriptions
+
+1. **`/communications/callRecords`** (tenant-wide) — detects meeting start/end/duration. Requires adding `CallRecords.Read.All` permission to the Entra app registration (the only new permission needed).
+2. **`communications/onlineMeetings/getAllTranscripts`** (tenant-wide) — push notification when transcript is ready. Permission already granted.
+3. **`communications/onlineMeetings/getAllRecordings`** (tenant-wide) — push notification when recording is ready. Permission already granted.
+
+### Key Architectural Choices
+
+1. **Lambda remains the write path.** New notification types are classified by a `classifyNotification()` router in the Lambda and dispatched to type-specific handlers. The admin app webhook stays deprecated for calendar events.
+
+2. **Enrichment stays in the admin app.** Lambda writes raw notifications only. The admin app's existing enrichment cycle fetches full call records and correlates with calendar events.
+
+3. **Dedup at enrichment time, not notification time.** Calendar event payloads don't contain `joinWebUrl`/`onlineMeetingId`. Dedup happens when the admin app resolves these during enrichment, using a new DynamoDB GSI on `onlineMeetingId`.
+
+4. **Subscription model gets a `subscriptionType` discriminator.** Tenant-wide subscriptions use `userId: 'tenant'` to distinguish from per-user calendar subscriptions. Max expiration differs per type (4230 min for tenant-wide vs 10070 for calendar).
+
+5. **Meeting model gains lifecycle fields.** New: `callRecordId`, `actualStart`, `actualEnd`, `duration`, `lifecycleState`, `transcriptNotifiedAt`, `recordingNotifiedAt`. New status values: `in_progress`, `ended`.
+
+### What Changes Where
+
+| Component | Changes |
+|-----------|---------|
+| `iac/azure/modules/azure-ad/main.tf` | Add `CallRecords.Read.All` (appRole ID `45bbb07e-7321-4fd7-a8f6-3ff27e6a81c8`) to `graph_app_role_ids`, `tmf_consent_permissions`, and `required_resource_access` |
+| `scripts/grant-graph-permissions.ps1` | Add `CallRecords.Read.All` to `$permissions` hashtable |
+| `scripts/auto-bootstrap-azure.ps1` | Add `CallRecords.Read.All` to `$permissions` hashtable |
+| `apps/admin-app/src/models/meeting.ts` | Add lifecycle fields, new status values |
+| `apps/admin-app/src/models/subscription.ts` | Add `subscriptionType` field |
+| `apps/admin-app/src/services/graphSubscriptionService.ts` | Three new create methods, type-aware renewal |
+| `apps/admin-app/src/routes/subscriptions.ts` | New endpoints for tenant-wide subscriptions |
+| `apps/aws-lambda-eventhub/handler.js` | Notification classifier, callRecord handler, transcript/recording handlers |
+| `apps/admin-app/src/services/meetingService.ts` | Call record enrichment, dedup merge logic |
+| `apps/admin-app/src/services/meetingStore.ts` | GSI queries, `findByOnlineMeetingId()`, `mergeDuplicate()` |
+| DynamoDB (IaC) | New GSI `onlineMeetingId-index` on meetings table |
+
+### Ownership
+
+- **Keaton:** Permissions (Terraform, scripts), docs, architecture review
+- **McManus:** All code changes (Lambda, admin app services/models/routes)
+- **Hockney:** Unit tests for Lambda handlers, subscription creation, dedup logic, model changes
+- **Redfoot:** E2E tests for each subscription type + full lifecycle + dedup verification
+
+### Risks
+
+- `CallRecords.Read.All` requires tenant admin consent — pre-clear with Isaac
+- Tenant-wide subscriptions expire in ~2.94 days (not 7) — renewal must be more frequent
+- Admin app external connectivity issue is separate but must not block subscription creation (Graph -> EventHub path is independent)
+
+## Alternatives Considered
+
+1. **Process new notifications in admin app webhook (not Lambda):** Rejected. Lambda-writes-to-DynamoDB is the established pattern. Adding a second write path would create consistency issues.
+2. **Dedup at write time in Lambda:** Rejected. Calendar event notifications don't include `joinWebUrl` or `onlineMeetingId`. Would need a Graph API call per notification in Lambda, adding latency and complexity.
+3. **Skip callRecords, rely only on transcript/recording push:** Rejected. Without callRecords we'd miss meeting start/end times and duration. Lifecycle state would still be incomplete.
+
+## Full Plan
+
+See: `C:\Users\ivega\.copilot\session-state\0d6c3a4e-3b70-4bf0-97a2-22bfc80b8254\plan.md`
+
+32 work items across 8 phases, 4 sprints, with full dependency graph.
+
+
+
+# Decision: Attendee Empty-Array Root Cause and Fix
+
+**Date:** 2026-03-07  
+**Author:** McManus  
+**Status:** Implemented (not yet deployed)
+
+## Context
+
+Admin app showed "X Attendees loaded" for SchoolofFineArt meetings organized by TMF Boldoriole. DynamoDB records had `attendees: []`.
+
+## Root Cause
+
+Sales blitz scripts created Graph calendar events without `attendees` in the payload. The lead contact info was embedded in the event title and body HTML but never added as a Graph attendee. So `GET /users/{id}/events/{eventId}` correctly returned `attendees: []`. The backend enrichment code (`fetchDetails()`) was working correctly — it faithfully stored what Graph returned.
+
+## Changes
+
+1. **Debug logging** (`meetingService.ts`): `fetchDetails()` now logs the attendee count from Graph responses. Zero-attendee events get a warning with the subject line, making this immediately diagnosable in logs.
+
+2. **Sales blitz scripts** (`sales-blitz-full-retest.py`, `sales-blitz-scale-test.py`): Added the lead as a `required` attendee in the Graph event creation payload.
+
+3. **Stale-data overwrite fix** (`meetingStore.ts`, `meetingService.ts`): `discoverTranscriptsForUser()` Phase 3 was doing full `PutItem` with stale in-memory meeting objects from `listAll()`, risking overwrite of enriched fields (attendees, rawEventData, etc.). Replaced with targeted `UpdateCommand` via new `meetingStore.updateOnlineMeetingId()` method.
+
+## Impact
+
+- Existing meetings with `attendees: []` will NOT be retroactively fixed (Graph events were created without attendees — the data doesn't exist upstream).
+- Future test meetings created by the scripts will have attendees.
+- The stale-data fix protects against a latent race condition that could have affected real meetings too.
+
+## Team Notes
+
+- The `meetingStore.put()` pattern (full PutItem) should be used with caution — prefer targeted `UpdateCommand` methods when only modifying specific fields on existing records.
+- Any new test scripts that create Graph events should always include attendees for realistic test data.
+
+
+
+# Decision: Global Auth Gate for Static Files
+
+**Date:** 2026-03-06
+**Author:** McManus
+**Status:** Implemented
+
+## Context
+
+All static files (HTML, CSS, JS) and the SPA catch-all route were served without authentication. `curl -sk https://<ip>:3000/` returned HTTP 200 with the full page, no auth required. Only API sub-routes had `dashboardAuth` applied — static file serving and the catch-all were completely unprotected.
+
+## Decision
+
+Added a `globalAuth` middleware function in `middleware/auth.ts`, mounted in `app.ts` between the `/auth` login routes and `express.static`. This creates a single auth gate that protects everything downstream:
+
+- **Static files** (CSS, JS, HTML): Unauthenticated requests → redirect to `/auth/login`
+- **API routes** (`/api/*`): Unauthenticated requests → 401 JSON
+- **Exemptions:** `/health` (ECS health probes), `/api/webhooks/*` (has own Bearer token auth via `webhookAuth`), `/api/auth/status` (needed by unauthenticated UI to check login state)
+
+Auth methods accepted: Entra ID session, Passport `isAuthenticated()`, API key (`x-api-key` header).
+
+Existing `dashboardAuth` on individual API sub-routes in `routes/index.ts` is kept as defense in depth.
+
+## Files Changed
+
+- `apps/admin-app/src/middleware/auth.ts` — added `globalAuth` export
+- `apps/admin-app/src/app.ts` — imported and mounted `globalAuth` after `/auth` routes, before `express.static`
+
+## Impact
+
+- All team members: redeploy admin-app to apply the fix
+- Fenster: no infra changes needed, same ports/certs/ECS config
+- Hockney: existing tests for API routes should still pass (dashboardAuth unchanged); may want to add tests for static file auth redirect
+
+
+
+# Decision: Phase 1 UI Semantic Model — Stage Badges
+
+**Author:** Verbal | **Date:** 2026-02-28  
+**Status:** Implemented | **Scope:** Frontend only
+
+## What Changed
+
+Implemented Phase 1 of the UI Semantic Model (docs/ui-semantic-model.md Section 10.1):
+
+- **Nav tab renamed** from "Meetings" to "Events" (page header too)
+- **Stage column** replaces the visual Status column on the Events page
+- **`resolveStage()` function** computes lifecycle stage client-side from existing event properties
+- **Stage badges** with 6 color-coded states: Scheduled, Held, Processing, Transcribed, Not Held, Cancelled
+
+## Design Decisions
+
+1. **Kept `data-sort="status"` on the Stage column** — sorting uses the raw backend status field, not the computed stage. This keeps sorting functional without adding complexity.
+2. **Did NOT touch the Overview page's "Recent Meetings" section** — it still uses status-badge. Phase 2 can unify this.
+3. **Stage is computed client-side only** — no new backend field. If the team wants server-side stage computation later, that's a separate decision.
+4. **"Processing" label for `transcribing` stage** — per spec, the user-facing label avoids the technical term "transcribing."
+
+## What's Left for Phase 2+
+
+- Merge Meetings + Transcripts into a single unified Events view
+- Update Overview page to use stage badges
+- Add stage-based filtering (replace or supplement status filter)
+- Server-side stage computation if needed for filtering/sorting
+

@@ -49,6 +49,12 @@
 
 - **End-to-End Trace: BlueLynx Meeting (2026-02-28):** Pipeline deep-dive revealed root cause of intake failure: subscription renewal Lambda broken (missing Python `requests` module), all Graph subscriptions expired, zero webhook notifications, zero new meetings in DynamoDB. Poller (rev 55) is healthy but has no new data. Confirmed CsApplicationAccessPolicy IS working for TMF SPN (Phase 3 successfully resolved 20+ onlineMeetingIds with zero errors).
 
+## Team Updates
+
+📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture decision merged. Fenster owns IaC updates: (1) add CallRecords.Read.All (appRole ID 45bbb07e-7321-4fd7-a8f6-3ff27e6a81c8) to iac/azure/modules/azure-ad/main.tf, graph_app_role_ids, tmf_consent_permissions, and required_resource_access; (2) add CallRecords.Read.All to scripts/grant-graph-permissions.ps1 and scripts/auto-bootstrap-azure.ps1 permission hashtables; (3) create DynamoDB GSI on onlineMeetingId for meeting dedup. — decided by Keaton
+
+📌 Team update (2026-03-02T02:13:04Z): SPN Permission Matrix documented in ACCESS_AND_PERMISSIONS.md. All 5 SPNs now have authoritative reference with permission tables and least-privilege explanation. Fixed stale Calendars.Read → Calendars.ReadWrite, added CallRecords.Read.All, removed invalid Subscription.ReadWrite.All. Terraform modules (iac/azure/modules/azure-ad/main.tf) remain source of truth. — decided by Edie
+
 - **Webhook Pipeline Full Restoration (2026-02-28):** Fixed subscription renewal Lambda by bundling `requests` + dependencies (certifi, charset-normalizer, idna, urllib3). Created `scenarios/lambda/requirements.txt` and `package.ps1` (mirrors eventhub pattern). Added `lifecycle { ignore_changes = [...] }` to Terraform. Recreated 2 Graph subscriptions (boldoriole, trustingboar), expiring March 7, routing to EventHub. Manually synced BlueLynx meeting to DynamoDB for verification. Subscription IDs: `58b331d8-...` (boldoriole), `cffc508a-...` (trustingboar). Pipeline fully operational.
 
 - **Push, Build, Deploy (2026-02-28):** Pushed 4 commits. GitHub Push Protection caught 3 test scripts with hardcoded secrets. Soft-reset, unstaged secrets, added to .gitignore, recommitted. Build/Deploy succeeded. New admin app IP: 13.218.102.57. Updated Entra redirect URI (requires post-deploy verification) and Lambda webhook URL. Credential rotation needed for exposed secret.

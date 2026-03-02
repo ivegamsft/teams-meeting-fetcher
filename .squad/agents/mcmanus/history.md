@@ -16,30 +16,41 @@
 ## Core Context (Summarized Learnings)
 
 **Admin App Architecture:**
+
 - Auth: Entra ID OIDC via `passport-azure-ad` (deprecated but functional). Routes at app level (`/auth/*`). API key auth (`x-api-key`) preserved for webhooks. Session-based via express-session.
 - Entra config: `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_REDIRECT_URI` (all Terraform-managed).
 
 **Meetings Pipeline Architecture:**
+
 - Graph API → EventHub → Lambda → S3 archive + DynamoDB direct-write (decoupled, Lambda writes directly to meetings table).
 - DynamoDB composite key: `meeting_id` (partition) + `created_at` (sort). Query before PutItem via `meetingStore._resolveKey()`.
 - Notification-only storage: Raw notification data on webhook receipt, full enrichment via GET `/api/meetings/{id}/details` or POST `/batch-fetch-details`.
 - Meeting model fields: `meeting_id`, `created_at`, `status`, `resource`, `rawNotification`, `detailsFetched`, `rawEventData`, `changeType` ('created' | 'updated' | 'deleted').
 
 **Webhook & Graph Subscriptions:**
+
 - Graph subscriptions: user-scoped `/users/{id}/events` with EventHub notification URL. Created via app token (client_credentials flow).
 - Webhook auth: `WEBHOOK_AUTH_SECRET` (Bearer token) + `WEBHOOK_CLIENT_STATE` (Graph validation). Separate from dashboard auth.
 - `webhookAuth` middleware in `src/middleware/auth.ts`. Routes at `/api/webhooks/*` bypass `dashboardAuth`.
 
 **Lambda & Infrastructure:**
+
 - EventHub Lambda: Polls events, archives to S3, writes to DynamoDB meetings table. Env vars: `MEETINGS_TABLE_NAME`, `WEBHOOK_CLIENT_STATE` (Graph validation).
 - Admin app: HTTPS with self-signed certs (Docker build). Lambda requires `NODE_TLS_REJECT_UNAUTHORIZED=0` for outbound HTTPS.
 - Graph subscriptions active (as of 2026-02-27): 4 user-scoped subscriptions for Calendar events. Monitor group: `<YOUR_GROUP_ID>`.
 
 **Scale Testing Insights:**
+
 - Graph API latency: creates ~2.8-2.9s avg (p95 ~3.9s), mutations ~1.4-1.6s avg (no room provisioning). 100ms pacing prevents rate limiting.
 - EventHub Lambda: Batches 100 notifications every ~15s, scales linearly at ~0.2 events/sec.
 - S3 archive: Reliable source of truth for replay on failure. Can replay 390 notifications in ~90 seconds.
 - Terraform deployment: `deploy-unified.yml` does NOT redeploy eventhub-processor Lambda (uses placeholder after plan). Manual or separate workflow required.
+
+## Team Updates
+
+📌 Team update (2026-03-02T02:13:04Z): Attendee Empty-Array Root Cause fix merged. Sales blitz scripts created Graph events without attendees payload; backend enrichment code was working correctly. Added debug logging to fetchDetails() and updated sales-blitz scripts to include lead as required attendee. Stale-data fix in discoverTranscriptsForUser() Phase 3 — replaced full PutItem with targeted UpdateCommand via new updateOnlineMeetingId() method to prevent enriched field overwrites. — decided by McManus
+
+📌 Team update (2026-03-02T02:13:04Z): Global Auth Gate for Static Files decision merged. Added globalAuth middleware in middleware/auth.ts protecting static files, SPA catch-all, and downstream routes. Unauthenticated requests redirect to /auth/login. API routes return 401 JSON. Exemptions: /health (ECS probes), /api/webhooks/* (Bearer token auth), /api/auth/status (UI login check). Mounted between /auth routes and express.static in app.ts. Defense-in-depth with existing dashboardAuth. — decided by McManus
 
 ## Learnings
 
@@ -61,7 +72,6 @@
 
 📌 Team update (2026-02-27T18:28:00Z): DynamoDB pagination vulnerability investigated and fixed. Root cause: 6 unpaginated Scan operations across meetingStore, transcriptStore, and subscriptionStore silently truncate at 1MB limit, losing datasets >1MB. Coordinator applied ExclusiveStartKey pagination to all operations (commit 5e42f63, pushed). Pagination pattern now the store-layer standard to prevent data loss at scale. — coordinated by Keaton & McManus
 
-
 📌 Team update (20260228T063050Z): Fenster found 81 meetings with stale/deleted Exchange event IDs causing retry storm in transcriptPoller.ts every 5-min cycle. Need permanent-failure marking to stop wasting Graph API calls.
 
 - **Retry Storm Fix (2026-02-28):** Fixed transcriptPoller.ts Phase 1 to detect permanent enrichment failures (Graph 404 "not found in store", eventId="NA"/empty) and mark them with `enrichmentStatus: 'permanent_failure'` in DynamoDB via new `meetingStore.markEnrichmentFailed()`. Marked meetings are filtered out of future poller cycles. Transient errors (429, 500, network) still retry normally. Added `enrichmentStatus` and `enrichmentError` fields to Meeting interface.
@@ -72,3 +82,5 @@
 - **onlineMeetingId Resolution Fix (2026-03-05):** Root cause of 0 transcripts: `fetchDetails()` tried to resolve onlineMeetingId via `/users/{organizerEmail}/onlineMeetings?$filter=JoinWebUrl eq '...'` but the onlineMeetings endpoint with app-only auth (CsApplicationAccessPolicy) requires a userId GUID, not email/UPN. Fix: added a `/users/{email}` → `id` GUID resolution step before calling onlineMeetings. Also added OData single-quote escaping for joinWebUrl. Pattern already existed in `discoverTranscriptsForUser()` — now consistent across both methods. File: `apps/admin-app/src/services/meetingService.ts`.
 
 - **Empty Attendees Root Cause (2026-03-07):** Investigated "X Attendees loaded" failure for SchoolofFineArt meetings. Root cause: sales blitz scripts (`sales-blitz-full-retest.py`, `sales-blitz-scale-test.py`) created Graph calendar events WITHOUT `attendees` in the payload — lead name appeared only in the event title/body HTML. So Graph API legitimately returned `attendees: []` and `fetchDetails()` correctly stored the empty array. Backend attendee mapping code was correct. Fixes: (1) Added attendee debug logging in `fetchDetails()` to log Graph attendee count so empty-attendees is immediately diagnosable. (2) Added lead as `required` attendee in both sales blitz scripts' event creation payloads. (3) Fixed latent data-loss bug in `discoverTranscriptsForUser()` — replaced full `PutItem` overwrites (using stale in-memory meeting objects) with targeted `UpdateCommand` via new `meetingStore.updateOnlineMeetingId()`. This prevents Phase 3 from accidentally overwriting enriched fields (attendees, subject, etc.) written by Phase 1. Files: `meetingService.ts`, `meetingStore.ts`, `sales-blitz-full-retest.py`, `sales-blitz-scale-test.py`.
+
+- **Speckit Framework Removal (2026-03-01):** Removed unused speckit workflow framework. Deleted 9 speckit agent definitions (`.github/agents/speckit.*.agent.md`), 8 speckit prompt files (`.github/prompts/speckit.*.prompt.md`), entire `.specify/` template directory (14 files). Cleaned up documentation: removed "organized for SpecKit compatibility" from `specs/README.md` and removed `.specify/` ignore rule from `.prettierignore`. Speckit was purely workflow machinery unrelated to application code — no package.json dependencies, no TypeScript/Python imports, no runtime code affected. Clean removal of 27 files + 2 documentation updates.

@@ -31,3 +31,5 @@
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 📌 Team update (2026-02-27T18:28:00Z): DynamoDB pagination vulnerability investigated and fixed. Root cause: 6 unpaginated Scan operations across meetingStore, transcriptStore, and subscriptionStore silently truncate at 1MB limit, losing datasets >1MB. Coordinator applied ExclusiveStartKey pagination to all operations (commit 5e42f63, pushed). Pagination pattern now the store-layer standard to prevent data loss at scale. — coordinated by Keaton & McManus
+
+📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture decision finalized. Three new Graph subscriptions (/communications/callRecords, communications/onlineMeetings/getAllTranscripts, communications/onlineMeetings/getAllRecordings) to complete meeting lifecycle detection. Requires adding CallRecords.Read.All permission. Lambda notification router pattern established. Meeting model gains lifecycle fields (callRecordId, actualStart, actualEnd, duration, lifecycleState). DynamoDB new GSI on onlineMeetingId for dedup. Work plan spans 32 items across 8 phases. — decided by Keaton & team
