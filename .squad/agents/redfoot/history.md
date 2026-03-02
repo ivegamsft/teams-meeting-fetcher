@@ -40,3 +40,23 @@
 
 
 📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture decision merged. Redfoot owns E2E tests for each new subscription type (callRecords, transcripts, recordings) with full lifecycle coverage: subscription creation → notification delivery → DynamoDB write → enrichment → dedup verification. Tests validate that meeting status transitions correctly (scheduled → in_progress → ended → transcribed) with proper timestamp and duration capture. — decided by Keaton
+
+### 2026-03-02: Full E2E Test Suite Run
+- **Scenario 2 (EventHub): ALL PASSING.** Pre-flight (4/4), Setup (3/3), Validation (3/3) = 10/10 non-interactive tests passed.
+  - Lambda `tmf-eventhub-processor-dev` confirmed alive (nodejs20.x, last modified 2026-03-01T22:17:05).
+  - DynamoDB checkpoints table has 2 partitions: partition 1 (seq=5467, updated 03:05 UTC), partition 0 (seq=5465, updated 22:11 UTC).
+  - 75 CloudWatch log events in last 15 min. 15 processing events, 15 checkpoint events, 0 errors.
+  - Graph API token acquisition succeeded using Azure SPN credentials from Lambda env.
+  - No recent S3 event files (Lambda running on schedule but no new EventHub messages in poll window).
+- **Scenario 1 (Teams Bot): 2/4 pre-flight passed, 2 failed.**
+  - DynamoDB `tmf-meetings-8akfpg` (ACTIVE) and S3 `tmf-transcripts-eus-dev` both exist.
+  - Lambda `meeting-bot-handler-dev` does NOT exist (not deployed).
+  - BOT_APP_ID and BOT_APP_SECRET not configured (no bot registration credentials available).
+- **Scenario 3 (Direct Graph): 1/4 pre-flight passed, 3 failed.**
+  - S3 `tmf-webhooks-eus-dev` exists.
+  - Lambda `teams-meeting-webhook-dev` does NOT exist (not deployed).
+  - WEBHOOK_URL and WATCH_USER_ID not configured (no API Gateway webhook endpoint).
+- **Azure placeholder: Skipped (7 tests, all describe.skip).**
+- **Unit tests: 92/92 passed across 4 test suites (1.97s).**
+- **Key finding:** E2E `.env.test` was loaded from project root (dotenv path in tests goes 3 dirs up from `test/e2e/aws/`), not from `test/e2e/`. Added `.env.test` to `.gitignore` to prevent accidental credential commit.
+- **Infrastructure gaps for full E2E:** Scenarios 1 and 3 need their Lambdas deployed and credentials configured. Only Scenario 2 (EventHub) has complete infrastructure.

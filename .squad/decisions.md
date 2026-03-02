@@ -3213,3 +3213,38 @@ Implemented Phase 1 of the UI Semantic Model (docs/ui-semantic-model.md Section 
 - Add stage-based filtering (replace or supplement status filter)
 - Server-side stage computation if needed for filtering/sorting
 
+
+
+# Decision: E2E Test Suite Results (2026-03-02)
+
+**Author:** Redfoot (E2E Tester)
+**Requested by:** ivegamsft (Isaac)
+
+## Summary
+
+Ran the full E2E test suite against live infrastructure. The EventHub pipeline (Scenario 2) is fully healthy. Teams Bot (Scenario 1) and Direct Graph (Scenario 3) lack deployed Lambdas and credentials. Unit tests all pass.
+
+## Results
+
+| Scenario | Pre-flight | Setup | Validation | Status |
+|----------|-----------|-------|------------|--------|
+| EventHub (Scenario 2) | 4/4 | 3/3 | 3/3 | HEALTHY |
+| Teams Bot (Scenario 1) | 2/4 | N/A | N/A | INCOMPLETE INFRA |
+| Direct Graph (Scenario 3) | 1/4 | N/A | N/A | INCOMPLETE INFRA |
+| Azure Container Apps | Skipped | Skipped | Skipped | NOT IMPLEMENTED |
+
+**Unit tests:** 92/92 passed (4 suites, 1.97s)
+
+## Key Observations
+
+1. **EventHub pipeline is live and processing:** Lambda running on schedule, 75 log events in 15 min, 0 errors, checkpoints updating in DynamoDB.
+2. **Graph API authentication works:** Token acquisition via Azure SPN (from Lambda env vars) succeeded.
+3. **Missing infrastructure for Scenarios 1 & 3:** `meeting-bot-handler-dev` and `teams-meeting-webhook-dev` Lambdas are not deployed. No Bot Framework or webhook credentials configured.
+4. **Test harness fix:** Added `.env.test` to root `.gitignore` to prevent accidental secret commit. Tests load `.env.test` from project root, not from `test/e2e/`.
+
+## Action Items
+
+- **Fenster/McManus:** Deploy `meeting-bot-handler-dev` Lambda if bot scenario is needed.
+- **Fenster/McManus:** Deploy `teams-meeting-webhook-dev` Lambda and API Gateway endpoint if direct webhook scenario is needed.
+- **Isaac:** Provide BOT_APP_ID, BOT_APP_SECRET, WEBHOOK_URL, WATCH_USER_ID if these scenarios should be tested.
+
