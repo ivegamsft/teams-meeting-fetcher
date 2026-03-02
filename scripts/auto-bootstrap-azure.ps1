@@ -61,7 +61,7 @@ $graphApiId = "00000003-0000-0000-c000-000000000000"
 # Required Graph API permissions for nobots workflow
 # NOTE: Subscription.ReadWrite.All removed — not a valid Graph application permission
 $permissions = @{
-    "Calendars.Read"                     = "798ee544-9d2d-430c-a058-570e29e34338"
+    "Calendars.ReadWrite"                = "ef54d2bf-783f-4e0f-bca1-3210c0444d99"
     "Group.Read.All"                     = "5b567255-7703-4780-807c-7be8301ae99b"
     "User.Read.All"                      = "df021288-bdef-4463-88db-98f22de89214"
     "OnlineMeetings.Read.All"            = "c1684f21-1984-47fa-9d61-2dc8c296bb70"

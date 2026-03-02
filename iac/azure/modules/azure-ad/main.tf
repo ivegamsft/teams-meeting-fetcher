@@ -14,7 +14,7 @@ locals {
 
   // Hard-coded Graph API app role IDs (from Microsoft Graph)
   graph_app_role_ids = {
-    calendars_read                     = "798ee544-9d2d-430c-a058-570e29e34338"
+    calendars_readwrite                = "ef54d2bf-783f-4e0f-bca1-3210c0444d99"
     online_meetings_read_all           = "c1684f21-1984-47fa-9d61-2dc8c296bb70"
     online_meeting_transcript_read_all = "a4a80d8d-d283-4bd8-8504-555ec3870630"
     online_meeting_recording_read_all  = "a4a08342-c95d-476b-b943-97e100569c8d"
@@ -42,7 +42,7 @@ locals {
   // Graph subscriptions only require the resource-specific permission
   // (e.g., Calendars.Read for calendar change notifications).
   tmf_consent_permissions = {
-    calendars_read                     = local.graph_app_role_ids.calendars_read
+    calendars_readwrite                = local.graph_app_role_ids.calendars_readwrite
     online_meetings_read_all           = local.graph_app_role_ids.online_meetings_read_all
     online_meeting_transcript_read_all = local.graph_app_role_ids.online_meeting_transcript_read_all
     online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
@@ -62,7 +62,7 @@ resource "azuread_application" "tmf_app" {
     // TMF SPN: 7 Graph API application permissions (updated 2026-03-01)
     // Subscription.ReadWrite.All removed — not a valid Graph appRole (delegated-only)
     resource_access {
-      id   = local.graph_app_role_ids.calendars_read
+      id   = local.graph_app_role_ids.calendars_readwrite
       type = "Role"
     }
     resource_access {
