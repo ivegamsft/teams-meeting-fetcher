@@ -106,11 +106,22 @@ resource "aws_dynamodb_table" "meetings" {
     type = "S"
   }
 
+  attribute {
+    name = "onlineMeetingId"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "organizer-status-index"
     hash_key        = "organizer_email"
     range_key       = "status"
     projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "onlineMeetingId-index"
+    hash_key        = "onlineMeetingId"
+    projection_type = "KEYS_ONLY"
   }
 
   point_in_time_recovery {

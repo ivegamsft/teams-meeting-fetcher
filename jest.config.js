@@ -3,6 +3,7 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/'],
   roots: [
     '<rootDir>/test/unit/aws-lambda',
+    '<rootDir>/test/unit/aws-lambda-eventhub',
     '<rootDir>/test/unit/meeting-bot',
     '<rootDir>/apps/aws-lambda',
   ],

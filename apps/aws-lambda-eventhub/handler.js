@@ -650,3 +650,9 @@ exports.handler = async (event, context) => {
     await consumer.close();
   }
 };
+
+// Test exports
+if (process.env.NODE_ENV === 'test') {
+  exports._classifyNotification = classifyNotification;
+  exports._extractIdFromResource = extractIdFromResource;
+}
