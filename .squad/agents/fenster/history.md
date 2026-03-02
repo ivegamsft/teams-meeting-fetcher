@@ -60,21 +60,13 @@
 
 ## Learnings
 
-- **Repository cleanup & commit (2026-03-02):** Committed all pending changes: removed legacy speckit agent/prompt definitions (18 files), unused .specify scripts and templates (11 files), and updated squad agent logs. Push triggered GitHub's Dependabot report (16 total vulnerabilities, noting 2 critical, 5 high, 3 moderate, 6 low). Commit: `4178788 chore: clean up speckit artifacts, update squad agent logs`. Includes proper Co-authored-by trailer.
-- **DynamoDB GSI for dedup (2026-03-02):** Added `onlineMeetingId-index` GSI to meetings table for O(1) dedup lookups in subscription pipeline. Used `KEYS_ONLY` projection (only need existence check, not full data). Pattern: add attribute block (name/type), then global_secondary_index block (name/hash_key/projection_type). GSI enables efficient checking if meeting already exists before creating duplicate records. Part of WI-2.3 subscription pipeline expansion.
-- **Secret hygiene audit (2026-02-28):** The 5 tracked test-scripts (create-graph-subscription.py, create-meetings.ps1, test-complete-flow.ps1, test-eventhub-flow.py, verify-end-to-end.py) were already using `os.getenv()` / `$env:` with validation — no hardcoded secrets found in committed code. The actual secrets were in 3 UNTRACKED `probe-transcript*.py` files (already gitignored). Cleaned those locally to use `os.environ.get()` + validation. Hardened `.gitignore` with broader patterns (`*.env`, `*.local`, `*secret*`, `*credential*`, `nobots*/`) for test-scripts directory. The `**/*secret*` global gitignore pattern already existed but test-scripts-specific patterns add defense-in-depth.
-- **Push Protection is the real guardrail:** GitHub Push Protection caught the original secret leak before it reached the remote. `.gitignore` prevents accidental staging of new files, but for already-tracked files, Push Protection + code review are the true defenses.
-- **E2E Pipeline Validation (2026-02-28T17:10-17:17Z): ALL 5 STEPS PASSED.**
-  - Step 1: Created Teams meeting "E2E Test: Pipeline Validation - Feb 28" for user2@<YOUR_TENANT_DOMAIN> via Graph API (client_credentials). Required granting `Calendars.ReadWrite` application permission (was only `Calendars.Read`). Admin consent granted via `az rest` against `/servicePrincipals/{id}/appRoleAssignments`.
-  - Step 2: Graph subscription `58b331d8-...` delivered notification directly to EventHub (not through webhook-writer Lambda). Subscription uses `EventHub:https://...` URL pattern — webhook-writer Lambda is bypassed entirely in this architecture.
-  - Step 3: EventHub processor Lambda logged `Wrote 3 meeting notifications to DynamoDB (0 errors)` at 17:11:15 and `Wrote 1 meeting notifications to DynamoDB (0 errors)` at 17:13:15. Total ~3 min from event creation to DynamoDB write.
-  - Step 4: DynamoDB scan confirmed meeting record with full rawEventData, joinWebUrl, and onlineMeetingId already present (enriched inline by processor).
-  - Step 5: Manual poller call (`POST /api/meetings/poll-transcripts` with `x-api-key` header) returned `{"success":true,"enriched":1,"transcriptsFound":0}`. Meeting fully enriched with onlineMeetingId.
-  - Key finding: The `Calendars.ReadWrite` permission was missing from the app's configured permissions — only `Calendars.Read` was present. Added and consented during test. This should be synced to `scripts/permissions.json` and Terraform.
-  - Key finding: The tmf-webhook-writer-dev Lambda is NOT in the current pipeline flow; Graph delivers directly to EventHub via subscription notificationUrl. The webhook-writer Lambda is a legacy/alternative path.
-- **Renewal Lambda build workflow gap (2026-02-28):** The subscription-renewal Lambda was the only Lambda without a build workflow. Deploy workflow (`deploy-lambda-renewal.yml`) was zipping ONLY `renewal-function.py` without `pip install -r requirements.txt -t .`, causing the `requests` module to be missing at runtime. Fix: created `build-lambda-renewal.yml` (CI for develop/PRs) and updated `deploy-lambda-renewal.yml` to install Python deps before packaging. All 5 Lambda Terraform modules have `lifecycle { ignore_changes = [filename, source_code_hash] }` so `terraform apply` won't clobber deployed code with placeholder zips.
-- **Python Lambda packaging pattern:** For Python Lambdas, dependencies must be installed into the package directory with `pip install -r requirements.txt -t .` and included in the zip alongside the handler. Unlike Node.js Lambdas (which include `node_modules/`), Python packages install as top-level directories (requests/, certifi/, etc.) that must be explicitly included in the zip glob.
-- **Push & Deploy cycle (2026-03-02):** Pushed 4 commits (bot Calls permissions IaC, DynamoDB GSI + tests, squad logs) to origin/main. Push auto-triggers deploy-unified plan-only run; manual `workflow_dispatch` with `mode=apply` required for actual deployment. Run 22561653991: Build Lambda (28s) -> Infrastructure/Terraform apply (12m8s) -> Deploy Lambda Code (23s) — all green. Concurrency group `deploy-${{ github.ref }}` with `cancel-in-progress: false` queues the apply run behind the plan run. Two annotations noted: RESOURCE_GROUP_NAME and KEY_VAULT_NAME export steps failed (need manual `gh variable set`). No secrets exposed.
+- **Repository cleanup & commit (2026-03-02):** Removed legacy speckit artifacts (18 files) + unused templates (11 files). Commit: `4178788`. Dependabot: 16 vulnerabilities reported.
+- **DynamoDB GSI for dedup (2026-03-02):** Added `onlineMeetingId-index` GSI (KEYS_ONLY projection) for O(1) meeting dedup. Pattern: attribute block + global_secondary_index block in Terraform.
+- **Secret hygiene audit (2026-02-28):** Test scripts already using `os.getenv()` / `$env:`. Hardened `.gitignore` patterns (`*.env`, `*.local`, `*secret*`, `*credential*`). GitHub Push Protection is the real guardrail for already-tracked files.
+- **E2E Pipeline Validation (2026-02-28T17:10-17:17Z): ALL 5 STEPS PASSED.** Graph → EventHub → Lambda → DynamoDB pipeline fully operational. Graph subscription delivers directly to EventHub (webhook-writer Lambda is legacy/alternative path). ~3 min end-to-end latency.
+- **Renewal Lambda build workflow gap (2026-02-28):** Fixed missing Python `requests` module by creating `build-lambda-renewal.yml` + installing deps before packaging. All Lambda modules have `lifecycle { ignore_changes = [...] }` to prevent `terraform apply` from overwriting deployed code with placeholder zips.
+- **Python Lambda packaging pattern:** Install deps with `pip install -r requirements.txt -t .` into package directory (unlike Node.js `node_modules/`, Python packages install as top-level directories and must be explicitly included in zip glob).
+- **Push & Deploy cycle (2026-03-02):** Pushed 4 commits to origin/main. Deploy run 22561653991: Build (28s) → Infrastructure (12m8s) → Deploy Lambda (23s) — all green. Two workflow annotations: RESOURCE_GROUP_NAME and KEY_VAULT_NAME export steps failed (need manual `gh variable set`). No secrets exposed.
 
 ---
 
@@ -97,18 +89,11 @@ The following sessions (Feb 24-27) have been archived into Core Context above. D
 
 ---
 
-## Team Updates
+## Archived Team Updates (Feb 26-27)
 
-📌 Team update (2026-02-26T01:43:23Z): Cleaned up temp build folders and confirmed repo/scripts do not rely on temp-lambda/tasks — reported by Fenster — decided by Scribe
+The following updates have been consolidated. Detailed records remain in git history.
 
-📌 Team update (2026-02-26T14:56Z): McManus implemented webhook notification forwarding: created `/api/webhooks/graph` endpoint, added webhook auth middleware, updated Lambda handler to forward Graph notifications to admin app, fixed Entra compatibility. Admin app deployed with webhook endpoint live. — decided by McManus
-
-📌 Team update (2026-02-26T18:17:56Z): EventHub Lambda deployment gaps identified: deploy-unified.yml doesn't rebuild eventhub-processor after Terraform apply (gets overwritten with placeholder.js), admin app webhook URL must use HTTPS (self-signed certs), and Lambda needs WEBHOOK_AUTH_SECRET and NODE_TLS_REJECT_UNAUTHORIZED env vars wired in Terraform. Immediate fixes applied; Terraform module needs updates. — decided by McManus
-
-## Cross-Agent Updates
-
-📌 Team update (2026-02-27T02:23:00Z): Kobayashi completed Teams transcription configuration analysis. Critical blockers identified: (1) CsApplicationAccessPolicy missing (403 error on OnlineMeetings API), (2) Graph permissions missing (OnlineMeetings.Read.All, OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All), (3) Isaac's account (user1@<YOUR_TENANT_DOMAIN>) NOT licensed for Teams Premium — only test users (trustingboar, boldoriole) are licensed. Full configuration checklist created with Layer 1-4 breakdown and PowerShell commands. User directive: subscription created for a-ivega is unnecessary. — decided by Kobayashi
-
-📌 Team update (20260227T023500Z): McManus audited Graph permissions and confirmed all 7 now granted on SPN. Fixed `scripts/grant-graph-permissions.ps1` with correct 7-permission set. Fenster fully synchronized IaC (Terraform, permissions.json, auto-bootstrap, consent.json) across all 7 permissions and verified correct Application GUIDs (corrected 2 wrong GUIDs in original task). Edie updated 5 doc files with complete prerequisites list. Session outcomes: IaC consistent, docs unified, Graph audit complete. CsApplicationAccessPolicy remains Isaac's blocker. — decided by Scribe
+- **2026-02-26:** Temp build folder cleanup (Scribe), webhook forwarding endpoint created (McManus), EventHub Lambda deployment gaps identified and fixed (placeholder.js issue resolved)
+- **2026-02-27:** Teams transcription configuration audit completed (Kobayashi identified CsApplicationAccessPolicy + licensing blockers), Graph permissions audit confirmed 7 permissions granted on SPN, IaC synchronized across all permissions (Fenster corrected 2 wrong GUIDs), documentation unified (Edie)
 
 
