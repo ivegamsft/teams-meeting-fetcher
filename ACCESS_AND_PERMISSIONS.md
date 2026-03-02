@@ -11,6 +11,7 @@
 ## Quick Navigation
 
 - **[Architecture Overview](#architecture-overview)** — Visual flow of access layers
+- **[Service Principal Matrix](#service-principal-matrix)** — All SPNs and their permission requirements
 - **[Access Layers](#access-layers)** — What each layer does and when it fails
 - **[Setup Instructions](#setup-instructions)** — Step-by-step configuration
 - **[API Path Reference](#api-path-reference)** — Correct endpoints for app-only auth
@@ -28,7 +29,7 @@ The Teams Meeting Fetcher uses **app-only authentication** (client credentials f
 graph TD
     A["Entra App Registration<br/>(Client Credentials)"] -->|authenticates as| B["Azure AD Service Principal<br/>(App Identity)"]
 
-    B -->|claims| C["Graph API Permissions<br/>(7 application permissions)"]
+    B -->|claims| C["Graph API Permissions<br/>(8 application permissions)"]
 
     C -->|granted via| D["Admin Consent<br/>(Tenant-wide grant)"]
 
@@ -51,6 +52,157 @@ graph TD
 ```
 
 **Key insight:** Without **Layer 5 (CsApplicationAccessPolicy)**, all other layers are in place but Graph API returns **403 Forbidden** with "No application access policy found for this app" — even if all Graph permissions are granted.
+
+---
+
+## Service Principal Matrix
+
+The Teams Meeting Fetcher system uses **5 distinct Service Principal Names (SPNs)** with very different privilege levels. Understanding which SPN needs which permissions is critical for security and troubleshooting.
+
+### Summary Table
+
+| SPN                               | Purpose                                  | Permission Type | Permission Count | Privilege Level | CsApplicationAccessPolicy Required? |
+| --------------------------------- | ---------------------------------------- | --------------- | ---------------- | --------------- | ----------------------------------- |
+| **TMF App**                       | Main app (polling, enrichment, webhooks) | Application     | 8                | **HIGH**        | ✅ YES                              |
+| **TMF Bot App**                   | Teams meeting bot (join meetings)        | Application     | 5                | Medium          | ❌ NO                               |
+| **TMF Lambda App**                | AWS Lambda EventHub consumer             | None            | 0                | None (EventHub) | ❌ NO                               |
+| **TMF Admin App**                 | Admin UI (user sign-in)                  | Delegated       | 4                | Low (user auth) | ❌ NO                               |
+| **Deploy SPN** (GitHub Actions)   | CI/CD infrastructure deployment          | Application     | 1–2              | High (IaC only) | ❌ NO                               |
+
+**Key takeaway:** Only the **TMF App** requires the full set of application permissions and CsApplicationAccessPolicy. All other SPNs have narrower scopes and lower privileges.
+
+---
+
+### Detailed Permission Breakdown
+
+#### 1. TMF App (Teams Meeting Fetcher) — HIGHEST PRIVILEGES
+
+**Purpose:** The main application backend. Handles:
+- Meeting metadata polling
+- Transcript and recording retrieval
+- Calendar event management (sales blitz scripts)
+- Graph API subscription webhooks
+- Call record lifecycle notifications
+
+**Permissions (8 Graph API application permissions):**
+
+| Permission                           | Permission ID                          | Purpose                                         |
+| ------------------------------------ | -------------------------------------- | ----------------------------------------------- |
+| **Calendars.ReadWrite**              | `ef54d2bf-783f-4e0f-bca1-3210c0444d99` | Read/write calendar events (sales blitz create) |
+| **Group.Read.All**                   | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership information               |
+| **User.Read.All**                    | `df021288-bdef-4463-88db-98f22de89214` | Resolve email addresses to user GUIDs           |
+| **OnlineMeetings.Read.All**          | `c1684f21-1984-47fa-9d61-2dc8c296bb70` | Read online meeting metadata (ID, URL)          |
+| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read meeting transcripts                        |
+| **OnlineMeetingRecording.Read.All**  | `a4a08342-c95d-476b-b943-97e100569c8d` | Read meeting recordings                         |
+| **CallRecords.Read.All**             | `45bbb07e-7321-4fd7-a8f6-3ff27e6a81c8` | Receive call record lifecycle notifications     |
+| ~~**Subscription.ReadWrite.All**~~   | N/A (delegated only)                   | ~~Create/manage webhook subscriptions~~         |
+
+> **Note:** Subscription.ReadWrite.All is NOT a valid Graph application permission. Webhook subscriptions are created using the application permissions above via the `/subscriptions` endpoint.
+
+**CsApplicationAccessPolicy:** ✅ **REQUIRED** — This is the only SPN that needs CsApplicationAccessPolicy to access OnlineMeetings, Transcripts, and Recordings endpoints.
+
+**Where it's used:**
+- Admin app backend (`apps/admin/src/server/`)
+- Graph webhook handlers
+- Sales blitz scripts (`scenarios/sales-blitz/`)
+
+---
+
+#### 2. TMF Bot App (Teams Meeting Bot)
+
+**Purpose:** Azure Bot Service identity for the bot that joins Teams meetings.
+
+**Permissions (5 Graph API application permissions):**
+
+| Permission                           | Permission ID                          | Purpose                                 |
+| ------------------------------------ | -------------------------------------- | --------------------------------------- |
+| **OnlineMeetings.ReadWrite.All**     | `b8bb2037-4d54-4e14-9d63-174b619e831f` | Join/create meetings as bot            |
+| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read transcripts after joining          |
+| **OnlineMeetingRecording.Read.All**  | `a4a08342-c95d-476b-b943-97e100569c8d` | Read recordings after joining           |
+| **Group.Read.All**                   | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership                   |
+| **User.Read.All**                    | `df021288-bdef-4463-88db-98f22de89214` | Resolve user identities                 |
+
+**Sign-in audience:** Multi-tenant (required by Teams Admin Center for Bot Framework registration)
+
+**CsApplicationAccessPolicy:** ❌ **NOT REQUIRED** — Bot uses its own authentication flow via Bot Framework.
+
+**Where it's used:**
+- Azure Bot Service
+- Teams bot registration
+
+---
+
+#### 3. TMF Lambda App (AWS Lambda EventHub Consumer)
+
+**Purpose:** AWS Lambda function identity for consuming EventHub messages.
+
+**Permissions:** **ZERO Graph API permissions**
+
+**Access method:** EventHub read access via:
+- EventHub SAS token, OR
+- Azure RBAC (Azure Event Hubs Data Receiver role)
+
+**CsApplicationAccessPolicy:** ❌ **NOT REQUIRED** — Does not call Graph API.
+
+**Where it's used:**
+- AWS Lambda function (`iac/aws/lambda/`)
+- EventHub consumer in `apps/admin/src/lambda/`
+
+---
+
+#### 4. TMF Admin App (Admin UI OIDC)
+
+**Purpose:** User authentication for the management UI (web app sign-in).
+
+**Permissions (4 Graph API delegated permissions):**
+
+| Permission     | Permission ID                          | Purpose                              |
+| -------------- | -------------------------------------- | ------------------------------------ |
+| **openid**     | `37f7f235-527c-4136-accd-4a02d197296e` | OpenID Connect authentication        |
+| **profile**    | `14dad69e-099e-4568-8e68-91aaf2e80f89` | Read user profile information        |
+| **email**      | `64a6cdd6-ae6a-41a4-9de4-799360050bf8` | Read user email address              |
+| **User.Read**  | `e1fe6dd8-bbce-4cd8-94f0-4511779dde5e` | Read signed-in user's profile        |
+
+**Permission type:** **Delegated** (user sign-in flow, NOT app-only)
+
+**Sign-in audience:** Single-tenant (AzureADMyOrg)
+
+**Group membership claims:** Enabled for RBAC (Admin UI role checks)
+
+**CsApplicationAccessPolicy:** ❌ **NOT REQUIRED** — User authentication flow only.
+
+**Where it's used:**
+- Admin UI login flow (`apps/admin/src/client/`)
+
+---
+
+#### 5. Deploy SPN (GitHub Actions)
+
+**Purpose:** CI/CD automation for deploying Azure resources (pre-existing, not managed by Terraform).
+
+**Permissions (Graph API application permissions):**
+
+| Permission                            | Permission ID                          | Purpose                                      | Status         |
+| ------------------------------------- | -------------------------------------- | -------------------------------------------- | -------------- |
+| **Application.ReadWrite.All**         | `1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9` | Manage app registrations via IaC             | ✅ Required    |
+| **AppRoleAssignment.ReadWrite.All**   | `06b708a9-e830-4db3-a914-8e69da51d44f` | Grant admin consent via IaC (optional)       | Currently OFF  |
+
+**Current configuration:** `var.grant_admin_consent = false` — Admin consent must be granted manually via Azure Portal or PowerShell.
+
+**CsApplicationAccessPolicy:** ❌ **NOT REQUIRED** — Infrastructure deployment only.
+
+**Where it's used:**
+- `.github/workflows/deploy-unified.yml`
+- `.github/workflows/deploy-admin-app.yml`
+
+---
+
+### Security Principle
+
+**Least Privilege by Design:**
+- Only 1 of 5 SPNs (TMF App) has the full 8-permission set and CsApplicationAccessPolicy
+- The Bot, Lambda, Admin UI, and Deploy SPNs have narrower scopes appropriate to their functions
+- Separating these identities prevents credential compromise from escalating beyond one subsystem
 
 ---
 
@@ -93,39 +245,41 @@ curl -X POST "https://login.microsoftonline.com/<TENANT_ID>/oauth2/v2.0/token" \
 
 ---
 
-### Layer 2: Graph API Application Permissions (7 Required)
+### Layer 2: Graph API Application Permissions (8 Required for TMF App)
 
 **What it is:** Application-level permissions that authorize the service principal to read specific Microsoft Graph resources.
 
 **Why "application" not "delegated":** The app reads data on behalf of users without impersonating them. No user is signed in.
 
-**Required permissions (all 7 must be granted):**
+**Required permissions for TMF App (all 8 must be granted):**
 
-| Permission                           | Permission ID                          | Purpose                                    |
-| ------------------------------------ | -------------------------------------- | ------------------------------------------ |
-| **Calendars.Read**                   | `798ee544-9d2d-430c-a058-570e29e34338` | Read calendar events from users' calendars |
-| **Group.Read.All**                   | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership and properties       |
-| **User.Read.All**                    | `df021288-bdef-4463-88db-98f22de89214` | Read user profiles (resolve email → GUID)  |
-| **OnlineMeetings.Read.All**          | `c1684f21-1984-47fa-9d61-2dc8c296bb70` | Read online meeting metadata (ID, URL)     |
-| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read meeting transcripts                   |
-| **OnlineMeetingRecording.Read.All**  | `a4a08342-c95d-476b-b943-97e100569c8d` | Read meeting recordings                    |
-| **Subscription.ReadWrite.All**       | (N/A for Graph subscriptions)          | Create/manage webhook subscriptions        |
+| Permission                           | Permission ID                          | Purpose                                         |
+| ------------------------------------ | -------------------------------------- | ----------------------------------------------- |
+| **Calendars.ReadWrite**              | `ef54d2bf-783f-4e0f-bca1-3210c0444d99` | Read/write calendar events (sales blitz create) |
+| **Group.Read.All**                   | `5b567255-7703-4780-807c-7be8301ae99b` | Read group membership and properties            |
+| **User.Read.All**                    | `df021288-bdef-4463-88db-98f22de89214` | Read user profiles (resolve email → GUID)       |
+| **OnlineMeetings.Read.All**          | `c1684f21-1984-47fa-9d61-2dc8c296bb70` | Read online meeting metadata (ID, URL)          |
+| **OnlineMeetingTranscript.Read.All** | `a4a80d8d-d283-4bd8-8504-555ec3870630` | Read meeting transcripts                        |
+| **OnlineMeetingRecording.Read.All**  | `a4a08342-c95d-476b-b943-97e100569c8d` | Read meeting recordings                         |
+| **CallRecords.Read.All**             | `45bbb07e-7321-4fd7-a8f6-3ff27e6a81c8` | Receive call record lifecycle notifications     |
 
-**Why all 7:**
+> **Note:** The Subscription.ReadWrite.All permission listed in older docs is NOT a valid Graph application permission. Webhook subscriptions are created using the permissions above.
 
-- **Calendars.Read** — Retrieve calendar events (meeting invites)
+**Why all 8:**
+
+- **Calendars.ReadWrite** — Retrieve and create calendar events (meeting invites, sales blitz scripts)
 - **Group.Read.All, User.Read.All** — Resolve user email addresses to GUIDs (required for app-only onlineMeetings API)
 - **OnlineMeetings.Read.All** — Query `/users/{userId}/onlineMeetings` to find meeting details
 - **OnlineMeetingTranscript.Read.All, OnlineMeetingRecording.Read.All** — Access transcript/recording content
-- **Subscription.ReadWrite.All** — Create Graph subscriptions for change notifications
+- **CallRecords.Read.All** — Receive call record lifecycle notifications via Graph subscriptions
 
 **How to verify:**
 
 ```powershell
 # Check permissions are granted in Azure Portal:
-# 1. Portal → Azure AD → App registrations → Your app
+# 1. Portal → Azure AD → App registrations → Your app (TMF App)
 # 2. Click "API permissions"
-# 3. Verify all 7 permissions listed with status "✓ Granted for [Your Tenant]"
+# 3. Verify all 8 permissions listed with status "✓ Granted for [Your Tenant]"
 
 # OR via Azure CLI
 az ad app permission list --id "<CLIENT_ID>"
@@ -316,13 +470,13 @@ Or manually in Azure Portal:
 1. **Azure Portal** → **App registrations** → Your app
 2. **API permissions** → **Add a permission**
 3. Search for each of these permissions and add them:
-   - `Calendars.Read`
+   - `Calendars.ReadWrite`
    - `Group.Read.All`
    - `User.Read.All`
    - `OnlineMeetings.Read.All`
    - `OnlineMeetingTranscript.Read.All`
    - `OnlineMeetingRecording.Read.All`
-   - `Subscription.ReadWrite.All`
+   - `CallRecords.Read.All`
 4. Click **Grant admin consent for [Your Tenant]**
 
 ### Step 3: Create CsApplicationAccessPolicy (One-Time)
@@ -614,14 +768,14 @@ Use this checklist to verify each layer is working before moving to the next.
 
 ### ✓ Layer 2: Graph API Permissions
 
-- [ ] All 7 permissions added to app registration in Azure Portal:
-  - Calendars.Read
+- [ ] All 8 permissions added to app registration in Azure Portal:
+  - Calendars.ReadWrite
   - Group.Read.All
   - User.Read.All
   - OnlineMeetings.Read.All
   - OnlineMeetingTranscript.Read.All
   - OnlineMeetingRecording.Read.All
-  - Subscription.ReadWrite.All
+  - CallRecords.Read.All
 - [ ] Verify via PowerShell:
   ```powershell
   Connect-MgGraph -Scopes "Application.ReadWrite.All"
@@ -710,15 +864,15 @@ External references:
 
 ## Summary Table
 
-| Layer            | Component                   | Status Check                                         | Time to Setup | Propagation          |
-| ---------------- | --------------------------- | ---------------------------------------------------- | ------------- | -------------------- |
-| **1**            | Entra App Registration      | `az ad app show` succeeds                            | 5 min         | Immediate            |
-| **2**            | Graph API Permissions (7)   | Azure Portal shows all 7                             | 10 min        | 10–15 min            |
-| **3**            | Admin Consent               | Portal shows "✓ Granted"                             | 2 min         | 10–15 min            |
-| **4**            | CsApplicationAccessPolicy   | `Get-CsApplicationAccessPolicy` returns policy       | 5 min         | **30 min**           |
-| **5**            | Teams Meeting Policies      | `Get-CsTeamsMeetingPolicy` shows Allow/Auto settings | 10 min        | Up to 24 hours       |
-| **6**            | Application Configuration   | `.env` file has credentials                          | 5 min         | Immediate            |
-| **Verification** | End-to-end transcript fetch | Transcript stored successfully                       | 5 min         | Depends on recording |
+| Layer            | Component                      | Status Check                                         | Time to Setup | Propagation          |
+| ---------------- | ------------------------------ | ---------------------------------------------------- | ------------- | -------------------- |
+| **1**            | Entra App Registration         | `az ad app show` succeeds                            | 5 min         | Immediate            |
+| **2**            | Graph API Permissions (8)      | Azure Portal shows all 8                             | 10 min        | 10–15 min            |
+| **3**            | Admin Consent                  | Portal shows "✓ Granted"                             | 2 min         | 10–15 min            |
+| **4**            | CsApplicationAccessPolicy      | `Get-CsApplicationAccessPolicy` returns policy       | 5 min         | **30 min**           |
+| **5**            | Teams Meeting Policies         | `Get-CsTeamsMeetingPolicy` shows Allow/Auto settings | 10 min        | Up to 24 hours       |
+| **6**            | Application Configuration      | `.env` file has credentials                          | 5 min         | Immediate            |
+| **Verification** | End-to-end transcript fetch    | Transcript stored successfully                       | 5 min         | Depends on recording |
 
 **Total time: ~75 minutes (mostly waiting for CsApplicationAccessPolicy propagation)**
 
@@ -737,7 +891,7 @@ Does Graph API return 403?
 │
 ├─ "Insufficient privileges" or "Permission denied"
 │  └─ Graph permissions issue
-│     ├─ Missing permissions? → Add all 7 in Azure Portal (Step 2)
+│     ├─ Missing permissions? → Add all 8 in Azure Portal (Step 2)
 │     ├─ Admin consent missing? → Click "Grant admin consent" (Step 3)
 │     └─ < 15 min since consent? → Wait and retry
 │
