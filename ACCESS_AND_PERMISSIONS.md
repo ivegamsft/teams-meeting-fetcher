@@ -61,15 +61,46 @@ The Teams Meeting Fetcher system uses **5 distinct Service Principal Names (SPNs
 
 ### Summary Table
 
-| SPN                               | Purpose                                  | Permission Type | Permission Count | Privilege Level | CsApplicationAccessPolicy Required? |
-| --------------------------------- | ---------------------------------------- | --------------- | ---------------- | --------------- | ----------------------------------- |
-| **TMF App**                       | Main app (polling, enrichment, webhooks) | Application     | 8                | **HIGH**        | ✅ YES                              |
-| **TMF Bot App**                   | Teams meeting bot (join meetings)        | Application     | 5                | Medium          | ❌ NO                               |
-| **TMF Lambda App**                | AWS Lambda EventHub consumer             | None            | 0                | None (EventHub) | ❌ NO                               |
-| **TMF Admin App**                 | Admin UI (user sign-in)                  | Delegated       | 4                | Low (user auth) | ❌ NO                               |
-| **Deploy SPN** (GitHub Actions)   | CI/CD infrastructure deployment          | Application     | 1–2              | High (IaC only) | ❌ NO                               |
+| SPN                               | Purpose                                  | Permission Type | Permission Count | Privilege Level | Provisioned By | CsApplicationAccessPolicy Required? |
+| --------------------------------- | ---------------------------------------- | --------------- | ---------------- | --------------- | -------------- | ----------------------------------- |
+| **TMF App**                       | Main app (polling, enrichment, webhooks) | Application     | 8                | **HIGH**        | IaC + Bootstrap | ✅ YES                              |
+| **TMF Bot App**                   | Teams meeting bot (join meetings)        | Application     | 5                | Medium          | IaC + Bootstrap | ❌ NO                               |
+| **TMF Lambda App**                | AWS Lambda EventHub consumer             | None            | 0                | None (EventHub) | IaC only       | ❌ NO                               |
+| **TMF Admin App**                 | Admin UI (user sign-in)                  | Delegated       | 4                | Low (user auth) | IaC only       | ❌ NO                               |
+| **Deploy SPN** (GitHub Actions)   | CI/CD infrastructure deployment          | Application     | 1–2              | High (IaC only) | Manual (pre-req) | ❌ NO                               |
 
 **Key takeaway:** Only the **TMF App** requires the full set of application permissions and CsApplicationAccessPolicy. All other SPNs have narrower scopes and lower privileges.
+
+---
+
+### How Permissions Get Set
+
+Permissions flow through a **3-step pipeline**. Understanding this prevents the common "but I already added it!" confusion:
+
+| Step | What It Does | Tool | Files/Commands |
+| ---- | ------------ | ---- | -------------- |
+| **1. App Registration** | Declares `requiredResourceAccess` (what the app *wants*) | Terraform | `iac/azure/modules/azure-ad/main.tf` — `azuread_application` resources |
+| **2. Admin Consent** | Grants the declared permissions (what the app *actually gets*) | Bootstrap script | `scripts/grant-graph-permissions.ps1` or `scripts/auto-bootstrap-azure.ps1` |
+| **3. CsApplicationAccessPolicy** | Teams-specific policy allowing app to access OnlineMeetings/Transcripts | Teams PowerShell | `New-CsApplicationAccessPolicy` + `Grant-CsApplicationAccessPolicy` (manual) |
+
+**Step 1 (IaC)** runs on every `terraform apply` via `deploy-unified.yml`. It creates the app registrations and declares which permissions each app needs — but this alone does NOT grant access.
+
+**Step 2 (Bootstrap)** is a one-time step (or after adding new permissions). Two options:
+- `scripts/grant-graph-permissions.ps1` — Manual, runs with `az` CLI credentials
+- `scripts/auto-bootstrap-azure.ps1` — Automated, runs all bootstrap steps including permissions
+- Terraform can also do this if `var.grant_admin_consent = true` (requires `AppRoleAssignment.ReadWrite.All` on the Deploy SPN — currently **OFF**)
+
+**Step 3 (Teams PowerShell)** is manual and only applies to the TMF App. It takes ~30 minutes to propagate.
+
+#### Per-SPN Provisioning Details
+
+| SPN | App Registration (Step 1) | Admin Consent (Step 2) | CsApplicationAccessPolicy (Step 3) |
+| --- | ------------------------- | ---------------------- | ----------------------------------- |
+| **TMF App** | `azuread_application.tmf_app` in Terraform | `grant-graph-permissions.ps1` (8 app role assignments) | Manual via Teams PowerShell |
+| **TMF Bot App** | `azuread_application.tmf_bot_app` in Terraform | `grant-graph-permissions.ps1` (5 app role assignments) | N/A |
+| **TMF Lambda App** | `azuread_application.tmf_lambda_app` in Terraform | N/A (no Graph perms) — EventHub RBAC via Terraform | N/A |
+| **TMF Admin App** | `azuread_application.tmf_admin_app` in Terraform | Delegated perms — user consent at first sign-in | N/A |
+| **Deploy SPN** | Pre-existing (manual Azure Portal setup) | Manual Azure Portal grant | N/A |
 
 ---
 
