@@ -37,17 +37,16 @@
 - Dead webhook subscriptions root cause (2026-02-28): renewal Lambda missing `requests` module — all subscriptions expired, zero webhooks fired, zero new meetings in DynamoDB.
 - EventHub consumer group for Lambda processor is wired from `module.azure.eventhub_lambda_consumer_group` in Terraform outputs.
 
-## Recent Sessions (Feb 27-28)
+## Recent Sessions (Feb 28 – Mar 02)
 
-📌 Team update (20260227T023500Z): Fenster synchronized IaC (Terraform, permissions.json, auto-bootstrap, consent.json) across 7 confirmed Graph permissions, corrected 2 wrong GUIDs, added `azuread_app_role_assignment` resources for admin consent grants. Terraform now canonical source for permissions. — decided by Scribe
+📌 Team update (2026-03-02T02:13:04Z): Subscription Pipeline Expansion Architecture merged. Fenster owns IaC updates for CallRecords.Read.All permission. DynamoDB GSI on onlineMeetingId added for dedup. — decided by Keaton
 
-📌 Team update (2026-02-27T18:28:00Z): Pagination vulnerability fixed — 6 unpaginated Scan operations across meetingStore, transcriptStore, subscriptionStore apply ExclusiveStartKey pagination. Prevents data loss at 1MB limit. — Keaton & McManus
+📌 Team update (2026-03-02T14:12:00Z): Post-deploy validation complete. Fenster committed 34 files (4178788) and pushed to origin/main. Redfoot ran full E2E suite: EventHub pipeline 4/4 pre-flight + 10/10 tests PASSED, 92/92 unit tests PASSED. Minor path bug in run-e2e-tests.ps1 flagged. No critical blockers. — decided by Scribe
 
-📌 Team update (20260228T063050Z): Fenster found 81 meetings with stale Exchange event IDs causing retry storm. McManus added enrichmentStatus/enrichmentError fields and markEnrichmentFailed() method. — McManus
-
-📌 Team update (2026-02-28T06:52:45Z): Deployed admin app revision 55 with retry storm fix. 81 stale events marked permanent_failure, zero wasted Graph API calls. Sales blitz scripts reduced 260→5. IP: 3.88.0.51. — Fenster
-
-- **End-to-End Trace: BlueLynx Meeting (2026-02-28):** Pipeline deep-dive revealed root cause of intake failure: subscription renewal Lambda broken (missing Python `requests` module), all Graph subscriptions expired, zero webhook notifications, zero new meetings in DynamoDB. Poller (rev 55) is healthy but has no new data. Confirmed CsApplicationAccessPolicy IS working for TMF SPN (Phase 3 successfully resolved 20+ onlineMeetingIds with zero errors).
+**Key milestones:**
+- Webhook pipeline fully restored (2026-02-28): Fixed subscription renewal Lambda by bundling Python deps, recreated Graph subscriptions (boldoriole, trustingboar expiring Mar 7), routing to EventHub.
+- E2E validation all steps passed (2026-02-28): Graph → EventHub → Lambda → DynamoDB pipeline confirmed operational end-to-end.
+- Repository cleanup (2026-03-02): Removed legacy speckit artifacts (18 files), unused templates (11 files). Dependabot reported 16 vulnerabilities (2 critical, 5 high, 3 moderate, 6 low).
 
 ## Team Updates
 

@@ -75,3 +75,20 @@
 - **Unit tests: 92/92 passed across 4 suites (1.53s).** No regressions from the deployment.
 - **Key observation:** The deploy-unified pipeline successfully deployed Lambda code (not a placeholder) — the 15.8MB package confirms real code. Previous Terraform-only deploys produced 190-byte placeholders. The unified pipeline solves this.
 - **Interactive tests skipped:** Human-in-the-loop tests (meeting creation, notification delivery, Lambda processing validation) require a human operator. Pre-flight checks confirm all infrastructure is healthy for those tests to succeed when run manually.
+
+### 2026-03-02: Full E2E + Unit Test Verification (Post deploy-unified)
+- **Triggered by:** Isaac requested full test suite run after deploy-unified.yml completion.
+- **EventHub E2E (Scenario 2) Pre-flight: ALL 4 PASSING.**
+  - Lambda `tmf-eventhub-processor-dev`: Active, nodejs20.x, last modified 2026-03-02T04:51:54 UTC.
+  - DynamoDB `eventhub-checkpoints`: found.
+  - S3 `tmf-webhooks-eus-dev`: found.
+  - Graph API token acquisition: succeeded.
+  - EventHub namespace/name confirmed: tmf-ehns-eus-8akfpg / tmf-eh-eus-8akfpg.
+  - Interactive (human-in-the-loop) tests skipped — require manual meeting creation.
+- **Unit tests: 92/92 passed across 4 suites (1.74s).** Zero failures, zero regressions.
+  - test/unit/meeting-bot/index.test.js: PASS
+  - test/unit/meeting-bot/graph-client.test.js: PASS
+  - test/unit/aws-lambda-eventhub/handler.test.js: PASS
+  - test/unit/aws-lambda/handler.test.js: PASS
+- **run-e2e-tests.ps1 bug:** Script line 30 uses `Join-Path $PSScriptRoot "test" "e2e"` but `$PSScriptRoot` is already `test/e2e/`, resulting in a doubled path. Must run tests directly via `npx jest` from `test/e2e/` directory instead.
+- **Infrastructure health:** All deployed resources confirmed healthy. No errors in Lambda logs. Pipeline stable post-deployment.
