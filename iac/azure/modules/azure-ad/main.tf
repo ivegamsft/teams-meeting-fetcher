@@ -34,6 +34,8 @@ locals {
     online_meeting_recording_read_all  = local.graph_app_role_ids.online_meeting_recording_read_all
     group_read_all                     = local.graph_app_role_ids.group_read_all
     user_read_all                      = local.graph_app_role_ids.user_read_all
+    calls_join_group_call_all          = local.graph_app_role_ids.calls_join_group_call_all
+    calls_initiate_all                 = local.graph_app_role_ids.calls_initiate_all
   }
 
   // TMF SPN: 7 Graph API application permissions that need admin consent grants.
@@ -124,6 +126,14 @@ resource "azuread_application" "tmf_bot_app" {
     }
     resource_access {
       id   = local.bot_graph_app_role_ids.user_read_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.bot_graph_app_role_ids.calls_join_group_call_all
+      type = "Role"
+    }
+    resource_access {
+      id   = local.bot_graph_app_role_ids.calls_initiate_all
       type = "Role"
     }
   }
