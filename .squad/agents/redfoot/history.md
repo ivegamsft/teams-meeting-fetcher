@@ -60,3 +60,18 @@
 - **Unit tests: 92/92 passed across 4 test suites (1.97s).**
 - **Key finding:** E2E `.env.test` was loaded from project root (dotenv path in tests goes 3 dirs up from `test/e2e/aws/`), not from `test/e2e/`. Added `.env.test` to `.gitignore` to prevent accidental credential commit.
 - **Infrastructure gaps for full E2E:** Scenarios 1 and 3 need their Lambdas deployed and credentials configured. Only Scenario 2 (EventHub) has complete infrastructure.
+
+### 2026-03-02: Post deploy-unified E2E Validation
+- **Triggered by:** deploy-unified.yml completion (Terraform apply + Lambda code deploy)
+- **Deployment included:** DynamoDB GSI (onlineMeetingId-index), bot app Calls permissions, notification classification routing in Lambda
+- **EventHub Scenario (Scenario 2): 4/4 pre-flight PASSED.**
+  - Lambda `tmf-eventhub-processor-dev`: Active, nodejs20.x, 15.8MB code, last modified 2026-03-02T04:51:54 UTC, LastUpdateStatus=Successful.
+  - DynamoDB `eventhub-checkpoints`: 2 partitions active (partition 0 seq=5465, partition 1 seq=5467).
+  - S3 `tmf-webhooks-eus-dev`: exists.
+  - CloudWatch logs: 0 errors in last 2 hours. Lambda running on ~60-second schedule, "Processing mode: consume" confirmed.
+  - New GSI `onlineMeetingId-index` on `tmf-meetings-8akfpg`: ACTIVE. Second GSI `organizer-status-index` also ACTIVE.
+- **Teams Bot (Scenario 1): 2/4 pre-flight passed, 2 failed.** Same as before — Lambda `meeting-bot-handler-dev` not deployed, BOT_APP_ID not configured. DynamoDB and S3 exist.
+- **Direct Graph (Scenario 3): 1/4 pre-flight passed, 3 failed.** Same as before — Lambda `teams-meeting-webhook-dev` not deployed, WEBHOOK_URL/WATCH_USER_ID not configured. S3 exists.
+- **Unit tests: 92/92 passed across 4 suites (1.53s).** No regressions from the deployment.
+- **Key observation:** The deploy-unified pipeline successfully deployed Lambda code (not a placeholder) — the 15.8MB package confirms real code. Previous Terraform-only deploys produced 190-byte placeholders. The unified pipeline solves this.
+- **Interactive tests skipped:** Human-in-the-loop tests (meeting creation, notification delivery, Lambda processing validation) require a human operator. Pre-flight checks confirm all infrastructure is healthy for those tests to succeed when run manually.

@@ -1,6 +1,6 @@
 # Teams Meeting Fetcher Specifications
 
-This directory contains all technical specifications and documentation for the Teams Meeting Fetcher project, organized for SpecKit compatibility.
+This directory contains all technical specifications and documentation for the Teams Meeting Fetcher project.
 
 ## Specification Structure
 
@@ -143,7 +143,6 @@ These specifications follow:
 - ✅ **Clarity**: Technical but readable
 - ✅ **Actionability**: Includes concrete examples
 - ✅ **Maintainability**: Structured for easy updates
-- ✅ **SpecKit Compatibility**: Organized for SpecKit workflows
 
 ## Contributing to Specs
 

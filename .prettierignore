@@ -39,9 +39,6 @@ Thumbs.db
 # Docker
 .dockerignore
 
-# SpecKit
-.specify/
-
 # Specs (mostly markdown)
 specs/
 
